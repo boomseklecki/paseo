@@ -79,7 +79,12 @@ const MESSAGE_KEY_BY_MEASUREMENT: Record<string, string> = {
   "agent.sessionCostUsd": "composer.preSendChecks.sessionCostUsd",
 };
 
-function formatMeasurementValue(measurement: string, value: number): string {
+/**
+ * Exported so the settings list describes a threshold in the same units the toast
+ * reports the measured value in. Two formatters would drift, and the first anyone
+ * would notice is a rule that reads "3600" in the editor and "1 hour" when it fires.
+ */
+export function formatMeasurementValue(measurement: string, value: number): string {
   switch (measurement) {
     case "agent.idleSeconds":
       return formatDuration(value * 1000);
