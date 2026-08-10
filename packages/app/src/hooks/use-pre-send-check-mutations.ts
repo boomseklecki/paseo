@@ -8,6 +8,7 @@ import { useHostRuntimeClient } from "@/runtime/host-runtime";
 interface UsePreSendCheckMutationsResult {
   upsertCheck: (check: PreSendCheckRule) => Promise<void>;
   deleteCheck: (ruleId: string) => Promise<void>;
+  reorderChecks: (ruleIds: readonly string[]) => Promise<void>;
 }
 
 /**
@@ -64,5 +65,19 @@ export function usePreSendCheckMutations(serverId: string | null): UsePreSendChe
     [applyChecks, client, t],
   );
 
-  return { upsertCheck, deleteCheck };
+  const reorderChecks = useCallback(
+    async (ruleIds: readonly string[]) => {
+      if (!client) {
+        throw new Error(t("common.errors.daemonClientUnavailable"));
+      }
+      const result = await client.preSendChecksReorder(ruleIds);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      applyChecks(result.checks);
+    },
+    [applyChecks, client, t],
+  );
+
+  return { upsertCheck, deleteCheck, reorderChecks };
 }

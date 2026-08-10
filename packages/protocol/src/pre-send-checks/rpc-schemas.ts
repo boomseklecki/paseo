@@ -46,6 +46,29 @@ export const PreSendChecksUpsertResponseSchema = z.object({
   }),
 });
 
+/**
+ * Takes the whole ordered id list rather than a pair to swap.
+ *
+ * Two upserts would be two writes, two broadcasts, and a window between them
+ * where two rules claim the same position. One verb rewrites every order in a
+ * single pass, so the arrangement is never half-applied. Ids the daemon does not
+ * have are ignored, and rules the list omits keep whatever order they had.
+ */
+export const PreSendChecksReorderRequestSchema = z.object({
+  type: z.literal("pre_send_checks/reorder"),
+  requestId: z.string(),
+  ruleIds: z.array(z.string()),
+});
+
+export const PreSendChecksReorderResponseSchema = z.object({
+  type: z.literal("pre_send_checks/reorder/response"),
+  payload: z.object({
+    requestId: z.string(),
+    checks: z.array(PreSendCheckRuleSchema),
+    error: z.string().nullable(),
+  }),
+});
+
 export const PreSendChecksDeleteRequestSchema = z.object({
   type: z.literal("pre_send_checks/delete"),
   requestId: z.string(),

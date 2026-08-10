@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { Plus, Pencil, Trash2 } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Plus, Pencil, Trash2 } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { PreSendCheckEditModal } from "./pre-send-check-edit-modal";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
+  movePreSendCheck,
   toPreSendCheckDraft,
   EMPTY_PRE_SEND_CHECK_DRAFT,
   type PreSendCheckDraft,
@@ -27,10 +28,16 @@ import {
 const AddIcon = withUnistyles(Plus);
 const EditIcon = withUnistyles(Pencil);
 const RemoveIcon = withUnistyles(Trash2);
+const MoveUpIcon = withUnistyles(ArrowUp);
+const MoveDownIcon = withUnistyles(ArrowDown);
 
+// Module-level elements so four buttons per row do not rebuild their icons on
+// every render of the list.
 const addIcon = <AddIcon size={16} />;
 const editIcon = <EditIcon size={16} />;
 const removeIcon = <RemoveIcon size={16} />;
+const moveUpIcon = <MoveUpIcon size={16} />;
+const moveDownIcon = <MoveDownIcon size={16} />;
 
 function generateRuleId(): string {
   return Math.random().toString(16).slice(2, 10);
@@ -81,12 +88,22 @@ function listStateMessageKey(state: PreSendChecksListState): string {
 interface PreSendCheckRowProps {
   rule: PreSendCheckRule;
   isFirst: boolean;
+  isLast: boolean;
   disabled: boolean;
   onEdit: (rule: PreSendCheckRule) => void;
   onRemove: (rule: PreSendCheckRule) => void;
+  onMove: (rule: PreSendCheckRule, direction: "up" | "down") => void;
 }
 
-function PreSendCheckRow({ rule, isFirst, disabled, onEdit, onRemove }: PreSendCheckRowProps) {
+function PreSendCheckRow({
+  rule,
+  isFirst,
+  isLast,
+  disabled,
+  onEdit,
+  onRemove,
+  onMove,
+}: PreSendCheckRowProps) {
   const { t } = useTranslation();
   const handleEdit = useCallback(() => {
     onEdit(rule);
@@ -94,6 +111,12 @@ function PreSendCheckRow({ rule, isFirst, disabled, onEdit, onRemove }: PreSendC
   const handleRemove = useCallback(() => {
     onRemove(rule);
   }, [onRemove, rule]);
+  const handleMoveUp = useCallback(() => {
+    onMove(rule, "up");
+  }, [onMove, rule]);
+  const handleMoveDown = useCallback(() => {
+    onMove(rule, "down");
+  }, [onMove, rule]);
 
   const rowStyle = useMemo(
     () => [settingsStyles.row, !isFirst && settingsStyles.rowBorder, styles.row],
@@ -124,6 +147,24 @@ function PreSendCheckRow({ rule, isFirst, disabled, onEdit, onRemove }: PreSendC
               : t("settings.preSendChecks.dispositions.warn")
           }
           variant={isBlocking ? "error" : "muted"}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={moveUpIcon}
+          onPress={handleMoveUp}
+          disabled={disabled || isFirst}
+          accessibilityLabel={t("settings.preSendChecks.moveUp")}
+          testID={`pre-send-check-move-up-${rule.id}`}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={moveDownIcon}
+          onPress={handleMoveDown}
+          disabled={disabled || isLast}
+          accessibilityLabel={t("settings.preSendChecks.moveDown")}
+          testID={`pre-send-check-move-down-${rule.id}`}
         />
         <Button
           variant="ghost"
@@ -175,7 +216,7 @@ export function PreSendChecksPage() {
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const isSupported = useHostFeature(serverId, "preSendChecks");
   const { rules } = usePreSendChecks(serverId);
-  const { upsertCheck, deleteCheck } = usePreSendCheckMutations(serverId);
+  const { upsertCheck, deleteCheck, reorderChecks } = usePreSendCheckMutations(serverId);
   const [form, setForm] = useState<FormState>({ kind: "closed" });
   const [isBusy, setIsBusy] = useState(false);
 
@@ -241,6 +282,32 @@ export function PreSendChecksPage() {
     [deleteCheck, t],
   );
 
+  const handleMove = useCallback(
+    async (rule: PreSendCheckRule, direction: "up" | "down") => {
+      if (!rules) {
+        return;
+      }
+      const nextOrder = movePreSendCheck(rules, rule.id, direction);
+      // Unchanged when the rule is already at the end it was moved towards, and
+      // sending that would be a write and a broadcast that changed nothing.
+      if (nextOrder.length === rules.length && nextOrder.every((id, i) => id === rules[i]?.id)) {
+        return;
+      }
+      setIsBusy(true);
+      try {
+        await reorderChecks(nextOrder);
+      } catch (error) {
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [reorderChecks, rules, t],
+  );
+
   const initialDraft =
     form.kind === "edit" ? toPreSendCheckDraft(form.rule) : EMPTY_PRE_SEND_CHECK_DRAFT;
 
@@ -292,9 +359,11 @@ export function PreSendChecksPage() {
               key={rule.id}
               rule={rule}
               isFirst={index === 0}
+              isLast={index === (rules?.length ?? 0) - 1}
               disabled={isBusy}
               onEdit={handleOpenEdit}
               onRemove={handleRemove}
+              onMove={handleMove}
             />
           ))
         ) : (

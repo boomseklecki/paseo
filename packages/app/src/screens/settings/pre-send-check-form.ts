@@ -111,6 +111,33 @@ export function isKnownPreSendCheckValue(known: readonly string[], value: string
   return known.includes(value);
 }
 
+/**
+ * The id order after moving one rule a step.
+ *
+ * Returns the ids rather than the rules because that is what the reorder verb
+ * takes, and returns the list unchanged when the move is not possible, so a
+ * caller can compare identity to decide whether to send anything at all.
+ *
+ * Extracted rather than spliced inside the component: terminal profiles keeps
+ * the same logic inline and it is the one part of that screen no test covers.
+ */
+export function movePreSendCheck(
+  rules: readonly PreSendCheckRule[],
+  id: string,
+  direction: "up" | "down",
+): string[] {
+  const ids = rules.map((rule) => rule.id);
+  const index = ids.indexOf(id);
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (index === -1 || target < 0 || target >= ids.length) {
+    return ids;
+  }
+  const next = [...ids];
+  const [moved] = next.splice(index, 1);
+  next.splice(target, 0, moved as string);
+  return next;
+}
+
 export const PRE_SEND_MEASUREMENT_OPTIONS = PRE_SEND_MEASUREMENTS;
 export const PRE_SEND_OPERATOR_OPTIONS = PRE_SEND_OPERATORS;
 export const PRE_SEND_DISPOSITION_OPTIONS = PRE_SEND_RULE_DISPOSITIONS;

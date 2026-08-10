@@ -4604,6 +4604,10 @@ describe("pre-send-check dispatch routing", () => {
       msg: { type: "pre_send_checks/delete", requestId: "rt-psc-delete", ruleId: RULE.id },
       responseType: "pre_send_checks/delete/response",
     },
+    {
+      msg: { type: "pre_send_checks/reorder", requestId: "rt-psc-reorder", ruleIds: [RULE.id] },
+      responseType: "pre_send_checks/reorder/response",
+    },
   ];
 
   test.each(routingCases)("routes $msg.type to its handler", async ({ msg, responseType }) => {
@@ -4614,6 +4618,7 @@ describe("pre-send-check dispatch routing", () => {
         list: async () => [RULE],
         upsert: async () => [RULE],
         delete: async () => [],
+        reorder: async () => [RULE],
       }),
     });
 

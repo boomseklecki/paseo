@@ -97,6 +97,33 @@ export class PreSendChecksService {
     return this.list();
   }
 
+  /**
+   * Rewrites every rule's position in one pass.
+   *
+   * Assigns `order` by index, so the arrangement is explicit on disk rather than
+   * implied by whatever was there before — a list that was partly ordered comes
+   * out wholly ordered. Ids the store does not have are skipped; rules the caller
+   * omitted keep the order they had, which puts them after the arranged ones
+   * because unordered sorts last.
+   *
+   * Writes happen before the single refresh, so one reorder is one broadcast
+   * however many files it touched.
+   */
+  async reorder(ruleIds: readonly string[]): Promise<PreSendCheckRule[]> {
+    const byId = new Map((await this.list()).map((rule) => [rule.id, rule]));
+    let position = 0;
+    for (const id of ruleIds) {
+      const rule = byId.get(id);
+      if (!rule) {
+        continue;
+      }
+      await this.store.write({ ...rule, order: position });
+      position += 1;
+    }
+    await this.refresh();
+    return this.list();
+  }
+
   onChange(listener: PreSendChecksListener): () => void {
     this.listeners.add(listener);
     return () => {

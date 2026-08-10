@@ -2051,6 +2051,10 @@ export class Session {
         return this.handlePreSendChecksWriteRequest(msg, () =>
           this.preSendChecksService.delete(msg.ruleId),
         );
+      case "pre_send_checks/reorder":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.reorder(msg.ruleIds),
+        );
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
       case "daemon.get_pairing_offer.request":
@@ -2124,14 +2128,16 @@ export class Session {
   private async handlePreSendChecksWriteRequest(
     msg: Extract<
       SessionInboundMessage,
-      { type: "pre_send_checks/upsert" } | { type: "pre_send_checks/delete" }
+      | { type: "pre_send_checks/upsert" }
+      | { type: "pre_send_checks/delete" }
+      | { type: "pre_send_checks/reorder" }
     >,
     write: () => Promise<PreSendCheckRule[]>,
   ): Promise<void> {
-    const responseType =
-      msg.type === "pre_send_checks/upsert"
-        ? ("pre_send_checks/upsert/response" as const)
-        : ("pre_send_checks/delete/response" as const);
+    const responseType = `${msg.type}/response` as
+      | "pre_send_checks/upsert/response"
+      | "pre_send_checks/delete/response"
+      | "pre_send_checks/reorder/response";
     try {
       this.emit({
         type: responseType,

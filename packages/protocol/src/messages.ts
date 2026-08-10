@@ -48,6 +48,8 @@ import {
   PreSendChecksUpsertResponseSchema,
   PreSendChecksDeleteRequestSchema,
   PreSendChecksDeleteResponseSchema,
+  PreSendChecksReorderRequestSchema,
+  PreSendChecksReorderResponseSchema,
 } from "./pre-send-checks/rpc-schemas.js";
 import {
   LoopRunRequestSchema,
@@ -2725,6 +2727,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PreSendChecksListRequestSchema,
   PreSendChecksUpsertRequestSchema,
   PreSendChecksDeleteRequestSchema,
+  PreSendChecksReorderRequestSchema,
   ScheduleCreateRequestSchema,
   ScheduleListRequestSchema,
   ScheduleInspectRequestSchema,
@@ -5581,6 +5584,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PreSendChecksListResponseSchema,
   PreSendChecksUpsertResponseSchema,
   PreSendChecksDeleteResponseSchema,
+  PreSendChecksReorderResponseSchema,
   ScheduleCreateResponseSchema,
   ScheduleListResponseSchema,
   ScheduleInspectResponseSchema,
@@ -5756,6 +5760,7 @@ export type ScheduleCreateResponse = z.infer<typeof ScheduleCreateResponseSchema
 export type PreSendChecksListResponse = z.infer<typeof PreSendChecksListResponseSchema>;
 export type PreSendChecksUpsertResponse = z.infer<typeof PreSendChecksUpsertResponseSchema>;
 export type PreSendChecksDeleteResponse = z.infer<typeof PreSendChecksDeleteResponseSchema>;
+export type PreSendChecksReorderResponse = z.infer<typeof PreSendChecksReorderResponseSchema>;
 export type ScheduleListResponse = z.infer<typeof ScheduleListResponseSchema>;
 export type ScheduleInspectResponse = z.infer<typeof ScheduleInspectResponseSchema>;
 export type ScheduleLogsResponse = z.infer<typeof ScheduleLogsResponseSchema>;
@@ -5827,6 +5832,7 @@ export type ScheduleCreateRequest = z.infer<typeof ScheduleCreateRequestSchema>;
 export type PreSendChecksListRequest = z.infer<typeof PreSendChecksListRequestSchema>;
 export type PreSendChecksUpsertRequest = z.infer<typeof PreSendChecksUpsertRequestSchema>;
 export type PreSendChecksDeleteRequest = z.infer<typeof PreSendChecksDeleteRequestSchema>;
+export type PreSendChecksReorderRequest = z.infer<typeof PreSendChecksReorderRequestSchema>;
 export type ScheduleListRequest = z.infer<typeof ScheduleListRequestSchema>;
 export type ScheduleInspectRequest = z.infer<typeof ScheduleInspectRequestSchema>;
 export type ScheduleLogsRequest = z.infer<typeof ScheduleLogsRequestSchema>;

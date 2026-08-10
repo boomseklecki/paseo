@@ -24,6 +24,18 @@ export const PreSendCheckRuleSchema = z
     threshold: z.number(),
     disposition: z.string(),
     message: z.string().optional(),
+    /**
+     * Where the rule sits in a list, and nothing more.
+     *
+     * Evaluation is unaffected: every rule is evaluated and the most severe
+     * outcome wins, so this is not precedence and a rule cannot be shadowed by
+     * one above it. It exists because a list you cannot arrange is a list you
+     * stop reading, and the rest of Paseo lets you arrange things.
+     *
+     * Optional, so a rule written before this existed still loads; those sort
+     * after everything ordered, by id, which is stable rather than arbitrary.
+     */
+    order: z.number().optional(),
   })
   .passthrough();
 

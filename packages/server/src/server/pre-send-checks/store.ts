@@ -41,8 +41,13 @@ export class PreSendCheckStore {
   }
 
   /**
-   * Every readable rule, id-sorted so callers can compare two lists for equality
-   * without worrying about directory order.
+   * Every readable rule, in the order they should be shown.
+   *
+   * Sorted by `order` and then by id, so the result is stable however `readdir`
+   * happened to enumerate the directory — which is what lets the service compare
+   * two lists for equality to decide whether anything changed. A rule with no
+   * `order` sorts after every ordered one rather than at an arbitrary point, so
+   * adding the field to some rules and not others has a predictable result.
    *
    * Only `*.json` is considered, which is what lets the seeded `README.md` sit
    * beside the rules and be ignored by construction rather than by convention.
@@ -62,7 +67,7 @@ export class PreSendCheckStore {
       }
     }
 
-    return rules.sort((left, right) => left.id.localeCompare(right.id));
+    return rules.sort(comparePreSendCheckRules);
   }
 
   async get(id: string): Promise<PreSendCheckRule | null> {
@@ -102,4 +107,15 @@ export class PreSendCheckStore {
 
 function generateRuleId(): string {
   return randomBytes(4).toString("hex");
+}
+
+// Unordered rules go last rather than first, so a rule saved by a client that
+// does not know about ordering never displaces the arrangement someone chose.
+function comparePreSendCheckRules(left: PreSendCheckRule, right: PreSendCheckRule): number {
+  const leftOrder = typeof left.order === "number" ? left.order : Number.POSITIVE_INFINITY;
+  const rightOrder = typeof right.order === "number" ? right.order : Number.POSITIVE_INFINITY;
+  if (leftOrder !== rightOrder) {
+    return leftOrder - rightOrder;
+  }
+  return left.id.localeCompare(right.id);
 }

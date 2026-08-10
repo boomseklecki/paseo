@@ -3,6 +3,7 @@ import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types"
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
+  movePreSendCheck,
   preSendCheckOptions,
   PRE_SEND_OPERATOR_OPTIONS,
   toPreSendCheckDraft,
@@ -123,6 +124,46 @@ describe("preSendCheckOptions", () => {
     expect(preSendCheckOptions(PRE_SEND_OPERATOR_OPTIONS, "")).toEqual([
       ...PRE_SEND_OPERATOR_OPTIONS,
     ]);
+  });
+});
+
+describe("movePreSendCheck", () => {
+  const rules = [
+    { ...RULE, id: "a" },
+    { ...RULE, id: "b" },
+    { ...RULE, id: "c" },
+  ];
+
+  it("moves a rule up one place", () => {
+    expect(movePreSendCheck(rules, "c", "up")).toEqual(["a", "c", "b"]);
+  });
+
+  it("moves a rule down one place", () => {
+    expect(movePreSendCheck(rules, "a", "down")).toEqual(["b", "a", "c"]);
+  });
+
+  // Returned unchanged rather than throwing, so the caller can compare and skip
+  // a write that would broadcast a reorder nobody asked for.
+  it("leaves the order alone at either end", () => {
+    expect(movePreSendCheck(rules, "a", "up")).toEqual(["a", "b", "c"]);
+    expect(movePreSendCheck(rules, "c", "down")).toEqual(["a", "b", "c"]);
+  });
+
+  it("leaves the order alone for a rule that is not there", () => {
+    expect(movePreSendCheck(rules, "missing", "up")).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("applyPreSendCheckDraft ordering", () => {
+  // The form has no ordering control, so an edit must not quietly send the rule
+  // back to the bottom of the list.
+  it("keeps the rule's position through an edit", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: { ...RULE, order: 2 },
+      draft: draft({ threshold: "60" }),
+      id: RULE.id,
+    });
+    expect(saved.order).toBe(2);
   });
 });
 

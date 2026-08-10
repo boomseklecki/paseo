@@ -157,6 +157,49 @@ describe("PreSendChecksService", () => {
     expect(after.find((rule) => rule.id === "odd-one")?.operator).toBe("approaches");
   });
 
+  test("reorder assigns positions in the order given and broadcasts once", async () => {
+    await service.start();
+    await writeRule("b");
+    await writeRule("a");
+    await service.refresh();
+    const listener = vi.fn();
+    service.onChange(listener);
+
+    const after = await service.reorder(["b", "a", "cold-prompt-cache"]);
+
+    expect(after.map((rule) => rule.id)).toEqual(["b", "a", "cold-prompt-cache"]);
+    expect(after.map((rule) => rule.order)).toEqual([0, 1, 2]);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  // Whatever readdir yields, two reads of an unchanged directory must be equal or
+  // the service would broadcast on every tick.
+  test("the order survives a re-read", async () => {
+    await service.start();
+    await writeRule("b");
+    await service.reorder(["b", "cold-prompt-cache"]);
+
+    expect((await service.list()).map((rule) => rule.id)).toEqual(["b", "cold-prompt-cache"]);
+  });
+
+  test("a rule left out of the reorder sorts after the arranged ones", async () => {
+    await service.start();
+    await writeRule("zzz-unordered");
+
+    const after = await service.reorder(["cold-prompt-cache"]);
+
+    expect(after.map((rule) => rule.id)).toEqual(["cold-prompt-cache", "zzz-unordered"]);
+  });
+
+  test("reorder ignores an id the store does not have", async () => {
+    await service.start();
+
+    const after = await service.reorder(["nope", "cold-prompt-cache"]);
+
+    expect(after.map((rule) => rule.id)).toEqual(["cold-prompt-cache"]);
+    expect(after[0]?.order).toBe(0);
+  });
+
   test("deleting a rule that is not there still reports the current list", async () => {
     await service.start();
 

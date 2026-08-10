@@ -19,6 +19,9 @@
     },
     "message": {
       "type": "string"
+    },
+    "order": {
+      "type": "number"
     }
   },
   "required": ["id", "measurement", "operator", "threshold", "disposition"],

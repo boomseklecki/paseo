@@ -537,6 +537,10 @@ type PreSendChecksDeletePayload = Extract<
   SessionOutboundMessage,
   { type: "pre_send_checks/delete/response" }
 >["payload"];
+type PreSendChecksReorderPayload = Extract<
+  SessionOutboundMessage,
+  { type: "pre_send_checks/reorder/response" }
+>["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/inspect/response" }
@@ -5212,6 +5216,21 @@ export class DaemonClient {
         check,
       },
       responseType: "pre_send_checks/upsert/response",
+    });
+  }
+
+  /** Rewrites every rule's position in one call. Ids the daemon lacks are ignored. */
+  async preSendChecksReorder(
+    ruleIds: readonly string[],
+    requestId?: string,
+  ): Promise<PreSendChecksReorderPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "pre_send_checks/reorder",
+        ruleIds: [...ruleIds],
+      },
+      responseType: "pre_send_checks/reorder/response",
     });
   }
 
