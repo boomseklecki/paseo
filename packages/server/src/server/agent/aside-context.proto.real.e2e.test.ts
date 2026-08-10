@@ -29,7 +29,13 @@ import { isCommandAvailable } from "../../executable-resolution/executable-resol
 import { getRealProviderConfig } from "../daemon-e2e/real-provider-test-config.js";
 
 const logger = pino({ level: "silent" });
-const claudeAvailable = await isCommandAvailable("claude");
+// Opt-in rather than availability-gated. These spend real provider tokens every
+// run, and the claude binary is present on any machine that develops this, so
+// gating on the binary alone means a plain `vitest run` quietly bills you. The
+// repo's other real-provider tests are effectively gated by needing an
+// OpenRouter key; these need an explicit PASEO_ASIDE_PROBES=1.
+const probesEnabled = process.env["PASEO_ASIDE_PROBES"] === "1";
+const claudeAvailable = probesEnabled && (await isCommandAvailable("claude"));
 
 const ASIDE = "In one sentence: what is the id field on a pre-send check rule for?";
 

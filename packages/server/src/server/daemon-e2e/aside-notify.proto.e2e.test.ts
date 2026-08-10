@@ -26,7 +26,13 @@ import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
 import { isCommandAvailable } from "../../executable-resolution/executable-resolution.js";
 import { getRealProviderConfig } from "./real-provider-test-config.js";
 
-const claudeAvailable = await isCommandAvailable("claude");
+// Opt-in rather than availability-gated. These spend real provider tokens every
+// run, and the claude binary is present on any machine that develops this, so
+// gating on the binary alone means a plain `vitest run` quietly bills you. The
+// repo's other real-provider tests are effectively gated by needing an
+// OpenRouter key; these need an explicit PASEO_ASIDE_PROBES=1.
+const probesEnabled = process.env["PASEO_ASIDE_PROBES"] === "1";
+const claudeAvailable = probesEnabled && (await isCommandAvailable("claude"));
 
 describe.runIf(claudeAvailable)("aside notification probe", () => {
   test("reports what an attention notification carries", async () => {

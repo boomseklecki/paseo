@@ -24,10 +24,13 @@ import { ClaudeAgentClient } from "./providers/claude/agent.js";
 import { isCommandAvailable } from "../../executable-resolution/executable-resolution.js";
 import { getRealProviderConfig } from "../daemon-e2e/real-provider-test-config.js";
 
-// The shared harness gate also demands an OpenRouter key, because other
-// providers in it route through OpenRouter. Claude does not, so this asks the
-// only question that matters here.
-const claudeAvailable = await isCommandAvailable("claude");
+// Opt-in rather than availability-gated. These spend real provider tokens every
+// run, and the claude binary is present on any machine that develops this, so
+// gating on the binary alone means a plain `vitest run` quietly bills you. The
+// repo's other real-provider tests are effectively gated by needing an
+// OpenRouter key; these need an explicit PASEO_ASIDE_PROBES=1.
+const probesEnabled = process.env["PASEO_ASIDE_PROBES"] === "1";
+const claudeAvailable = probesEnabled && (await isCommandAvailable("claude"));
 
 const logger = pino({ level: "silent" });
 
