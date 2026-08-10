@@ -71,6 +71,7 @@ import type { PaseoToolCatalogFactory } from "./tools/types.js";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
+  type ProviderSubagentInputEvent,
   type ProviderSubagentStoreEvent,
 } from "./provider-subagents/store.js";
 
@@ -1068,6 +1069,28 @@ export class AgentManager {
   ): AgentTimelineFetchResult {
     this.requirePublicAgent(parentAgentId);
     return this.providerSubagents.fetchTimeline(parentAgentId, subagentId, options);
+  }
+
+  /**
+   * Records a subagent that no provider reported.
+   *
+   * The store is otherwise written from the provider event loop, but that is a
+   * fact about who has needed it rather than a constraint — session import
+   * already replays these events from outside that loop. Work attached to a
+   * conversation that the conversation did not itself ask for is the same
+   * shape, and a pre-send action answering an aside is exactly that.
+   *
+   * Applying and dispatching stay together because doing either alone is a bug:
+   * a store the app never hears about, or a broadcast describing a record that
+   * does not exist.
+   */
+  applyProviderSubagentEvent(
+    parentAgentId: string,
+    provider: AgentProvider,
+    event: ProviderSubagentInputEvent,
+  ): void {
+    const update = this.providerSubagents.apply(parentAgentId, provider, event);
+    this.dispatch({ type: "provider_subagent", event: update });
   }
 
   createAgent(
