@@ -693,4 +693,57 @@ describe("DaemonConfigStore", () => {
       env: {},
     });
   });
+
+  // mergeMutableConfigIntoPersistedConfig is an explicit allowlist, so a field
+  // missing from it round-trips in memory and is dropped on the next write. That
+  // failure is invisible until a restart, which is why it is pinned here.
+  test("patch persists pre-send checks to disk", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+    });
+
+    const rules = [
+      {
+        id: "cold-prompt-cache",
+        measurement: "agent.idleSeconds",
+        operator: "gte",
+        threshold: 3600,
+        disposition: "block",
+      },
+    ];
+    store.patch({ preSendChecks: rules });
+
+    expect(store.get().preSendChecks).toEqual(rules);
+    expect(loadPersistedConfig(paseoHome).daemon?.preSendChecks).toEqual(rules);
+  });
+
+  test("patch persists an empty pre-send check list rather than dropping it", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+    const store = new DaemonConfigStore(paseoHome, {
+      relay: { enabled: false },
+      mcp: { injectIntoAgents: false },
+      browserTools: { enabled: false },
+      providers: {},
+      metadataGeneration: { providers: [] },
+      autoArchiveAfterMerge: false,
+      enableTerminalAgentHooks: false,
+      appendSystemPrompt: "",
+    });
+
+    store.patch({ preSendChecks: [] });
+
+    // An empty array is how a user turns every rule off. Persisting it as absent
+    // would hand them the defaults back on the next daemon start.
+    expect(loadPersistedConfig(paseoHome).daemon?.preSendChecks).toEqual([]);
+  });
 });
