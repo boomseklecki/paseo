@@ -1763,6 +1763,28 @@ export const ar: TranslationResources = {
       addRule: "إضافة قاعدة",
       editRule: "تعديل القاعدة",
       toggleRule: "تفعيل هذه القاعدة أو تعطيلها",
+      examplesTitle: "أمثلة",
+      examplesHint: "قواعد قد ترغب بها. لا يُضاف شيء حتى تحفظ واحدة.",
+      useExample: "استخدام المثال {{name}}",
+      examples: {
+        "aside-on-btw": {
+          label: "الإجابة على /btw جانبًا",
+          description:
+            "الرسالة التي تبدأ بـ /btw يجيب عنها وكيل مخفي بدل إرسالها، ويظهر الرد ضمن الوكلاء الفرعيين.",
+        },
+        "warn-context-nearly-full": {
+          label: "التحذير عندما يوشك السياق على الامتلاء",
+          description: "عند 80٪، بينما إكمال الفكرة ما زال أرخص من البدء من جديد.",
+        },
+        "warn-session-cost": {
+          label: "التحذير عند تجاوز كلفة الجلسة",
+          description: "تحذير لا حظر، لأن الرقم المهم يتغير كل يوم.",
+        },
+        "block-cold-prompt-cache": {
+          label: "الحظر عندما يبرد تخزين المطالبة",
+          description: "بعد ساعة تعيد الجولة التالية معالجة المحادثة كاملة.",
+        },
+      },
       addTitle: "قاعدة جديدة",
       editTitle: "تعديل القاعدة",
       moveUp: "نقل لأعلى",

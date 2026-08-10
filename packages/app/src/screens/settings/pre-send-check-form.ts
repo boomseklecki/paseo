@@ -5,6 +5,7 @@ import {
   isTextMeasurement,
   type PreSendActionDescriptor,
   type PreSendCheckRule,
+  type PreSendCheckExample,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { formatMeasurementValue, type PreSendTranslate } from "@/composer/pre-send-checks";
 import { formatDuration } from "@/utils/time";
@@ -165,6 +166,22 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
     errors.action = "settings.preSendChecks.actionRequired";
   }
   return errors;
+}
+
+/**
+ * An example, opened as a new rule rather than installed as one.
+ *
+ * It goes through the ordinary create flow — the modal, the host switches, the
+ * save — so what lands on disk is a rule the person saw and agreed to, and one
+ * they can change before it exists. An example that installed itself would put
+ * a rule that intercepts what you type on a host without you reading it.
+ *
+ * The id is supplied here only because `toPreSendCheckDraft` takes a whole rule,
+ * and is thrown away: a template has no id, and the one the rule gets is minted
+ * at save.
+ */
+export function preSendCheckExampleToDraft(example: PreSendCheckExample): PreSendCheckDraft {
+  return toPreSendCheckDraft({ ...example.rule, id: example.id });
 }
 
 /**

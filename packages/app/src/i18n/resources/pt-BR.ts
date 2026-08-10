@@ -1796,6 +1796,28 @@ export const ptBR: TranslationResources = {
       addRule: "Adicionar regra",
       editRule: "Editar regra",
       toggleRule: "Ativar ou desativar esta regra",
+      examplesTitle: "Exemplos",
+      examplesHint: "Regras que você talvez queira. Nada é adicionado até você salvar.",
+      useExample: "Usar o exemplo {{name}}",
+      examples: {
+        "aside-on-btw": {
+          label: "Responder /btw à parte",
+          description:
+            "Uma mensagem que começa com /btw é respondida por um agente oculto em vez de enviada, e a resposta aparece em subagentes.",
+        },
+        "warn-context-nearly-full": {
+          label: "Avisar quando o contexto estiver quase cheio",
+          description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",
+        },
+        "warn-session-cost": {
+          label: "Avisar ao passar de um custo de sessão",
+          description: "Um aviso e não um bloqueio, porque o número que importa muda a cada dia.",
+        },
+        "block-cold-prompt-cache": {
+          label: "Bloquear quando o cache de prompt esfriar",
+          description: "Depois de uma hora, o próximo turno reprocessa a conversa inteira.",
+        },
+      },
       addTitle: "Nova regra",
       editTitle: "Editar regra",
       moveUp: "Mover para cima",

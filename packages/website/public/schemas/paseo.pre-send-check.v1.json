@@ -14,11 +14,30 @@
     "threshold": {
       "type": "number"
     },
+    "text": {
+      "type": "string"
+    },
     "disposition": {
       "type": "string"
     },
     "message": {
       "type": "string"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": {}
     },
     "order": {
       "type": "number"
@@ -27,7 +46,7 @@
       "type": "boolean"
     }
   },
-  "required": ["id", "measurement", "operator", "threshold", "disposition"],
+  "required": ["id", "measurement", "operator", "disposition"],
   "additionalProperties": {},
   "title": "PaseoPreSendCheckV1"
 }

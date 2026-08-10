@@ -5,6 +5,7 @@ import {
   describePreSendCheck,
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
+  preSendCheckExampleToDraft,
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckOptions,
@@ -330,5 +331,68 @@ describe("gatePreSendCheckSave", () => {
     expect(gatePreSendCheckSave({ draft: draft(), hostCount: 1, serverIds: [] })).toEqual({
       kind: "save",
     });
+  });
+});
+
+describe("preSendCheckExampleToDraft", () => {
+  it("opens a redirect example with its action and parameters filled in", () => {
+    const built = preSendCheckExampleToDraft({
+      id: "aside-on-btw",
+      label: "Answer /btw on the side",
+      rule: {
+        measurement: "message",
+        operator: "startsWith",
+        text: "/btw",
+        disposition: "redirect",
+        action: { kind: "aside", title: "Aside", prompt: "Answer this.\n\n{{message}}" },
+      },
+    });
+
+    expect(built).toEqual({
+      measurement: "message",
+      operator: "startsWith",
+      // The one input holds whichever operand applies, and a text trigger's is
+      // `text` rather than `threshold`.
+      threshold: "/btw",
+      disposition: "redirect",
+      message: "",
+      actionKind: "aside",
+      actionParams: { title: "Aside", prompt: "Answer this.\n\n{{message}}" },
+    });
+  });
+
+  it("opens a numeric example with the threshold as text", () => {
+    const built = preSendCheckExampleToDraft({
+      id: "warn-context-nearly-full",
+      label: "Warn when the context is nearly full",
+      rule: {
+        measurement: "agent.contextUsedPercent",
+        operator: "gte",
+        threshold: 80,
+        disposition: "warn",
+        message: "Nearly full.",
+      },
+    });
+
+    expect(built.threshold).toBe("80");
+    expect(built.message).toBe("Nearly full.");
+    expect(built.actionKind).toBe("");
+  });
+
+  // The template's id names the example, not the rule: a rule gets its own at
+  // save, which is what lets the same example be added twice.
+  it("carries no id into the draft", () => {
+    const built = preSendCheckExampleToDraft({
+      id: "block-cold-prompt-cache",
+      label: "Block when the prompt cache has gone cold",
+      rule: {
+        measurement: "agent.idleSeconds",
+        operator: "gte",
+        threshold: 3600,
+        disposition: "block",
+      },
+    });
+
+    expect(built).not.toHaveProperty("id");
   });
 });

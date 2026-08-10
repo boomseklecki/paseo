@@ -54,6 +54,27 @@ describe("PreSendChecksSession", () => {
     expect(response?.payload.checks).toEqual([RULE]);
     expect(response?.payload.error).toBeNull();
     expect(response?.payload.actions?.map((action) => action.kind)).toContain("aside");
+    // Examples ride the same response as the actions, so one screen is one round
+    // trip rather than two.
+    expect(response?.payload.examples?.length).toBeGreaterThan(0);
+  });
+
+  // A failure has to lose the suggestions along with the rules: offering an
+  // example while claiming the rules are unreadable invites a save into a
+  // daemon that just said it could not read its own directory.
+  it("offers no examples when the rules could not be read", async () => {
+    const { session, emitted } = makeSession({
+      list: async () => {
+        throw new Error("disk gone");
+      },
+    });
+
+    await session.handlePreSendChecksListRequest({
+      type: "pre_send_checks/list",
+      requestId: "r1",
+    });
+
+    expect(findByType(emitted, "pre_send_checks/list/response")?.payload.examples).toBeUndefined();
   });
 
   // The distinction the whole subsystem is arranged around: an empty list means

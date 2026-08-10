@@ -1773,6 +1773,28 @@ export const ko: TranslationResources = {
       addRule: "규칙 추가",
       editRule: "규칙 편집",
       toggleRule: "이 규칙을 켜거나 끕니다",
+      examplesTitle: "예시",
+      examplesHint: "원할 만한 규칙입니다. 저장하기 전에는 아무것도 추가되지 않습니다.",
+      useExample: "예시 {{name}} 사용",
+      examples: {
+        "aside-on-btw": {
+          label: "/btw를 곁에서 답하기",
+          description:
+            "/btw로 시작하는 메시지는 전송되지 않고 숨은 에이전트가 답하며, 답변은 서브에이전트 아래에 표시됩니다.",
+        },
+        "warn-context-nearly-full": {
+          label: "컨텍스트가 거의 찼을 때 경고",
+          description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",
+        },
+        "warn-session-cost": {
+          label: "세션 비용이 기준을 넘으면 경고",
+          description: "차단이 아니라 경고입니다. 의미 있는 금액은 날마다 다릅니다.",
+        },
+        "block-cold-prompt-cache": {
+          label: "프롬프트 캐시가 식으면 차단",
+          description: "한 시간이 지나면 다음 턴이 대화 전체를 다시 처리합니다.",
+        },
+      },
       addTitle: "새 규칙",
       editTitle: "규칙 편집",
       moveUp: "위로 이동",

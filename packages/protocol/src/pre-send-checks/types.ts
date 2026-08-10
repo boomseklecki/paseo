@@ -235,3 +235,45 @@ export const PreSendActionDescriptorSchema = z.object({
 });
 
 export type PreSendActionDescriptor = z.infer<typeof PreSendActionDescriptorSchema>;
+
+/**
+ * A rule someone might want, offered rather than installed.
+ *
+ * Nothing evaluates these. They exist because the interesting rules are the ones
+ * nobody would think to write — `/btw` in particular, which is a redirect to an
+ * action, and which was very nearly shipped as a default before it became clear
+ * that a rule silently intercepting what you type is not something to switch on
+ * for people who did not ask.
+ *
+ * `rule` carries no `id` because an example is a template: the app mints one on
+ * install, which is what lets the same example be added twice, and what keeps
+ * one id per rule across the hosts it is assigned to.
+ *
+ * Standalone rather than hanging off an action descriptor, because most of what
+ * is worth showing has no action at all — a warning at 80% context is a rule with
+ * nothing to redirect to. The daemon drops any example naming an action it cannot
+ * perform, so being standalone costs nothing in capability terms.
+ */
+export const PreSendCheckExampleSchema = z.object({
+  /**
+   * Stable, and the app's i18n key. An example the app has no translation for
+   * falls back to `label`, so a newer daemon's example still appears rather than
+   * being hidden by the older app that could not name it.
+   */
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  rule: z
+    .object({
+      measurement: z.string(),
+      operator: z.string(),
+      threshold: z.number().optional(),
+      text: z.string().optional(),
+      disposition: z.string(),
+      message: z.string().optional(),
+      action: z.object({ kind: z.string() }).passthrough().optional(),
+    })
+    .passthrough(),
+});
+
+export type PreSendCheckExample = z.infer<typeof PreSendCheckExampleSchema>;

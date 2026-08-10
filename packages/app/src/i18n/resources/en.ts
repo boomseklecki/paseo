@@ -1775,6 +1775,30 @@ export const en = {
       addRule: "Add rule",
       editRule: "Edit rule",
       toggleRule: "Turn this rule on or off",
+      examplesTitle: "Examples",
+      examplesHint: "Rules you might want. Nothing is added until you save one.",
+      useExample: "Use the example {{name}}",
+      examples: {
+        "aside-on-btw": {
+          label: "Answer /btw on the side",
+          description:
+            "A message starting with /btw is answered by a hidden agent instead of being sent, and the reply appears under subagents.",
+        },
+        "warn-context-nearly-full": {
+          label: "Warn when the context is nearly full",
+          description:
+            "Says so at 80%, while finishing the thought is still cheaper than restarting it.",
+        },
+        "warn-session-cost": {
+          label: "Warn once a session passes a cost",
+          description:
+            "A warning rather than a block, because the number that matters changes by the day.",
+        },
+        "block-cold-prompt-cache": {
+          label: "Block when the prompt cache has gone cold",
+          description: "Past an hour the next turn reprocesses the whole conversation.",
+        },
+      },
       addTitle: "New rule",
       editTitle: "Edit rule",
       moveUp: "Move up",

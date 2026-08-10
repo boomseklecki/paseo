@@ -1742,6 +1742,27 @@ export const zhCN: TranslationResources = {
       addRule: "添加规则",
       editRule: "编辑规则",
       toggleRule: "打开或关闭这条规则",
+      examplesTitle: "示例",
+      examplesHint: "你可能想要的规则。保存之前不会添加任何内容。",
+      useExample: "使用示例 {{name}}",
+      examples: {
+        "aside-on-btw": {
+          label: "在一旁回答 /btw",
+          description: "以 /btw 开头的消息不会发送，而由隐藏代理回答，回复显示在子代理下方。",
+        },
+        "warn-context-nearly-full": {
+          label: "上下文快满时发出警告",
+          description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",
+        },
+        "warn-session-cost": {
+          label: "会话费用超过阈值时警告",
+          description: "是警告而非阻止，因为合适的数字每天都不一样。",
+        },
+        "block-cold-prompt-cache": {
+          label: "提示缓存变冷时阻止",
+          description: "超过一小时后，下一轮会重新处理整段对话。",
+        },
+      },
       addTitle: "新建规则",
       editTitle: "编辑规则",
       moveUp: "上移",

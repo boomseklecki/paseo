@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { PreSendActionDescriptorSchema, PreSendCheckRuleSchema } from "./types.js";
+import {
+  PreSendActionDescriptorSchema,
+  PreSendCheckExampleSchema,
+  PreSendCheckRuleSchema,
+} from "./types.js";
 
 /**
  * Upsert rather than create-plus-update, for three reasons. The store's `write`
@@ -38,6 +42,16 @@ export const PreSendChecksListResponseSchema = z.object({
      * picker.
      */
     actions: z.array(PreSendActionDescriptorSchema).optional(),
+    /**
+     * Rules this daemon suggests, none of them installed.
+     *
+     * Optional for the same reason `actions` is: a daemon that predates them
+     * sends none, and an editor seeing none offers no examples rather than
+     * inventing any. Filtered daemon-side to what this daemon can actually
+     * perform, so an example is never offered by a machine that would decline
+     * the action it depends on.
+     */
+    examples: z.array(PreSendCheckExampleSchema).optional(),
     error: z.string().nullable(),
   }),
 });

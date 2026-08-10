@@ -2,6 +2,7 @@ import type pino from "pino";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
 import { PRE_SEND_ACTION_DESCRIPTORS } from "../../pre-send-checks/actions/descriptors.js";
+import { listPreSendCheckExamples } from "../../pre-send-checks/examples.js";
 import type {
   PreSendActionOutcome,
   PreSendActionRequest,
@@ -79,6 +80,7 @@ export class PreSendChecksSession {
           requestId: msg.requestId,
           checks: await this.preSendChecksService.list(),
           actions: [...PRE_SEND_ACTION_DESCRIPTORS],
+          examples: listPreSendCheckExamples(),
           error: null,
         },
       });

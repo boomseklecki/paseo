@@ -1781,6 +1781,28 @@ export const ja: TranslationResources = {
       addRule: "ルールを追加",
       editRule: "ルールを編集",
       toggleRule: "このルールのオン・オフを切り替える",
+      examplesTitle: "例",
+      examplesHint: "使いたくなるかもしれないルールです。保存するまで何も追加されません。",
+      useExample: "例「{{name}}」を使う",
+      examples: {
+        "aside-on-btw": {
+          label: "/btw を脇で答える",
+          description:
+            "/btw で始まるメッセージは送信されず、隠しエージェントが答え、返答はサブエージェントの下に表示されます。",
+        },
+        "warn-context-nearly-full": {
+          label: "コンテキストが埋まりかけたら警告",
+          description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",
+        },
+        "warn-session-cost": {
+          label: "セッション費用が一定を超えたら警告",
+          description: "ブロックではなく警告です。妥当な金額はその日ごとに変わります。",
+        },
+        "block-cold-prompt-cache": {
+          label: "プロンプトキャッシュが冷えたらブロック",
+          description: "1 時間を過ぎると、次のターンで会話全体を処理し直します。",
+        },
+      },
       addTitle: "新しいルール",
       editTitle: "ルールを編集",
       moveUp: "上へ移動",

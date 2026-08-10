@@ -16,16 +16,18 @@ import {
   type PreSendCheckHostState,
 } from "@/hooks/use-aggregated-pre-send-checks";
 import { usePreSendCheckHostMutations } from "@/hooks/use-pre-send-check-host-mutations";
-import { usePreSendCheckActions } from "@/hooks/use-pre-send-check-actions";
+import { usePreSendCheckCatalog } from "@/hooks/use-pre-send-check-catalog";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckGroup } from "./pre-send-check-groups";
+import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
   movePreSendCheck,
   previewPreSendCheckMessage,
+  preSendCheckExampleToDraft,
   toPreSendCheckDraft,
   EMPTY_PRE_SEND_CHECK_DRAFT,
   type PreSendCheckDraft,
@@ -312,7 +314,81 @@ function PreSendChecksFeatureRow({ host, isOnlyHost, withBorder }: PreSendChecks
 type FormState =
   | { kind: "closed" }
   | { kind: "create" }
+  // An example opens the create form pre-filled rather than installing itself,
+  // so what reaches disk is a rule someone read first.
+  | { kind: "example"; example: PreSendCheckExample }
   | { kind: "edit"; group: PreSendCheckGroup };
+
+/**
+ * What the modal opens with.
+ *
+ * Three sources and one shape: an existing rule, an example, or nothing. Out
+ * here as a function rather than a chain of ternaries inline, because the
+ * example case is the one a reader will not expect.
+ */
+function resolveInitialDraft(form: FormState): PreSendCheckDraft {
+  if (form.kind === "edit") {
+    return toPreSendCheckDraft(form.group.rule);
+  }
+  if (form.kind === "example") {
+    return preSendCheckExampleToDraft(form.example);
+  }
+  return EMPTY_PRE_SEND_CHECK_DRAFT;
+}
+
+interface PreSendCheckExampleRowProps {
+  example: PreSendCheckExample;
+  withBorder: boolean;
+  disabled: boolean;
+  onAdd: (example: PreSendCheckExample) => void;
+}
+
+/**
+ * One suggestion, and the button that opens it as a new rule.
+ *
+ * The label and description are translated when the app recognises the id and
+ * fall back to the daemon's English when it does not, so a newer daemon's
+ * example shows up unnamed rather than not at all.
+ */
+function PreSendCheckExampleRow({
+  example,
+  withBorder,
+  disabled,
+  onAdd,
+}: PreSendCheckExampleRowProps) {
+  const { t } = useTranslation();
+  const handleAdd = useCallback(() => {
+    onAdd(example);
+  }, [example, onAdd]);
+
+  const label = t(`settings.preSendChecks.examples.${example.id}.label`, {
+    defaultValue: example.label,
+  });
+  const description = t(`settings.preSendChecks.examples.${example.id}.description`, {
+    defaultValue: example.description ?? "",
+  });
+
+  return (
+    <View
+      style={[settingsStyles.row, withBorder ? settingsStyles.rowBorder : null]}
+      testID={`pre-send-check-example-${example.id}`}
+    >
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>{label}</Text>
+        {description ? <Text style={settingsStyles.rowHint}>{description}</Text> : null}
+      </View>
+      <Button
+        variant="ghost"
+        size="sm"
+        leftIcon={addIcon}
+        onPress={handleAdd}
+        disabled={disabled}
+        accessibilityLabel={t("settings.preSendChecks.useExample", { name: label })}
+        testID={`pre-send-check-example-add-${example.id}`}
+      />
+    </View>
+  );
+}
 
 /**
  * Rules across every connected host.
@@ -345,15 +421,18 @@ export function PreSendChecksPage() {
     [hosts],
   );
   const showHosts = hosts.length > 1;
-  // Descriptors come from one host: they describe the daemon build rather than
-  // the machine, and a rule assigned to several is written identically to each.
-  const actions = usePreSendCheckActions(usableServerIds[0] ?? null);
+  // Both come from one host: they describe the daemon build rather than the
+  // machine, and a rule assigned to several is written identically to each.
+  const { actions, examples } = usePreSendCheckCatalog(usableServerIds[0] ?? null);
 
   const handleOpenCreate = useCallback(() => {
     setForm({ kind: "create" });
   }, []);
   const handleOpenEdit = useCallback((group: PreSendCheckGroup) => {
     setForm({ kind: "edit", group });
+  }, []);
+  const handleOpenExample = useCallback((example: PreSendCheckExample) => {
+    setForm({ kind: "example", example });
   }, []);
   const handleCloseForm = useCallback(() => {
     setForm({ kind: "closed" });
@@ -452,8 +531,7 @@ export function PreSendChecksPage() {
     [saveRule, t],
   );
 
-  const initialDraft =
-    form.kind === "edit" ? toPreSendCheckDraft(form.group.rule) : EMPTY_PRE_SEND_CHECK_DRAFT;
+  const initialDraft = resolveInitialDraft(form);
   // A new rule starts on every host that can hold one, which is what someone with
   // three machines almost always means; unticking is one tap and re-ticking three.
   const initialServerIds = form.kind === "edit" ? form.group.serverIds : usableServerIds;
@@ -534,6 +612,28 @@ export function PreSendChecksPage() {
         )}
       </View>
 
+      {examples.length > 0 ? (
+        <View style={settingsStyles.card} testID="pre-send-checks-examples-card">
+          <View style={settingsStyles.row}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>
+                {t("settings.preSendChecks.examplesTitle")}
+              </Text>
+              <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.examplesHint")}</Text>
+            </View>
+          </View>
+          {examples.map((example) => (
+            <PreSendCheckExampleRow
+              key={example.id}
+              example={example}
+              withBorder
+              disabled={!hasUsableHost || isBusy}
+              onAdd={handleOpenExample}
+            />
+          ))}
+        </View>
+      ) : null}
+
       <PreSendCheckEditModal
         visible={form.kind !== "closed"}
         title={
@@ -541,6 +641,10 @@ export function PreSendChecksPage() {
             ? t("settings.preSendChecks.editTitle")
             : t("settings.preSendChecks.addTitle")
         }
+        // Keyed so the modal rebuilds its state when a different example is
+        // picked: it reads initialDraft on open, and two examples in a row
+        // would otherwise show the first one's fields.
+        key={form.kind === "example" ? form.example.id : form.kind}
         initialDraft={initialDraft}
         hosts={modalHosts}
         initialServerIds={initialServerIds}
