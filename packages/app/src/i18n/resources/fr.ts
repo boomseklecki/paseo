@@ -88,6 +88,10 @@ export const fr: TranslationResources = {
       generic:
         "Une vérification avant envoi correspond : {{value}} pour une limite de {{threshold}}.",
       overrideHint: "Envoyez à nouveau pour continuer malgré tout.",
+      asideStarted: "Question posée à côté. La réponse apparaîtra dans les sous-agents.",
+      asideExpensive:
+        "Cela relirait environ {{tokens}} jetons de conversation. Envoyez à nouveau pour continuer.",
+      asideUnavailable: "Impossible de poser la question à côté : {{reason}}",
     },
     placeholders: {
       desktop: "Envoyez un message à l'agent, marquez@filesou utilisez/commandset/skills",

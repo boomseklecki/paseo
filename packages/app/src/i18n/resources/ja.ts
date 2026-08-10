@@ -85,6 +85,10 @@ export const ja: TranslationResources = {
       sessionCostUsd: "このセッションの費用は{{value}}で、上限の{{threshold}}を超えています。",
       generic: "送信前チェックに一致しました: {{value}}（上限{{threshold}}）。",
       overrideHint: "もう一度送信すると、そのまま続行します。",
+      asideStarted: "別途たずねています。回答はサブエージェントに表示されます。",
+      asideExpensive:
+        "会話の約 {{tokens}} トークンを読み直します。続けるにはもう一度送信してください。",
+      asideUnavailable: "別途たずねられませんでした: {{reason}}",
     },
     placeholders: {
       desktop: "エージェントにメッセージ、@ファイル、/コマンドや/スキルを入力",

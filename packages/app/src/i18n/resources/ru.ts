@@ -85,6 +85,10 @@ export const ru: TranslationResources = {
       sessionCostUsd: "Эта сессия обошлась в {{value}}, что выше предела в {{threshold}}.",
       generic: "Сработала проверка перед отправкой: {{value}} при пределе {{threshold}}.",
       overrideHint: "Отправьте ещё раз, чтобы всё равно продолжить.",
+      asideStarted: "Спрашиваем отдельно. Ответ появится в подагентах.",
+      asideExpensive:
+        "Это перечитает около {{tokens}} токенов беседы. Отправьте ещё раз, чтобы продолжить.",
+      asideUnavailable: "Не удалось спросить отдельно: {{reason}}",
     },
     placeholders: {
       desktop: "Напишите агенту сообщение, отметьте @files или используйте /commands и /skills.",

@@ -83,6 +83,9 @@ export const zhCN: TranslationResources = {
       sessionCostUsd: "本次会话已花费 {{value}}，超过 {{threshold}} 的上限。",
       generic: "命中了一条发送前检查：{{value}}，上限为 {{threshold}}。",
       overrideHint: "再次发送即可继续。",
+      asideStarted: "正在旁路提问，答案会出现在子代理中。",
+      asideExpensive: "这会重新读取约 {{tokens}} 个对话 token。再次发送即可继续。",
+      asideUnavailable: "无法旁路提问：{{reason}}",
     },
     placeholders: {
       desktop: "给 Agent 发消息，标记 @files，或使用 /commands 和 /skills",

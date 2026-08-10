@@ -86,6 +86,10 @@ export const ptBR: TranslationResources = {
       generic:
         "Uma verificação de pré-envio foi acionada: {{value}} contra um limite de {{threshold}}.",
       overrideHint: "Envie novamente para prosseguir mesmo assim.",
+      asideStarted: "Perguntando à parte. A resposta aparecerá nos subagentes.",
+      asideExpensive:
+        "Isso releria cerca de {{tokens}} tokens da conversa. Envie novamente para prosseguir.",
+      asideUnavailable: "Não foi possível perguntar à parte: {{reason}}",
     },
     placeholders: {
       desktop: "Envie uma mensagem ao agente, marque @files ou use /commands e /skills",

@@ -84,6 +84,9 @@ export const ar: TranslationResources = {
       sessionCostUsd: "كلفت هذه الجلسة {{value}}، وهو ما يتجاوز الحد {{threshold}}.",
       generic: "تطابق فحص ما قبل الإرسال: {{value}} مقابل حد {{threshold}}.",
       overrideHint: "أرسل مرة أخرى للمتابعة على أي حال.",
+      asideStarted: "يُطرح السؤال جانبًا. ستظهر الإجابة في الوكلاء الفرعيين.",
+      asideExpensive: "سيعيد هذا قراءة نحو {{tokens}} رمزًا من المحادثة. أرسل مرة أخرى للمتابعة.",
+      asideUnavailable: "تعذّر طرح السؤال جانبًا: {{reason}}",
     },
     placeholders: {
       desktop: "أرسل رسالة إلى الوكيل أو ضع علامة على @files أو استخدم /commands و /skills",

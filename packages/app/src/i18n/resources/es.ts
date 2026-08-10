@@ -86,6 +86,10 @@ export const es: TranslationResources = {
       generic:
         "Una comprobación previa al envío coincidió: {{value}} frente a un límite de {{threshold}}.",
       overrideHint: "Vuelva a enviar para continuar de todos modos.",
+      asideStarted: "Preguntando aparte. La respuesta aparecerá en los subagentes.",
+      asideExpensive:
+        "Esto releería unos {{tokens}} tokens de conversación. Vuelva a enviar para continuar.",
+      asideUnavailable: "No se pudo preguntar aparte: {{reason}}",
     },
     placeholders: {
       desktop: "Envíe un mensaje al agente, etiquete@fileso use/commandsy/skills",

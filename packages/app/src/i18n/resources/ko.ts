@@ -84,6 +84,9 @@ export const ko: TranslationResources = {
       sessionCostUsd: "이 세션의 비용이 {{value}}로 {{threshold}} 한도를 넘었습니다.",
       generic: "전송 전 검사에 걸렸습니다: {{value}}, 한도 {{threshold}}.",
       overrideHint: "그래도 보내려면 다시 전송하세요.",
+      asideStarted: "따로 물어보는 중입니다. 답변은 서브에이전트에 표시됩니다.",
+      asideExpensive: "대화 약 {{tokens}} 토큰을 다시 읽게 됩니다. 계속하려면 다시 보내세요.",
+      asideUnavailable: "따로 물어볼 수 없습니다: {{reason}}",
     },
     placeholders: {
       desktop: "에이전트에게 메시지를 보내거나 @files 태그, /commands, /skills를 사용하세요",

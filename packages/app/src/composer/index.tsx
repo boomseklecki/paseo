@@ -96,6 +96,8 @@ import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispat
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
 import { evaluatePreSendChecks } from "@getpaseo/protocol/pre-send-checks/evaluate";
+import type { PreSendFinding } from "@getpaseo/protocol/pre-send-checks/types";
+import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import type { PreSendMeasurementContext } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   buildPreSendMeasurementContext,
@@ -261,6 +263,7 @@ function readPreSendMeasurements(
   serverId: string,
   agentId: string,
   nowMs: number,
+  message: string,
 ): PreSendMeasurementContext | null {
   const session = useSessionStore.getState().sessions[serverId];
   const agent = session?.agents?.get(agentId);
@@ -275,7 +278,73 @@ function readPreSendMeasurements(
     contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens ?? null,
     totalCostUsd: agent.lastUsage?.totalCostUsd ?? null,
     nowMs,
+    message,
   });
+}
+
+/**
+ * Hands a message to the daemon to act on instead of sending it.
+ *
+ * Returns `block` so the send does not happen and the typed text survives in
+ * the box. That is the same mechanism a blocking rule uses, and it is what makes
+ * every failure here safe: if the daemon declines, or the request never lands,
+ * the words are still there to send by hand.
+ *
+ * The request is deliberately not awaited — the gate is synchronous, and an
+ * aside that made the composer wait for a round trip would be a slow send rather
+ * than a side question.
+ */
+function runPreSendRedirect(input: {
+  finding: PreSendFinding | undefined;
+  serverId: string;
+  agentId: string;
+  message: string;
+  t: TFunction;
+  toast: ReturnType<typeof useToast>;
+  toastError: (message: string) => void;
+}): "allow" | "block" {
+  const action = input.finding?.action;
+  const client = getHostRuntimeStore().getSnapshot(input.serverId)?.client;
+  // Nothing to route with, or nowhere to route it: send normally rather than
+  // swallowing the message.
+  if (!action || !client) {
+    return "allow";
+  }
+
+  void client
+    .preSendChecksRunAction({
+      agentId: input.agentId,
+      message: input.message,
+      action: action as { kind: string } & Record<string, unknown>,
+    })
+    .then((result) => {
+      if (result.status === "started") {
+        input.toast.show(input.t("composer.preSendChecks.asideStarted"), {
+          variant: "success",
+          durationMs: 4000,
+        });
+        return undefined;
+      }
+      if (result.status === "needs_confirmation") {
+        input.toast.show(
+          input.t("composer.preSendChecks.asideExpensive", {
+            tokens: result.estimatedTokens ?? 0,
+          }),
+          { variant: "warning", durationMs: 8000 },
+        );
+        return undefined;
+      }
+      return input.toastError(
+        input.t("composer.preSendChecks.asideUnavailable", {
+          reason: result.reason ?? "",
+        }),
+      );
+    })
+    .catch((error: unknown) => {
+      input.toastError(error instanceof Error ? error.message : String(error));
+    });
+
+  return "block";
 }
 
 function buildAgentStateSelector(serverId: string, agentId: string) {
@@ -1469,7 +1538,7 @@ export function Composer({
       }
 
       const nowMs = Date.now();
-      const measurements = readPreSendMeasurements(serverId, targetAgentId, nowMs);
+      const measurements = readPreSendMeasurements(serverId, targetAgentId, nowMs, message);
       if (!measurements) {
         return "allow";
       }
@@ -1478,6 +1547,21 @@ export function Composer({
 
       if (evaluation.disposition === "allow") {
         return "allow";
+      }
+
+      // A redirect takes the message somewhere else instead of sending it. It
+      // outranks the others, so it is answered before them: the reasons to hold
+      // a send back have nothing to act on once the send is not happening.
+      if (evaluation.disposition === "redirect") {
+        return runPreSendRedirect({
+          finding: evaluation.findings.find((candidate) => candidate.disposition === "redirect"),
+          serverId,
+          agentId: targetAgentId,
+          message,
+          t,
+          toast,
+          toastError: toastErrorRef.current,
+        });
       }
 
       if (evaluation.disposition === "warn") {

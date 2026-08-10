@@ -82,6 +82,10 @@ export const en = {
       sessionCostUsd: "This session has cost {{value}}, past the {{threshold}} limit.",
       generic: "A pre-send check matched: {{value}} against a limit of {{threshold}}.",
       overrideHint: "Send again to go ahead anyway.",
+      asideStarted: "Asking on the side. The answer will appear in subagents.",
+      asideExpensive:
+        "This would re-read about {{tokens}} tokens of conversation. Send again to go ahead.",
+      asideUnavailable: "Could not ask on the side: {{reason}}",
     },
     placeholders: {
       desktop: "Message the agent, tag @files, or use /commands and /skills",
