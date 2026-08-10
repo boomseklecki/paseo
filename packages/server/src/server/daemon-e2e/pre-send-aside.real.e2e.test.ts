@@ -7,7 +7,6 @@ import { describe, expect, test } from "vitest";
 import { ClaudeAgentClient } from "../agent/providers/claude/agent.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
 import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
-import { isCommandAvailable } from "../../executable-resolution/executable-resolution.js";
 import { getRealProviderConfig } from "./real-provider-test-config.js";
 
 /**
@@ -19,9 +18,7 @@ import { getRealProviderConfig } from "./real-provider-test-config.js";
  * run can show is that the verb reaches the action, the action reaches a
  * provider, and the result reaches the conversation.
  */
-const claudeAvailable = await isCommandAvailable("claude");
-
-describe.runIf(claudeAvailable)("daemon E2E (pre-send aside)", () => {
+describe("daemon E2E (pre-send aside)", () => {
   test("answers an aside as a subagent without the conversation taking a turn", async () => {
     const logger = pino({ level: "silent" });
     const cwd = mkdtempSync(path.join(tmpdir(), "paseo-aside-e2e-"));
