@@ -54,6 +54,12 @@ interface PreSendCheckEditModalProps {
 
 type PickerKind = "measurement" | "operator" | "disposition";
 
+// Separates server ids inside the memo key below, chosen because it cannot
+// occur in one. Written as an escape and not as the character itself: a raw
+// NUL in the source makes the whole file binary to grep, to git diff and to
+// anyone reviewing it, which is how this one went unnoticed.
+const SERVER_ID_KEY_SEPARATOR = "\u0000";
+
 const OPTION_LABEL_PREFIX: Record<PickerKind, string> = {
   measurement: "settings.preSendChecks.measurements.",
   operator: "settings.preSendChecks.operators.",
@@ -304,7 +310,7 @@ export function PreSendCheckEditModal({
   // Joined rather than used as an array, for the same reason the draft is
   // destructured below: a caller rebuilding an equal list each render must not
   // reset the form under the person filling it in.
-  const initialServerIdKey = initialServerIds.join(" ");
+  const initialServerIdKey = initialServerIds.join(SERVER_ID_KEY_SEPARATOR);
 
   // Destructured deps rather than the object, so a caller rebuilding an equal
   // draft each render does not reset the form under the person typing in it.
@@ -314,7 +320,7 @@ export function PreSendCheckEditModal({
       return;
     }
     setDraft(initialDraftRef.current);
-    setServerIds(initialServerIdKey ? initialServerIdKey.split(" ") : []);
+    setServerIds(initialServerIdKey ? initialServerIdKey.split(SERVER_ID_KEY_SEPARATOR) : []);
     setFieldErrors({});
     setSubmitError(null);
   }, [
