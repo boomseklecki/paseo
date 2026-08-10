@@ -4,9 +4,11 @@ import { PreSendActionDescriptorSchema, PreSendCheckRuleSchema } from "./types.j
 /**
  * Upsert rather than create-plus-update, for three reasons. The store's `write`
  * already is an upsert. It is one verb instead of two. And the id comes from the
- * caller, which is what will let the same rule exist on several daemons under one
- * id once rules become assignable to more than one host — a create verb that
- * minted its own id would have to be replaced then.
+ * caller, which is what lets one rule exist on several daemons under a single id
+ * — the app assigns a rule to a set of hosts and groups the copies back together
+ * by id, so a daemon minting its own would give the same rule a different id per
+ * machine. The cost is that colliding an id overwrites a rule, which puts the
+ * burden on whatever mints them.
  *
  * Both writes echo the whole resulting list rather than the one rule, so a client
  * replaces its cache from the response instead of merging into it.

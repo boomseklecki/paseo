@@ -50,8 +50,20 @@ const removeIcon = <RemoveIcon size={ICON_SIZE.sm} uniProps={destructiveColorMap
 const moveUpIcon = <MoveUpIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
 const moveDownIcon = <MoveDownIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
 
+/**
+ * Rule ids are minted here rather than by the daemon, and that is the design
+ * rather than an oversight: one rule can live on several hosts, and grouping
+ * those copies back together is done by id, so every daemon has to be handed the
+ * same one. A daemon minting its own would give the same rule a different id per
+ * host and the list would show it once per machine.
+ *
+ * Which puts the whole weight of not colliding on this function, because an
+ * upsert carrying an id that already exists overwrites whatever is there. Hence
+ * crypto rather than `Math.random`, whose hex expansion also silently comes out
+ * shorter than the slice asks for whenever the low bits land on zero.
+ */
 function generateRuleId(): string {
-  return Math.random().toString(16).slice(2, 10);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 }
 
 export type PreSendChecksListState =

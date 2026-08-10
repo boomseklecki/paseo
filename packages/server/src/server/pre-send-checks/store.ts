@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
@@ -26,6 +25,12 @@ export type PreSendCheckRuleUpdater = (
  * the gate off, and a rejected list parks the app's query in an error state it
  * never retries out of. A bad file costs that rule and nothing else. And its
  * mutation queue is per id, where this one is store-wide — see `mutate`.
+ *
+ * There is no `create`, and its absence is deliberate. Ids arrive from the
+ * client, because one rule can live on several hosts and the app groups those
+ * copies by id — a store minting its own would give the same rule a different id
+ * on every daemon. So `write` is the creation path as well as the update one,
+ * which is what `pre_send_checks/upsert` is named after.
  */
 export class PreSendCheckStore {
   private readonly logger: Logger;
@@ -79,12 +84,6 @@ export class PreSendCheckStore {
   async get(id: string): Promise<PreSendCheckRule | null> {
     await this.ensureDir();
     return this.readRuleFile(this.filePath(id));
-  }
-
-  async create(rule: Omit<PreSendCheckRule, "id">): Promise<PreSendCheckRule> {
-    const created = PreSendCheckRuleSchema.parse({ ...rule, id: generateRuleId() });
-    await this.write(created);
-    return created;
   }
 
   async delete(id: string): Promise<void> {
@@ -226,10 +225,6 @@ export class PreSendCheckStore {
       return null;
     }
   }
-}
-
-function generateRuleId(): string {
-  return randomBytes(4).toString("hex");
 }
 
 // Unordered rules go last rather than first, so a rule saved by a client that
