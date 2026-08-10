@@ -18,6 +18,12 @@ interface UsePreSendChecksResult {
    * reason this is a function and not a value.
    */
   readRules: () => readonly PreSendCheckRule[] | null;
+  /**
+   * The same rules as a rendered value, for a screen that lists them. `null`
+   * means what it means in `readRules`: not loaded, or a host that does not serve
+   * them — never "there are none", which is `[]`.
+   */
+  rules: readonly PreSendCheckRule[] | null;
   isLoading: boolean;
 }
 
@@ -65,5 +71,9 @@ export function usePreSendChecks(serverId: string | null): UsePreSendChecksResul
     return queryClient.getQueryData<readonly PreSendCheckRule[]>(queryKey) ?? null;
   }, [queryKey, supported]);
 
-  return { readRules, isLoading: checksQuery.isLoading };
+  return {
+    readRules,
+    rules: supported ? (checksQuery.data ?? null) : null,
+    isLoading: checksQuery.isLoading,
+  };
 }
