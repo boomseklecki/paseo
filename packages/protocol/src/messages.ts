@@ -134,6 +134,26 @@ export const TerminalProfileSchema = z
 
 export type TerminalProfile = z.infer<typeof TerminalProfileSchema>;
 
+// `measurement`, `operator` and `disposition` are plain strings rather than enums on
+// purpose. Narrowing them here would make an older client drop a whole rule it merely
+// failed to recognise, and once a settings UI round-trips the array that drop becomes
+// permanent. The evaluator in ./pre-send-checks.ts narrows instead, skipping rules it
+// cannot read. It also means a hand-typed operator costs one rule rather than making the
+// whole daemon config invalid, which matters while hand-editing is the only way to author
+// these.
+export const PreSendCheckRuleSchema = z
+  .object({
+    id: z.string(),
+    measurement: z.string(),
+    operator: z.string(),
+    threshold: z.number(),
+    disposition: z.string(),
+    message: z.string().optional(),
+  })
+  .passthrough();
+
+export type PreSendCheckRule = z.infer<typeof PreSendCheckRuleSchema>;
+
 const MutableBrowserToolsConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -160,6 +180,7 @@ export const MutableDaemonConfigSchema = z
     enableTerminalAgentHooks: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    preSendChecks: z.array(PreSendCheckRuleSchema).optional(),
   })
   .passthrough();
 
@@ -177,6 +198,7 @@ export const MutableDaemonConfigPatchSchema = z
     enableTerminalAgentHooks: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    preSendChecks: z.array(PreSendCheckRuleSchema).optional(),
   })
   .partial()
   .passthrough();
@@ -2909,6 +2931,8 @@ export const ServerInfoStatusPayloadSchema = z
         daemonStatusRpc: z.boolean().optional(),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         relayConfig: z.boolean().optional(),
+        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2028-02-09.
+        preSendChecks: z.boolean().optional(),
         // COMPAT(terminalRestoreModes): added in v0.1.81, remove gate after 2026-11-23.
         "terminal-restore-modes": z.boolean().optional(),
         // COMPAT(terminalInputModeReplay): added in v0.2.6, remove gate after 2027-02-02.
