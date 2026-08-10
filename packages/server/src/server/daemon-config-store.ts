@@ -359,6 +359,9 @@ function mergeMutableConfigIntoPersistedConfig(params: {
       ...(mutable.terminalProfiles !== undefined
         ? { terminalProfiles: mutable.terminalProfiles }
         : {}),
+      ...(mutable.preSendChecksEnabled !== undefined
+        ? { preSendChecksEnabled: mutable.preSendChecksEnabled }
+        : {}),
     },
     agents: nextAgents,
   } as PersistedConfig;

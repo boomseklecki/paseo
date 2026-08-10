@@ -400,6 +400,7 @@ export interface PaseoDaemonConfig {
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
+  preSendChecksEnabled?: boolean;
   staticDir: string;
   mcpDebug: boolean;
   isDev?: boolean;
@@ -535,6 +536,9 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
     appendSystemPrompt: config.appendSystemPrompt ?? "",
   };
 
+  if (config.preSendChecksEnabled !== undefined) {
+    initialConfig.preSendChecksEnabled = config.preSendChecksEnabled;
+  }
   if (config.terminalProfiles !== undefined) {
     initialConfig.terminalProfiles = config.terminalProfiles;
   }

@@ -36,6 +36,15 @@ export const PreSendCheckRuleSchema = z
      * after everything ordered, by id, which is stable rather than arbitrary.
      */
     order: z.number().optional(),
+    /**
+     * Off without being gone.
+     *
+     * Absent means on, so every rule written before this existed keeps working
+     * and a hand-written rule needs no boilerplate to be live. Only an explicit
+     * `false` silences one — which is why the evaluator tests for that rather
+     * than for falsiness.
+     */
+    enabled: z.boolean().optional(),
   })
   .passthrough();
 

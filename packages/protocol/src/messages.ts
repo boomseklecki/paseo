@@ -170,6 +170,11 @@ export const MutableDaemonConfigSchema = z
     enableTerminalAgentHooks: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    // Silences every pre-send check on this host without deleting any of them.
+    // A single boolean nobody hand-edits, which is what daemon config is for -
+    // unlike the rules themselves, which live one per file precisely because
+    // this store cannot be edited while the daemon runs.
+    preSendChecksEnabled: z.boolean().optional(),
   })
   .passthrough();
 
@@ -187,6 +192,7 @@ export const MutableDaemonConfigPatchSchema = z
     enableTerminalAgentHooks: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    preSendChecksEnabled: z.boolean().optional(),
   })
   .partial()
   .passthrough();

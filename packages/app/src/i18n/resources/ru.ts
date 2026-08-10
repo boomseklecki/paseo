@@ -1750,8 +1750,10 @@ export const ru: TranslationResources = {
       unavailableDisconnected: "Нет подключения к этому хосту.",
       unavailableUnsupported:
         "На этом хосте установлена версия Paseo, которая не умеет хранить правила.",
+      featureToggleTitle: "Проверять сообщения перед отправкой",
       addRule: "Добавить правило",
       editRule: "Изменить правило",
+      toggleRule: "Включить или выключить это правило",
       addTitle: "Новое правило",
       editTitle: "Изменить правило",
       moveUp: "Переместить вверх",

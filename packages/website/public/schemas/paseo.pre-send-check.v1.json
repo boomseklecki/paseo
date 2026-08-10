@@ -22,6 +22,9 @@
     },
     "order": {
       "type": "number"
+    },
+    "enabled": {
+      "type": "boolean"
     }
   },
   "required": ["id", "measurement", "operator", "threshold", "disposition"],

@@ -104,6 +104,7 @@ import {
   type PreSendOverride,
 } from "@/composer/pre-send-checks";
 import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider } from "@/composer/keyboard-scope";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -1145,6 +1146,13 @@ export function Composer({
   // callback's deps.
   const { readRules } = usePreSendChecks(serverId);
 
+  // Held in a ref rather than read in the send callback's deps: the daemon config
+  // revalidates for reasons unrelated to this flag, and rebuilding the send
+  // callback each time would churn every consumer downstream of it.
+  const { config: daemonConfig } = useDaemonConfig(serverId);
+  const preSendChecksEnabledRef = useRef(daemonConfig?.preSendChecksEnabled);
+  preSendChecksEnabledRef.current = daemonConfig?.preSendChecksEnabled;
+
   const preSendOverrideRef = useRef<PreSendOverride | null>(null);
 
   const queuedMessagesRaw = useSessionStore((state) =>
@@ -1447,6 +1455,14 @@ export function Composer({
       // seeds its rules to disk and always serves a concrete list, so there is no
       // default on this side to fall back to and no way for an unloaded gate to
       // block a send.
+      // Explicitly `false`, so an unloaded config leaves the gate on rather than
+      // off. The rules already fail open when they cannot be read; a switch that
+      // also defaulted to off would make two ways to lose the gate silently
+      // instead of one.
+      if (preSendChecksEnabledRef.current === false) {
+        return "allow";
+      }
+
       const rules = readRules();
       if (!rules || rules.length === 0) {
         return "allow";

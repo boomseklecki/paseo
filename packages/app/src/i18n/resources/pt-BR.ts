@@ -1746,8 +1746,10 @@ export const ptBR: TranslationResources = {
       unavailableDisconnected: "Sem conexão com este host.",
       unavailableUnsupported:
         "Este host executa uma versão do Paseo que não consegue armazenar regras.",
+      featureToggleTitle: "Verificar as mensagens antes de enviar",
       addRule: "Adicionar regra",
       editRule: "Editar regra",
+      toggleRule: "Ativar ou desativar esta regra",
       addTitle: "Nova regra",
       editTitle: "Editar regra",
       moveUp: "Mover para cima",

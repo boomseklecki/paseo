@@ -8,10 +8,12 @@ import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types"
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
 import { usePreSendCheckMutations } from "@/hooks/use-pre-send-check-mutations";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostFeature } from "@/runtime/host-features";
 import { useHosts, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { confirmDialog } from "@/utils/confirm-dialog";
@@ -93,6 +95,7 @@ interface PreSendCheckRowProps {
   onEdit: (rule: PreSendCheckRule) => void;
   onRemove: (rule: PreSendCheckRule) => void;
   onMove: (rule: PreSendCheckRule, direction: "up" | "down") => void;
+  onToggle: (rule: PreSendCheckRule, enabled: boolean) => void;
 }
 
 function PreSendCheckRow({
@@ -103,6 +106,7 @@ function PreSendCheckRow({
   onEdit,
   onRemove,
   onMove,
+  onToggle,
 }: PreSendCheckRowProps) {
   const { t } = useTranslation();
   const handleEdit = useCallback(() => {
@@ -117,6 +121,16 @@ function PreSendCheckRow({
   const handleMoveDown = useCallback(() => {
     onMove(rule, "down");
   }, [onMove, rule]);
+  const handleToggle = useCallback(
+    (next: boolean) => {
+      onToggle(rule, next);
+    },
+    [onToggle, rule],
+  );
+
+  // Absent means on, matching the evaluator, so a hand-written rule needs no
+  // boilerplate to be live.
+  const isEnabled = rule.enabled !== false;
 
   const rowStyle = useMemo(
     () => [settingsStyles.row, !isFirst && settingsStyles.rowBorder, styles.row],
@@ -131,23 +145,39 @@ function PreSendCheckRow({
 
   return (
     <View style={rowStyle} testID={`pre-send-check-row-${rule.id}`}>
-      <View style={settingsStyles.rowContent}>
-        <Text style={settingsStyles.rowTitle} numberOfLines={1}>
+      <View style={styles.rowLeading}>
+        <Switch
+          value={isEnabled}
+          onValueChange={handleToggle}
+          disabled={disabled}
+          accessibilityLabel={t("settings.preSendChecks.toggleRule")}
+          testID={`pre-send-check-toggle-${rule.id}`}
+        />
+      </View>
+      <View style={[styles.rowContent, !isEnabled && styles.rowContentOff]}>
+        {/*
+          Two lines on a phone rather than one truncated to nothing. The sentence
+          is the whole point of the row, and a badge plus four buttons beside it
+          left it about a third of the width.
+        */}
+        <Text style={settingsStyles.rowTitle} numberOfLines={2}>
           {describePreSendCheck(rule, t)}
         </Text>
-        <Text style={settingsStyles.rowHint} numberOfLines={1}>
+        <Text style={settingsStyles.rowHint} numberOfLines={2}>
           {rule.message ?? t("settings.preSendChecks.defaultMessageHint")}
         </Text>
       </View>
       <View style={styles.rowActions}>
-        <StatusBadge
-          label={
-            isBlocking
-              ? t("settings.preSendChecks.dispositions.block")
-              : t("settings.preSendChecks.dispositions.warn")
-          }
-          variant={isBlocking ? "error" : "muted"}
-        />
+        <View style={styles.badgeSlot}>
+          <StatusBadge
+            label={
+              isBlocking
+                ? t("settings.preSendChecks.dispositions.block")
+                : t("settings.preSendChecks.dispositions.warn")
+            }
+            variant={isBlocking ? "error" : "muted"}
+          />
+        </View>
         <Button
           variant="ghost"
           size="sm"
@@ -217,6 +247,9 @@ export function PreSendChecksPage() {
   const isSupported = useHostFeature(serverId, "preSendChecks");
   const { rules } = usePreSendChecks(serverId);
   const { upsertCheck, deleteCheck, reorderChecks } = usePreSendCheckMutations(serverId);
+  const { config: daemonConfig, patchConfig } = useDaemonConfig(serverId);
+  // Absent means on, so a host that has never seen the switch is checking.
+  const isFeatureEnabled = daemonConfig?.preSendChecksEnabled !== false;
   const [form, setForm] = useState<FormState>({ kind: "closed" });
   const [isBusy, setIsBusy] = useState(false);
 
@@ -308,6 +341,35 @@ export function PreSendChecksPage() {
     [reorderChecks, rules, t],
   );
 
+  const handleToggleRule = useCallback(
+    async (rule: PreSendCheckRule, enabled: boolean) => {
+      setIsBusy(true);
+      try {
+        await upsertCheck({ ...rule, enabled });
+      } catch (error) {
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [t, upsertCheck],
+  );
+
+  const handleToggleFeature = useCallback(
+    (enabled: boolean) => {
+      void patchConfig({ preSendChecksEnabled: enabled }).catch((error: unknown) => {
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+    },
+    [patchConfig, t],
+  );
+
   const initialDraft =
     form.kind === "edit" ? toPreSendCheckDraft(form.rule) : EMPTY_PRE_SEND_CHECK_DRAFT;
 
@@ -350,7 +412,23 @@ export function PreSendChecksPage() {
         />
       ) : null}
 
-      <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+      <View style={settingsStyles.card} testID="pre-send-checks-enabled-card">
+        <View style={settingsStyles.row}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>
+              {t("settings.preSendChecks.featureToggleTitle")}
+            </Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+          </View>
+          <Switch
+            value={isFeatureEnabled}
+            onValueChange={handleToggleFeature}
+            disabled={!isConnected || !isSupported}
+            accessibilityLabel={t("settings.preSendChecks.featureToggleTitle")}
+            testID="pre-send-checks-enabled-switch"
+          />
+        </View>
+      </View>
 
       <View style={settingsStyles.card} testID="pre-send-checks-card">
         {listState.kind === "rules" ? (
@@ -364,6 +442,7 @@ export function PreSendChecksPage() {
               onEdit={handleOpenEdit}
               onRemove={handleRemove}
               onMove={handleMove}
+              onToggle={handleToggleRule}
             />
           ))
         ) : (
@@ -390,14 +469,43 @@ export function PreSendChecksPage() {
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // Stacked on a phone, side by side once there is room. The row carries a
+  // sentence, a badge and four controls, which is more than fits on a narrow
+  // screen in one line — below `md` the controls drop underneath the text and get
+  // the full width instead of competing for it.
+  // Matches the terminal profiles rows, which get their breathing room from the
+  // shared row's own paddingVertical rather than from anything here — overriding
+  // it made this list tighter than the one beside it. The action buttons carry
+  // their own padding, so `gap: 0` between them is what looks evenly spaced.
   row: {
-    gap: theme.spacing[3],
-    minHeight: 56,
+    flexDirection: { xs: "column", md: "row" },
+    alignItems: { xs: "stretch", md: "center" },
+    gap: theme.spacing[2],
+    minHeight: { xs: 88, md: 56 },
+  },
+  rowLeading: {
+    justifyContent: "center",
+  },
+  rowContent: {
+    flex: { xs: 0, md: 1 },
+    marginRight: { xs: 0, md: theme.spacing[3] },
+  },
+  // Dimmed rather than hidden: a rule that is off still has to be findable, and
+  // its arrangement still matters for when it comes back on.
+  rowContentOff: {
+    opacity: 0.5,
   },
   rowActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[2],
+    // On a phone the controls sit under the sentence with the badge anchoring the
+    // left, so the row reads top to bottom instead of squeezing five things onto
+    // one line.
+    justifyContent: { xs: "space-between", md: "flex-end" },
+    gap: 0,
+  },
+  badgeSlot: {
+    marginRight: theme.spacing[2],
   },
   emptyCard: {
     padding: theme.spacing[4],

@@ -74,6 +74,11 @@ export function evaluatePreSendChecks(
   const findings: PreSendFinding[] = [];
 
   for (const rule of rules) {
+    // Explicitly `false`, not falsy: absent means enabled, so a rule that predates
+    // the field or was written by hand is live without saying so.
+    if (rule.enabled === false) {
+      continue;
+    }
     if (rule.disposition !== "warn" && rule.disposition !== "block") {
       continue;
     }

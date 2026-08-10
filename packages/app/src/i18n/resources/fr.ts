@@ -1764,8 +1764,10 @@ export const fr: TranslationResources = {
       unavailableDisconnected: "Non connecté à cet hôte.",
       unavailableUnsupported:
         "Cet hôte exécute une version de Paseo qui ne peut pas enregistrer de règles.",
+      featureToggleTitle: "Vérifier les messages avant envoi",
       addRule: "Ajouter une règle",
       editRule: "Modifier la règle",
+      toggleRule: "Activer ou désactiver cette règle",
       addTitle: "Nouvelle règle",
       editTitle: "Modifier la règle",
       moveUp: "Monter",

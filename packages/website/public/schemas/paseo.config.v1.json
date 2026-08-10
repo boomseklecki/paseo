@@ -131,6 +131,9 @@
             "additionalProperties": {}
           }
         },
+        "preSendChecksEnabled": {
+          "type": "boolean"
+        },
         "cors": {
           "type": "object",
           "properties": {

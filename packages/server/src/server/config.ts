@@ -438,6 +438,15 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
   return persisted.daemon?.browserTools?.enabled ?? false;
 }
 
+// Left `undefined` rather than defaulted to `true`, because absent has to stay
+// distinguishable from an explicit choice all the way to the client, which reads
+// only `=== false` as off.
+function resolvePreSendChecksEnabled(
+  persisted: ReturnType<typeof loadPersistedConfig>,
+): boolean | undefined {
+  return persisted.daemon?.preSendChecksEnabled;
+}
+
 function resolveStaticLoadConfigSettings(
   env: NodeJS.ProcessEnv,
   cli: CliConfigOverrides | undefined,
@@ -451,6 +460,7 @@ function resolveStaticLoadConfigSettings(
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     terminalProfiles: persisted.daemon?.terminalProfiles,
+    preSendChecksEnabled: resolvePreSendChecksEnabled(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
       parseHostnamesEnv(env.PASEO_HOSTNAMES ?? env.PASEO_ALLOWED_HOSTS),
@@ -479,6 +489,7 @@ export function loadConfig(
     autoArchiveAfterMerge,
     appendSystemPrompt,
     terminalProfiles,
+    preSendChecksEnabled,
     hostnames,
     trustedProxies,
     appBaseUrl,
@@ -520,6 +531,7 @@ export function loadConfig(
     enableTerminalAgentHooks: persisted.daemon?.enableTerminalAgentHooks ?? false,
     appendSystemPrompt,
     terminalProfiles,
+    preSendChecksEnabled,
     mcpDebug: env.MCP_DEBUG === "1",
     isDev: resolvePaseoNodeEnv(env) === "development",
     agentStoragePath: path.join(paseoHome, "agents"),
