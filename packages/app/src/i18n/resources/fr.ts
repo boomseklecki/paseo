@@ -1757,8 +1757,16 @@ export const fr: TranslationResources = {
       sectionTitle: "Vérifications avant envoi",
       sectionHint:
         "Règles vérifiées avant qu'un message quitte le champ de saisie. Un avertissement laisse partir le message ; un blocage le retient pour que vous gardiez ce que vous avez tapé.",
-      hostLabel: "Hôte",
-      noHosts: "Aucun hôte connecté",
+      hostsLabel: "Hôtes",
+      hostsHint:
+        "Les machines où cette règle s'applique. Elle est enregistrée séparément sur chacune.",
+      hostToggle: "Enregistrer cette règle sur {{host}}",
+      hostsRequired: "Choisissez au moins un hôte.",
+      hostsSucceeded: "Enregistrée sur {{hosts}}.",
+      hostFailed: "{{host}} : {{reason}}",
+      hostUnreachable: "Non connecté.",
+      featureToggleHost: "Vérifier les messages avant envoi sur {{host}}",
+      differs: "Diverge",
       loading: "Chargement des règles...",
       emptyState: "Aucune règle. Les envois ne sont jamais retenus.",
       unavailableDisconnected: "Non connecté à cet hôte.",
