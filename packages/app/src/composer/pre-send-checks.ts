@@ -1,4 +1,7 @@
-import type { PreSendFinding, PreSendMeasurementContext } from "@getpaseo/protocol/pre-send-checks";
+import type {
+  PreSendFinding,
+  PreSendMeasurementContext,
+} from "@getpaseo/protocol/pre-send-checks/types";
 
 import type { StreamItem } from "@/types/stream";
 import { formatDuration } from "@/utils/time";
@@ -41,6 +44,15 @@ export interface PreSendMeasurementInput {
   totalCostUsd: number | null;
   /** Injected rather than read, so idle time is testable without faking a clock. */
   nowMs: number;
+  /**
+   * The text about to be sent, for rules that trigger on what was typed.
+   *
+   * Optional and defaulted to empty, because most callers build this context to
+   * describe the agent rather than to gate a particular send. Empty is inert
+   * rather than merely harmless: the evaluator refuses a text rule with an empty
+   * operand, so no trigger can match a caller that had no message to give.
+   */
+  message?: string;
 }
 
 export function buildPreSendMeasurementContext(
@@ -70,6 +82,7 @@ export function buildPreSendMeasurementContext(
     idleSeconds,
     contextUsedPercent,
     sessionCostUsd: input.totalCostUsd,
+    message: input.message ?? "",
   };
 }
 
@@ -84,7 +97,16 @@ const MESSAGE_KEY_BY_MEASUREMENT: Record<string, string> = {
  * reports the measured value in. Two formatters would drift, and the first anyone
  * would notice is a rule that reads "3600" in the editor and "1 hour" when it fires.
  */
-export function formatMeasurementValue(measurement: string, value: number): string {
+export function formatMeasurementValue(
+  measurement: string,
+  value: number | string | undefined,
+): string {
+  // A text rule's value is the message itself and a trigger carries no
+  // threshold, so anything that is not a number is shown as itself rather than
+  // run through a unit formatter that would print it as a duration.
+  if (typeof value !== "number") {
+    return value ?? "";
+  }
   switch (measurement) {
     case "agent.idleSeconds":
       return formatDuration(value * 1000);
@@ -108,7 +130,9 @@ export function formatPreSendFinding(finding: PreSendFinding, t: PreSendTranslat
   const values = {
     value: formatMeasurementValue(finding.measurement, finding.value),
     threshold: formatMeasurementValue(finding.measurement, finding.threshold),
-    duration: formatDuration(finding.value * 1000),
+    // Only a numeric finding has a duration to render; a text trigger's value is
+    // the message, and there is nothing to convert.
+    duration: typeof finding.value === "number" ? formatDuration(finding.value * 1000) : "",
   };
 
   const sentence = finding.message

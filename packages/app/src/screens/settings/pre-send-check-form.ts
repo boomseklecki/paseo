@@ -189,7 +189,9 @@ export function previewPreSendCheckMessage(
     defaultValue: rule.message,
     value: formatMeasurementValue(rule.measurement, rule.threshold),
     threshold: formatMeasurementValue(rule.measurement, rule.threshold),
-    duration: formatDuration(rule.threshold * 1000),
+    // A trigger has no threshold to render as a duration; the token is left
+    // empty rather than printed as a formatted zero.
+    duration: typeof rule.threshold === "number" ? formatDuration(rule.threshold * 1000) : "",
   });
 }
 

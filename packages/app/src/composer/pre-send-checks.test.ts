@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PreSendFinding } from "@getpaseo/protocol/pre-send-checks";
+import type { PreSendFinding } from "@getpaseo/protocol/pre-send-checks/types";
 import type { StreamItem } from "@/types/stream";
 import {
   buildPreSendMeasurementContext,
@@ -129,6 +129,7 @@ describe("formatPreSendFinding", () => {
       value: 7200,
       threshold: 3600,
       message: null,
+      action: null,
       ...overrides,
     };
   }
