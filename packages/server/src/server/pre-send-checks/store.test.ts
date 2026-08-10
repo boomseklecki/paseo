@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createTestLogger } from "../../test-utils/test-logger.js";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { PreSendCheckStore } from "./store.js";
 
 let dir: string;
@@ -19,6 +20,25 @@ afterEach(async () => {
 
 async function writeRule(name: string, body: unknown): Promise<void> {
   await writeFile(join(dir, name), JSON.stringify(body), "utf-8");
+}
+
+// These four are hoisted because a callback written inline inside describe >
+// describe > test is already four deep and trips the nesting limit. The table
+// helper reads better out here anyway.
+function positions(rules: readonly PreSendCheckRule[]): Array<[string, number | undefined]> {
+  return rules.map((rule) => [rule.id, rule.order]);
+}
+
+function unchanged(rule: PreSendCheckRule): PreSendCheckRule {
+  return rule;
+}
+
+function withDifferentId(rule: PreSendCheckRule): PreSendCheckRule {
+  return { ...rule, id: "somewhere-else" };
+}
+
+function bumpThreshold(rule: PreSendCheckRule): PreSendCheckRule {
+  return { ...rule, threshold: (rule.threshold ?? 0) + 1 };
 }
 
 const RULE = {
@@ -85,5 +105,97 @@ describe("PreSendCheckStore", () => {
 
   test("deleting a rule that is not there is not an error", async () => {
     await expect(store.delete("never-existed")).resolves.toBeUndefined();
+  });
+
+  describe("update", () => {
+    test("applies the updater and persists the result", async () => {
+      await writeRule("cold-prompt-cache.json", RULE);
+
+      const updated = await store.update("cold-prompt-cache", bumpThreshold);
+
+      expect(updated).toEqual({ ...RULE, threshold: 3601 });
+      expect(await store.get("cold-prompt-cache")).toEqual({ ...RULE, threshold: 3601 });
+    });
+
+    // An edit racing a delete must not put the rule back.
+    test("returns null for a rule that is not there", async () => {
+      expect(await store.update("never-existed", unchanged)).toBeNull();
+    });
+
+    test("refuses an updater that changes the id", async () => {
+      await writeRule("cold-prompt-cache.json", RULE);
+
+      await expect(store.update("cold-prompt-cache", withDifferentId)).rejects.toThrow(
+        /cannot change id/,
+      );
+      expect(await store.get("cold-prompt-cache")).toEqual(RULE);
+    });
+
+    // The reason update exists rather than each caller spreading a record into
+    // write: two edits in flight at once both land. Read-merge-write outside the
+    // store loses the first one, because both reads finish before either write.
+    test("serialises concurrent updates so neither is lost", async () => {
+      await writeRule("cold-prompt-cache.json", RULE);
+      await Promise.all([
+        store.update("cold-prompt-cache", bumpThreshold),
+        store.update("cold-prompt-cache", bumpThreshold),
+      ]);
+
+      expect((await store.get("cold-prompt-cache"))?.threshold).toBe(3602);
+    });
+  });
+
+  describe("reorder", () => {
+    test("assigns order by position in the requested list", async () => {
+      await writeRule("a.json", { ...RULE, id: "a" });
+      await writeRule("b.json", { ...RULE, id: "b" });
+      await writeRule("c.json", { ...RULE, id: "c" });
+
+      await store.reorder(["c", "a", "b"]);
+
+      expect(positions(await store.list())).toEqual([
+        ["c", 0],
+        ["a", 1],
+        ["b", 2],
+      ]);
+    });
+
+    test("skips an id it does not have without consuming a position", async () => {
+      await writeRule("a.json", { ...RULE, id: "a" });
+      await writeRule("b.json", { ...RULE, id: "b" });
+
+      await store.reorder(["a", "deleted-elsewhere", "b"]);
+
+      expect(positions(await store.list())).toEqual([
+        ["a", 0],
+        ["b", 1],
+      ]);
+    });
+
+    // An omitted rule keeps whatever order it had, and unordered sorts last, so
+    // a caller that arranges a subset never scatters the rest through it.
+    test("leaves a rule the caller omitted alone", async () => {
+      await writeRule("a.json", { ...RULE, id: "a" });
+      await writeRule("b.json", { ...RULE, id: "b" });
+
+      await store.reorder(["b"]);
+
+      expect(await store.list()).toEqual([
+        { ...RULE, id: "b", order: 0 },
+        { ...RULE, id: "a" },
+      ]);
+    });
+
+    // Reordering to the arrangement that is already there writes nothing, which
+    // is what keeps the service from broadcasting a change nobody made.
+    test("is a no-op when every rule already sits at its position", async () => {
+      await writeRule("a.json", { ...RULE, id: "a", order: 0 });
+      await writeRule("b.json", { ...RULE, id: "b", order: 1 });
+      const before = await store.list();
+
+      await store.reorder(["a", "b"]);
+
+      expect(await store.list()).toEqual(before);
+    });
   });
 });

@@ -80,10 +80,9 @@ export class PreSendChecksService {
    * write that notified on its own would leave that baseline stale and have the
    * next tick repeat it.
    *
-   * The store does not serialise concurrent mutations — unlike `ScheduleStore`,
-   * which keeps a promise chain per id. Two people editing the same rule in the
-   * same instant is last-write-wins, which is the right trade for a settings
-   * screen and the wrong one if this ever grows an automated writer.
+   * The store serialises mutations against each other, so no write lands in the
+   * middle of another. Two people editing the same rule in the same instant is
+   * still last-write-wins, which is the right trade for a settings screen.
    */
   async upsert(check: PreSendCheckRule): Promise<PreSendCheckRule[]> {
     await this.store.write(check);
@@ -100,26 +99,13 @@ export class PreSendChecksService {
   /**
    * Rewrites every rule's position in one pass.
    *
-   * Assigns `order` by index, so the arrangement is explicit on disk rather than
-   * implied by whatever was there before — a list that was partly ordered comes
-   * out wholly ordered. Ids the store does not have are skipped; rules the caller
-   * omitted keep the order they had, which puts them after the arranged ones
-   * because unordered sorts last.
-   *
-   * Writes happen before the single refresh, so one reorder is one broadcast
-   * however many files it touched.
+   * The arranging is the store's — it spans records, so it belongs behind the
+   * surface. What is left here is the same shape as the other two writers: one
+   * mutation, then one refresh, so a reorder is one broadcast however many files
+   * it touched.
    */
   async reorder(ruleIds: readonly string[]): Promise<PreSendCheckRule[]> {
-    const byId = new Map((await this.list()).map((rule) => [rule.id, rule]));
-    let position = 0;
-    for (const id of ruleIds) {
-      const rule = byId.get(id);
-      if (!rule) {
-        continue;
-      }
-      await this.store.write({ ...rule, order: position });
-      position += 1;
-    }
+    await this.store.reorder(ruleIds);
     await this.refresh();
     return this.list();
   }
