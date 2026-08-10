@@ -70,6 +70,33 @@ export class PreSendChecksService {
     return this.store.list();
   }
 
+  /**
+   * Writes a rule and returns the resulting list.
+   *
+   * Both writers go through `refresh()` rather than notifying directly, which is
+   * what keeps one write to one broadcast: `refresh()` re-reads, compares against
+   * the last broadcast and notifies only on a difference, so it both fires
+   * immediately and moves the baseline the periodic tick will compare against. A
+   * write that notified on its own would leave that baseline stale and have the
+   * next tick repeat it.
+   *
+   * The store does not serialise concurrent mutations — unlike `ScheduleStore`,
+   * which keeps a promise chain per id. Two people editing the same rule in the
+   * same instant is last-write-wins, which is the right trade for a settings
+   * screen and the wrong one if this ever grows an automated writer.
+   */
+  async upsert(check: PreSendCheckRule): Promise<PreSendCheckRule[]> {
+    await this.store.write(check);
+    await this.refresh();
+    return this.list();
+  }
+
+  async delete(id: string): Promise<PreSendCheckRule[]> {
+    await this.store.delete(id);
+    await this.refresh();
+    return this.list();
+  }
+
   onChange(listener: PreSendChecksListener): () => void {
     this.listeners.add(listener);
     return () => {

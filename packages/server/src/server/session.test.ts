@@ -36,6 +36,7 @@ import {
   asPushTokenStore,
   asChatService,
   asScheduleService,
+  asPreSendChecksService,
   asLoopService,
   asCheckoutDiffManager,
   asGitHubService,
@@ -283,6 +284,7 @@ vi.mock("./worktree-bootstrap.js", async (importOriginal) => {
 
 interface SessionForTestOptions {
   scopes?: readonly string[];
+  preSendChecksService?: SessionOptions["preSendChecksService"];
   agentManager?: { [K in keyof SessionOptions["agentManager"]]?: unknown };
   agentStorage?: { [K in keyof SessionOptions["agentStorage"]]?: unknown };
   github?: Partial<ForgeService & GitHubService>;
@@ -396,6 +398,7 @@ function createSessionForTest(options: SessionForTestOptions = {}): Session {
     },
     chatService: asChatService(),
     scheduleService: asScheduleService(),
+    preSendChecksService: options.preSendChecksService ?? asPreSendChecksService(),
     loopService: asLoopService(),
     checkoutDiffManager: asCheckoutDiffManager(checkoutDiffManager),
     github: asGitHubService(github),
@@ -4571,6 +4574,81 @@ describe("session pull request timeline handling", () => {
         error: null,
         requestId: "request-check-details",
       },
+    });
+  });
+});
+
+// The pre-send-check verbs answer with a typed response rather than an rpc_error,
+// so they cannot join the routing table below. Same failure being guarded though:
+// a `case` left out of the dispatch switch is a silent no-op that emits nothing,
+// which no type error catches.
+describe("pre-send-check dispatch routing", () => {
+  const RULE = {
+    id: "cold-prompt-cache",
+    measurement: "agent.idleSeconds",
+    operator: "gte",
+    threshold: 3600,
+    disposition: "block",
+  };
+
+  const routingCases: Array<{ msg: SessionInboundMessage; responseType: string }> = [
+    {
+      msg: { type: "pre_send_checks/list", requestId: "rt-psc-list" },
+      responseType: "pre_send_checks/list/response",
+    },
+    {
+      msg: { type: "pre_send_checks/upsert", requestId: "rt-psc-upsert", check: RULE },
+      responseType: "pre_send_checks/upsert/response",
+    },
+    {
+      msg: { type: "pre_send_checks/delete", requestId: "rt-psc-delete", ruleId: RULE.id },
+      responseType: "pre_send_checks/delete/response",
+    },
+  ];
+
+  test.each(routingCases)("routes $msg.type to its handler", async ({ msg, responseType }) => {
+    const messages: SessionOutboundMessage[] = [];
+    const session = createSessionForTest({
+      messages,
+      preSendChecksService: asPreSendChecksService({
+        list: async () => [RULE],
+        upsert: async () => [RULE],
+        delete: async () => [],
+      }),
+    });
+
+    await session.handleMessage(msg);
+
+    const routed = messages.find((m) => m.type === responseType);
+    expect(routed, `${msg.type} did not route to a handler (silent no-op)`).toBeDefined();
+  });
+
+  // The handler reports a failed write rather than throwing, and answers with the
+  // rules it can still read. A client that blanked its list on a failed save would
+  // stop gating sends because a save failed.
+  test("reports a failed write without losing the readable rules", async () => {
+    const messages: SessionOutboundMessage[] = [];
+    const session = createSessionForTest({
+      messages,
+      preSendChecksService: asPreSendChecksService({
+        list: async () => [RULE],
+        upsert: async () => {
+          throw new Error("disk full");
+        },
+      }),
+    });
+
+    await session.handleMessage({
+      type: "pre_send_checks/upsert",
+      requestId: "rt-psc-fail",
+      check: RULE,
+    });
+
+    const response = messages.find((m) => m.type === "pre_send_checks/upsert/response");
+    expect(response).toBeDefined();
+    expect(response && "payload" in response ? response.payload : null).toMatchObject({
+      error: "disk full",
+      checks: [RULE],
     });
   });
 });

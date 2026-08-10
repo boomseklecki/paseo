@@ -2,10 +2,16 @@ import { z } from "zod";
 import { PreSendCheckRuleSchema } from "./types.js";
 
 /**
- * Read-only for now. Rules are authored by hand in
- * `<PASEO_HOME>/pre-send-checks/`, and the daemon re-reads that directory rather
- * than caching it, so there is nothing a write verb would do this pass that
- * editing a file does not. Create/update/delete land with the settings UI.
+ * Upsert rather than create-plus-update, for three reasons. The store's `write`
+ * already is an upsert. It is one verb instead of two. And the id comes from the
+ * caller, which is what will let the same rule exist on several daemons under one
+ * id once rules become assignable to more than one host — a create verb that
+ * minted its own id would have to be replaced then.
+ *
+ * Both writes echo the whole resulting list rather than the one rule, so a client
+ * replaces its cache from the response instead of merging into it.
+ * `pre_send_checks_changed` follows moments later carrying the same content and
+ * is idempotent against it.
  */
 
 export const PreSendChecksListRequestSchema = z.object({
@@ -20,6 +26,36 @@ export const PreSendChecksListResponseSchema = z.object({
     // Always concrete, never absent — an empty array means the user turned every
     // rule off, and the client relies on being able to tell that apart from not
     // having loaded yet.
+    checks: z.array(PreSendCheckRuleSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const PreSendChecksUpsertRequestSchema = z.object({
+  type: z.literal("pre_send_checks/upsert"),
+  requestId: z.string(),
+  check: PreSendCheckRuleSchema,
+});
+
+export const PreSendChecksUpsertResponseSchema = z.object({
+  type: z.literal("pre_send_checks/upsert/response"),
+  payload: z.object({
+    requestId: z.string(),
+    checks: z.array(PreSendCheckRuleSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const PreSendChecksDeleteRequestSchema = z.object({
+  type: z.literal("pre_send_checks/delete"),
+  requestId: z.string(),
+  ruleId: z.string(),
+});
+
+export const PreSendChecksDeleteResponseSchema = z.object({
+  type: z.literal("pre_send_checks/delete/response"),
+  payload: z.object({
+    requestId: z.string(),
     checks: z.array(PreSendCheckRuleSchema),
     error: z.string().nullable(),
   }),

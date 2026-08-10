@@ -39,6 +39,28 @@ export const PRE_SEND_MEASUREMENTS = [
 export type PreSendMeasurement = (typeof PRE_SEND_MEASUREMENTS)[number];
 
 /**
+ * Operators the evaluator understands, exported as data so an editor can offer
+ * them. The wire still accepts any string and a rule naming something absent
+ * from this list is skipped, not rejected — so an editor that only emits these
+ * must still round-trip one it does not recognise. See the note on the rule
+ * schema above.
+ *
+ * No `eq`: exact equality on a duration or a dollar amount never fires.
+ */
+export const PRE_SEND_OPERATORS = ["gt", "gte", "lt", "lte"] as const;
+
+export type PreSendOperator = (typeof PRE_SEND_OPERATORS)[number];
+
+/**
+ * Dispositions a *rule* may carry, which is narrower than the outcome of an
+ * evaluation: `allow` is what comes back when nothing tripped and is not
+ * something a rule can ask for. A rule claiming it is skipped.
+ */
+export const PRE_SEND_RULE_DISPOSITIONS = ["warn", "block"] as const;
+
+export type PreSendRuleDisposition = (typeof PRE_SEND_RULE_DISPOSITIONS)[number];
+
+/**
  * The measured values, assembled by the caller at send time. `null` means the
  * value is unknown right now — no usage reported yet, no timeline loaded, no
  * agent — and any rule reading a `null` is skipped rather than guessed at.

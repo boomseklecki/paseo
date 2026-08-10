@@ -61,6 +61,7 @@ import {
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@getpaseo/protocol/error-utils";
@@ -2042,6 +2043,14 @@ export class Session {
         return undefined;
       case "pre_send_checks/list":
         return this.handlePreSendChecksListRequest(msg);
+      case "pre_send_checks/upsert":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.upsert(msg.check),
+        );
+      case "pre_send_checks/delete":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.delete(msg.ruleId),
+        );
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
       case "daemon.get_pairing_offer.request":
@@ -2098,6 +2107,43 @@ export class Session {
         payload: {
           requestId: msg.requestId,
           checks: [],
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  /**
+   * Shared by upsert and delete, because the two differ only in which store call
+   * they make. Both answer with the whole resulting list so the caller replaces
+   * its cache rather than merging into it, and both report a failure as `error`
+   * with the rules they could still read — a write that failed says nothing about
+   * whether the existing rules are readable, and a client that blanked its list
+   * on a failed save would stop gating sends because of it.
+   */
+  private async handlePreSendChecksWriteRequest(
+    msg: Extract<
+      SessionInboundMessage,
+      { type: "pre_send_checks/upsert" } | { type: "pre_send_checks/delete" }
+    >,
+    write: () => Promise<PreSendCheckRule[]>,
+  ): Promise<void> {
+    const responseType =
+      msg.type === "pre_send_checks/upsert"
+        ? ("pre_send_checks/upsert/response" as const)
+        : ("pre_send_checks/delete/response" as const);
+    try {
+      this.emit({
+        type: responseType,
+        payload: { requestId: msg.requestId, checks: await write(), error: null },
+      });
+    } catch (error) {
+      this.sessionLogger.warn({ err: error, type: msg.type }, "Failed to write pre-send check");
+      this.emit({
+        type: responseType,
+        payload: {
+          requestId: msg.requestId,
+          checks: await this.preSendChecksService.list().catch(() => []),
           error: error instanceof Error ? error.message : String(error),
         },
       });

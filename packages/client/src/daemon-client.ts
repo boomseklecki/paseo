@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { CLIENT_CAPS, type ClientCapability } from "@getpaseo/protocol/client-capabilities";
 import type { AgentAttentionNotificationPayload } from "@getpaseo/protocol/agent-attention-notification";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   AgentCreateFailedStatusPayloadSchema,
   AgentCreatedStatusPayloadSchema,
@@ -527,6 +528,14 @@ type ScheduleListPayload = Extract<
 type PreSendChecksListPayload = Extract<
   SessionOutboundMessage,
   { type: "pre_send_checks/list/response" }
+>["payload"];
+type PreSendChecksUpsertPayload = Extract<
+  SessionOutboundMessage,
+  { type: "pre_send_checks/upsert/response" }
+>["payload"];
+type PreSendChecksDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "pre_send_checks/delete/response" }
 >["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
@@ -5188,6 +5197,36 @@ export class DaemonClient {
         type: "pre_send_checks/list",
       },
       responseType: "pre_send_checks/list/response",
+    });
+  }
+
+  /** Creates or replaces by `check.id`. Same gating as `preSendChecksList`. */
+  async preSendChecksUpsert(
+    check: PreSendCheckRule,
+    requestId?: string,
+  ): Promise<PreSendChecksUpsertPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "pre_send_checks/upsert",
+        check,
+      },
+      responseType: "pre_send_checks/upsert/response",
+    });
+  }
+
+  /** Idempotent — deleting a rule that is not there succeeds. */
+  async preSendChecksDelete(
+    ruleId: string,
+    requestId?: string,
+  ): Promise<PreSendChecksDeletePayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "pre_send_checks/delete",
+        ruleId,
+      },
+      responseType: "pre_send_checks/delete/response",
     });
   }
 

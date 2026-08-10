@@ -93,6 +93,76 @@ describe("PreSendChecksService", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  // A write goes through refresh() rather than notifying directly, so it both
+  // fires once and moves the baseline the tick compares against. Notifying
+  // directly would leave that baseline stale and have the next tick repeat it.
+  test("an upsert broadcasts once and the next tick stays silent", async () => {
+    await service.start();
+    const listener = vi.fn();
+    service.onChange(listener);
+
+    await service.upsert({
+      id: "pricey-session",
+      measurement: "agent.sessionCostUsd",
+      operator: "gt",
+      threshold: 10,
+      disposition: "warn",
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    await service.refresh();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("a delete broadcasts once and the next tick stays silent", async () => {
+    await service.start();
+    const listener = vi.fn();
+    service.onChange(listener);
+
+    await service.delete("cold-prompt-cache");
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    await service.refresh();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("an upsert replaces by id and returns the resulting list", async () => {
+    await service.start();
+
+    const after = await service.upsert({
+      id: "cold-prompt-cache",
+      measurement: "agent.idleSeconds",
+      operator: "gte",
+      threshold: 60,
+      disposition: "block",
+    });
+
+    expect(after).toHaveLength(1);
+    expect(after[0]?.threshold).toBe(60);
+  });
+
+  // The wire accepts any string for these fields on purpose, so an editor that
+  // knows four operators must not be able to launder a fifth into one on save.
+  test("an upsert round-trips an operator it does not recognise", async () => {
+    await service.start();
+
+    const after = await service.upsert({
+      id: "odd-one",
+      measurement: "agent.idleSeconds",
+      operator: "approaches",
+      threshold: 10,
+      disposition: "warn",
+    });
+
+    expect(after.find((rule) => rule.id === "odd-one")?.operator).toBe("approaches");
+  });
+
+  test("deleting a rule that is not there still reports the current list", async () => {
+    await service.start();
+
+    expect(await service.delete("never-existed")).toHaveLength(1);
+  });
+
   test("an unsubscribed listener stops hearing about changes", async () => {
     await service.start();
     const listener = vi.fn();

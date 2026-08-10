@@ -4,6 +4,7 @@ import type {
   PreSendEvaluation,
   PreSendFinding,
   PreSendMeasurementContext,
+  PreSendOperator,
 } from "./types.js";
 
 /**
@@ -18,12 +19,20 @@ import type {
  * away from that path, which is the failure this arrangement exists to prevent.
  */
 
-const COMPARATORS: Record<string, (value: number, threshold: number) => boolean> = {
+type Comparator = (value: number, threshold: number) => boolean;
+
+// Keyed by the exported operator list rather than by `string`, so adding an
+// operator there without one here is a type error rather than a rule that
+// silently never fires. The lookup below widens back to `string`, because
+// `rule.operator` is whatever was on disk.
+const COMPARATORS: Record<PreSendOperator, Comparator> = {
   gt: (value, threshold) => value > threshold,
   gte: (value, threshold) => value >= threshold,
   lt: (value, threshold) => value < threshold,
   lte: (value, threshold) => value <= threshold,
 };
+
+const COMPARATORS_BY_NAME = COMPARATORS as Record<string, Comparator | undefined>;
 
 const SEVERITY: Record<PreSendDisposition, number> = {
   allow: 0,
@@ -68,7 +77,7 @@ export function evaluatePreSendChecks(
     if (rule.disposition !== "warn" && rule.disposition !== "block") {
       continue;
     }
-    const compare = COMPARATORS[rule.operator];
+    const compare = COMPARATORS_BY_NAME[rule.operator];
     if (!compare) {
       continue;
     }
