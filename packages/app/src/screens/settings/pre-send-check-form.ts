@@ -5,6 +5,7 @@ import {
   type PreSendCheckRule,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { formatMeasurementValue, type PreSendTranslate } from "@/composer/pre-send-checks";
+import { formatDuration } from "@/utils/time";
 
 /**
  * Everything the rule editor does that is not rendering: turning a rule into a
@@ -165,6 +166,33 @@ const MEASUREMENT_LABEL_KEYS: Record<string, string> = {
  * formatted by the same function the toast uses, so the editor and the message
  * that fires cannot disagree about units.
  */
+/**
+ * The row's second line: what this rule will actually say when it fires.
+ *
+ * A custom message is a template, and showing it raw puts `{{value}}` on screen,
+ * which reads as broken. There is no measured value at settings time, so the
+ * threshold stands in for it — it is the boundary at which the message appears,
+ * so the preview is what you would see at the moment the rule first trips rather
+ * than an invented number.
+ *
+ * Rules with no message of their own fall through to the same translated default
+ * the toast uses, named here by key so the caller renders it.
+ */
+export function previewPreSendCheckMessage(
+  rule: PreSendCheckRule,
+  t: PreSendTranslate,
+): string | null {
+  if (!rule.message) {
+    return null;
+  }
+  return t(rule.message, {
+    defaultValue: rule.message,
+    value: formatMeasurementValue(rule.measurement, rule.threshold),
+    threshold: formatMeasurementValue(rule.measurement, rule.threshold),
+    duration: formatDuration(rule.threshold * 1000),
+  });
+}
+
 export function describePreSendCheck(rule: PreSendCheckRule, t: PreSendTranslate): string {
   const labelKey = MEASUREMENT_LABEL_KEYS[rule.measurement];
   const measurement = labelKey ? t(labelKey) : rule.measurement;

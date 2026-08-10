@@ -24,6 +24,7 @@ import {
   applyPreSendCheckDraft,
   describePreSendCheck,
   movePreSendCheck,
+  previewPreSendCheckMessage,
   toPreSendCheckDraft,
   EMPTY_PRE_SEND_CHECK_DRAFT,
   type PreSendCheckDraft,
@@ -155,7 +156,7 @@ function PreSendCheckRow({
             {describePreSendCheck(rule, t)}
           </Text>
           <Text style={settingsStyles.rowHint} numberOfLines={2}>
-            {rule.message ?? t("settings.preSendChecks.defaultMessageHint")}
+            {previewPreSendCheckMessage(rule, t) ?? t("settings.preSendChecks.defaultMessageHint")}
           </Text>
         </View>
         <StatusBadge

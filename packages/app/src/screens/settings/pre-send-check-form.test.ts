@@ -4,6 +4,7 @@ import {
   applyPreSendCheckDraft,
   describePreSendCheck,
   movePreSendCheck,
+  previewPreSendCheckMessage,
   preSendCheckOptions,
   PRE_SEND_OPERATOR_OPTIONS,
   toPreSendCheckDraft,
@@ -164,6 +165,23 @@ describe("applyPreSendCheckDraft ordering", () => {
       id: RULE.id,
     });
     expect(saved.order).toBe(2);
+  });
+});
+
+describe("previewPreSendCheckMessage", () => {
+  // A raw {{value}} on a settings row reads as broken. The threshold stands in
+  // because it is the point at which the message actually appears.
+  it("fills the tokens with the threshold in the measurement's units", () => {
+    expect(
+      previewPreSendCheckMessage(
+        { ...RULE, measurement: "agent.sessionCostUsd", threshold: 25, message: "Cost {{value}}." },
+        (_key, options) => `Cost ${String(options?.value)}.`,
+      ),
+    ).toBe("Cost $25.00.");
+  });
+
+  it("has nothing to preview for a rule with no message", () => {
+    expect(previewPreSendCheckMessage(RULE, t)).toBeNull();
   });
 });
 
