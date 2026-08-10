@@ -10,6 +10,8 @@ import { SelectField } from "@/components/ui/select-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { settingsStyles } from "@/styles/settings";
+import { ICON_SIZE } from "@/styles/theme";
+import type { Theme } from "@/styles/theme";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
 import { usePreSendCheckMutations } from "@/hooks/use-pre-send-check-mutations";
@@ -33,13 +35,18 @@ const RemoveIcon = withUnistyles(Trash2);
 const MoveUpIcon = withUnistyles(ArrowUp);
 const MoveDownIcon = withUnistyles(ArrowDown);
 
-// Module-level elements so four buttons per row do not rebuild their icons on
+// Without an explicit mapping these inherit the accent colour and come out blue.
+// Same two mappings the terminal profiles rows use, so the lists match.
+const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const destructiveColorMapping = (theme: Theme) => ({ color: theme.colors.destructive });
+
+// Module-level elements so five controls per row do not rebuild their icons on
 // every render of the list.
-const addIcon = <AddIcon size={16} />;
-const editIcon = <EditIcon size={16} />;
-const removeIcon = <RemoveIcon size={16} />;
-const moveUpIcon = <MoveUpIcon size={16} />;
-const moveDownIcon = <MoveDownIcon size={16} />;
+const addIcon = <AddIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+const editIcon = <EditIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+const removeIcon = <RemoveIcon size={ICON_SIZE.sm} uniProps={destructiveColorMapping} />;
+const moveUpIcon = <MoveUpIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+const moveDownIcon = <MoveDownIcon size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
 
 function generateRuleId(): string {
   return Math.random().toString(16).slice(2, 10);
@@ -132,10 +139,7 @@ function PreSendCheckRow({
   // boilerplate to be live.
   const isEnabled = rule.enabled !== false;
 
-  const rowStyle = useMemo(
-    () => [settingsStyles.row, !isFirst && settingsStyles.rowBorder, styles.row],
-    [isFirst],
-  );
+  const rowStyle = useMemo(() => [styles.row, !isFirst && settingsStyles.rowBorder], [isFirst]);
 
   // `block` is the louder outcome and gets the louder badge. There is no amber
   // variant on StatusBadge and adding one would change a component several other
@@ -145,7 +149,26 @@ function PreSendCheckRow({
 
   return (
     <View style={rowStyle} testID={`pre-send-check-row-${rule.id}`}>
-      <View style={styles.rowLeading}>
+      <View style={styles.rowText}>
+        <View style={[styles.textBlock, !isEnabled && styles.textBlockOff]}>
+          <Text style={settingsStyles.rowTitle} numberOfLines={2}>
+            {describePreSendCheck(rule, t)}
+          </Text>
+          <Text style={settingsStyles.rowHint} numberOfLines={2}>
+            {rule.message ?? t("settings.preSendChecks.defaultMessageHint")}
+          </Text>
+        </View>
+        <StatusBadge
+          label={
+            isBlocking
+              ? t("settings.preSendChecks.dispositions.block")
+              : t("settings.preSendChecks.dispositions.warn")
+          }
+          variant={isBlocking ? "error" : "muted"}
+        />
+      </View>
+
+      <View style={styles.rowControls}>
         <Switch
           value={isEnabled}
           onValueChange={handleToggle}
@@ -153,31 +176,6 @@ function PreSendCheckRow({
           accessibilityLabel={t("settings.preSendChecks.toggleRule")}
           testID={`pre-send-check-toggle-${rule.id}`}
         />
-      </View>
-      <View style={[styles.rowContent, !isEnabled && styles.rowContentOff]}>
-        {/*
-          Two lines on a phone rather than one truncated to nothing. The sentence
-          is the whole point of the row, and a badge plus four buttons beside it
-          left it about a third of the width.
-        */}
-        <Text style={settingsStyles.rowTitle} numberOfLines={2}>
-          {describePreSendCheck(rule, t)}
-        </Text>
-        <Text style={settingsStyles.rowHint} numberOfLines={2}>
-          {rule.message ?? t("settings.preSendChecks.defaultMessageHint")}
-        </Text>
-      </View>
-      <View style={styles.rowActions}>
-        <View style={styles.badgeSlot}>
-          <StatusBadge
-            label={
-              isBlocking
-                ? t("settings.preSendChecks.dispositions.block")
-                : t("settings.preSendChecks.dispositions.warn")
-            }
-            variant={isBlocking ? "error" : "muted"}
-          />
-        </View>
         <Button
           variant="ghost"
           size="sm"
@@ -469,43 +467,38 @@ export function PreSendChecksPage() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  // Stacked on a phone, side by side once there is room. The row carries a
-  // sentence, a badge and four controls, which is more than fits on a narrow
-  // screen in one line — below `md` the controls drop underneath the text and get
-  // the full width instead of competing for it.
-  // Matches the terminal profiles rows, which get their breathing room from the
-  // shared row's own paddingVertical rather than from anything here — overriding
-  // it made this list tighter than the one beside it. The action buttons carry
-  // their own padding, so `gap: 0` between them is what looks evenly spaced.
+  // Built from scratch rather than layered onto settingsStyles.row. That style is
+  // a horizontal space-between row, and inheriting it while forcing a column is
+  // what pushed the controls up over the hint text.
   row: {
-    flexDirection: { xs: "column", md: "row" },
-    alignItems: { xs: "stretch", md: "center" },
-    gap: theme.spacing[2],
-    minHeight: { xs: 88, md: 56 },
+    paddingVertical: theme.spacing[4],
+    paddingHorizontal: theme.spacing[4],
+    gap: theme.spacing[3],
   },
-  rowLeading: {
-    justifyContent: "center",
+  // Text on the left, badge in the top right corner beside it. The badge stays on
+  // the first line whatever the sentence wraps to, because it is a sibling of the
+  // text block rather than part of it.
+  rowText: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[3],
   },
-  rowContent: {
-    flex: { xs: 0, md: 1 },
-    marginRight: { xs: 0, md: theme.spacing[3] },
+  textBlock: {
+    flex: 1,
   },
   // Dimmed rather than hidden: a rule that is off still has to be findable, and
-  // its arrangement still matters for when it comes back on.
-  rowContentOff: {
+  // its position still matters for when it comes back.
+  textBlockOff: {
     opacity: 0.5,
   },
-  rowActions: {
+  // Every control on one centred line under the text. The buttons carry their own
+  // padding, so no gap between them is what reads as evenly spaced - the same
+  // reason the terminal profiles actions use zero.
+  rowControls: {
     flexDirection: "row",
     alignItems: "center",
-    // On a phone the controls sit under the sentence with the badge anchoring the
-    // left, so the row reads top to bottom instead of squeezing five things onto
-    // one line.
-    justifyContent: { xs: "space-between", md: "flex-end" },
-    gap: 0,
-  },
-  badgeSlot: {
-    marginRight: theme.spacing[2],
+    justifyContent: "center",
+    gap: theme.spacing[2],
   },
   emptyCard: {
     padding: theme.spacing[4],
