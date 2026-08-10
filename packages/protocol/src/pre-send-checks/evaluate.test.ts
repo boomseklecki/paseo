@@ -8,6 +8,7 @@ function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMea
     idleSeconds: null,
     contextUsedPercent: null,
     sessionCostUsd: null,
+    message: "",
     ...overrides,
   };
 }
@@ -92,6 +93,7 @@ describe("evaluatePreSendChecks findings", () => {
         value: 250,
         threshold: 100,
         message: "Idle for {{duration}}.",
+        action: null,
       },
     ]);
   });
@@ -186,3 +188,86 @@ describe("evaluatePreSendChecks fails open", () => {
 // The three cases that pinned the shipped cold-prompt-cache rule moved to the
 // server's seeder test, where they now assert against the file the daemon actually
 // writes rather than a constant this package no longer owns.
+
+function trigger(overrides: Partial<PreSendCheckRule> = {}): PreSendCheckRule {
+  return {
+    id: "aside",
+    measurement: "message",
+    operator: "startsWith",
+    text: "/btw",
+    disposition: "redirect",
+    action: { kind: "aside" },
+    ...overrides,
+  };
+}
+
+describe("text triggers", () => {
+  it("fires on a message that starts with the trigger", () => {
+    const evaluation = evaluatePreSendChecks(
+      [trigger()],
+      context({ message: "/btw what is this" }),
+    );
+    expect(evaluation.disposition).toBe("redirect");
+    expect(evaluation.findings[0]?.action).toEqual({ kind: "aside" });
+    expect(evaluation.findings[0]?.value).toBe("/btw what is this");
+  });
+
+  it("ignores leading whitespace and case", () => {
+    expect(
+      evaluatePreSendChecks([trigger()], context({ message: "  /BTW quick one" })).disposition,
+    ).toBe("redirect");
+  });
+
+  // Anchored on purpose: a message merely mentioning the trigger is a message
+  // about asides, not an aside.
+  it("does not fire when the trigger appears mid-message", () => {
+    expect(
+      evaluatePreSendChecks([trigger()], context({ message: "explain how /btw works" }))
+        .disposition,
+    ).toBe("allow");
+  });
+
+  it("matches anywhere for contains", () => {
+    const rules = [trigger({ operator: "contains" })];
+    expect(
+      evaluatePreSendChecks(rules, context({ message: "explain how /btw works" })).disposition,
+    ).toBe("redirect");
+  });
+
+  // A redirect consumes the message rather than sending it, so anything that
+  // makes the redirect unperformable has to fall back to an ordinary send. Each
+  // of these would otherwise swallow what was typed.
+  it("declines a redirect whose action kind is unknown", () => {
+    const rules = [trigger({ action: { kind: "teleport" } })];
+    expect(evaluatePreSendChecks(rules, context({ message: "/btw hi" })).disposition).toBe("allow");
+  });
+
+  it("declines a redirect carrying no action at all", () => {
+    const rules = [trigger({ action: undefined })];
+    expect(evaluatePreSendChecks(rules, context({ message: "/btw hi" })).disposition).toBe("allow");
+  });
+
+  it("declines a trigger with empty text rather than matching everything", () => {
+    const rules = [trigger({ text: "" })];
+    expect(evaluatePreSendChecks(rules, context({ message: "anything" })).disposition).toBe(
+      "allow",
+    );
+  });
+
+  it("skips a text measurement compared with a numeric operator", () => {
+    const rules = [trigger({ operator: "gte" })];
+    expect(evaluatePreSendChecks(rules, context({ message: "/btw hi" })).disposition).toBe("allow");
+  });
+
+  // A redirect takes the message somewhere else, so the reasons to hold a send
+  // back have nothing left to act on.
+  it("outranks a block that also matched", () => {
+    const rules = [trigger(), rule({ id: "cold", disposition: "block" })];
+    const evaluation = evaluatePreSendChecks(
+      rules,
+      context({ message: "/btw hi", idleSeconds: 999 }),
+    );
+    expect(evaluation.disposition).toBe("redirect");
+    expect(evaluation.findings).toHaveLength(2);
+  });
+});

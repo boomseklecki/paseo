@@ -1,10 +1,12 @@
+import { isTextMeasurement, PRE_SEND_ACTION_KINDS } from "./types.js";
 import type {
   PreSendCheckRule,
   PreSendDisposition,
   PreSendEvaluation,
   PreSendFinding,
   PreSendMeasurementContext,
-  PreSendOperator,
+  PreSendNumericOperator,
+  PreSendTextOperator,
 } from "./types.js";
 
 /**
@@ -20,12 +22,13 @@ import type {
  */
 
 type Comparator = (value: number, threshold: number) => boolean;
+type TextComparator = (value: string, operand: string) => boolean;
 
 // Keyed by the exported operator list rather than by `string`, so adding an
 // operator there without one here is a type error rather than a rule that
 // silently never fires. The lookup below widens back to `string`, because
 // `rule.operator` is whatever was on disk.
-const COMPARATORS: Record<PreSendOperator, Comparator> = {
+const COMPARATORS: Record<PreSendNumericOperator, Comparator> = {
   gt: (value, threshold) => value > threshold,
   gte: (value, threshold) => value >= threshold,
   lt: (value, threshold) => value < threshold,
@@ -34,10 +37,32 @@ const COMPARATORS: Record<PreSendOperator, Comparator> = {
 
 const COMPARATORS_BY_NAME = COMPARATORS as Record<string, Comparator | undefined>;
 
+/**
+ * The second comparison family.
+ *
+ * Kept apart from the numeric one rather than unified behind a looser signature,
+ * because the two do not share a threshold type and pretending they do is how a
+ * text rule ends up comparing against `NaN`.
+ *
+ * Case-insensitive: a rule triggering on `/btw` should fire on `/BTW`, and
+ * nobody typing an aside is thinking about case.
+ */
+const TEXT_COMPARATORS: Record<PreSendTextOperator, TextComparator> = {
+  startsWith: (value, operand) => value.trimStart().toLowerCase().startsWith(operand.toLowerCase()),
+  contains: (value, operand) => value.toLowerCase().includes(operand.toLowerCase()),
+};
+
+const TEXT_COMPARATORS_BY_NAME = TEXT_COMPARATORS as Record<string, TextComparator | undefined>;
+
+// A redirect outranks a block because it does not send the message at all: it
+// takes the text somewhere else, so the reasons to hold a send back have nothing
+// left to act on. An aside is also the one thing that should still work when the
+// agent is in the state the other rules are complaining about.
 const SEVERITY: Record<PreSendDisposition, number> = {
   allow: 0,
   warn: 1,
   block: 2,
+  redirect: 3,
 };
 
 function readMeasurement(
@@ -54,6 +79,106 @@ function readMeasurement(
     default:
       return undefined;
   }
+}
+
+/**
+ * A rule's disposition, or `null` if it is not one a rule may carry.
+ *
+ * A `redirect` naming an action this build cannot carry out is refused here
+ * rather than reported and declined later. That direction matters: a redirect
+ * consumes the message instead of sending it, so an unrecognised one that still
+ * counted as a finding would swallow what you typed on the way to a destination
+ * that does not exist. Failing back to an ordinary send is the safe miss.
+ */
+function readRuleDisposition(rule: PreSendCheckRule): PreSendFinding["disposition"] | null {
+  if (rule.disposition === "warn" || rule.disposition === "block") {
+    return rule.disposition;
+  }
+  if (rule.disposition !== "redirect") {
+    return null;
+  }
+  const kind = rule.action?.kind;
+  return kind && (PRE_SEND_ACTION_KINDS as readonly string[]).includes(kind) ? "redirect" : null;
+}
+
+function evaluateRule(
+  rule: PreSendCheckRule,
+  context: PreSendMeasurementContext,
+): PreSendFinding | null {
+  // Explicitly `false`, not falsy: absent means enabled, so a rule that predates
+  // the field or was written by hand is live without saying so.
+  if (rule.enabled === false) {
+    return null;
+  }
+  const disposition = readRuleDisposition(rule);
+  if (!disposition) {
+    return null;
+  }
+  const tripped = isTextMeasurement(rule.measurement)
+    ? evaluateTextRule(rule, context)
+    : evaluateNumericRule(rule, context);
+  if (!tripped) {
+    return null;
+  }
+  return {
+    ruleId: rule.id,
+    measurement: rule.measurement,
+    disposition,
+    value: tripped.value,
+    threshold: tripped.threshold,
+    message: rule.message ?? null,
+    action: disposition === "redirect" ? (rule.action ?? null) : null,
+  };
+}
+
+interface TrippedComparison {
+  value: number | string;
+  threshold: number | string;
+}
+
+function evaluateNumericRule(
+  rule: PreSendCheckRule,
+  context: PreSendMeasurementContext,
+): TrippedComparison | null {
+  const compare = COMPARATORS_BY_NAME[rule.operator];
+  if (!compare) {
+    return null;
+  }
+  if (typeof rule.threshold !== "number" || !Number.isFinite(rule.threshold)) {
+    return null;
+  }
+  const value = readMeasurement(rule.measurement, context);
+  if (value === undefined || value === null || !Number.isFinite(value)) {
+    return null;
+  }
+  return compare(value, rule.threshold) ? { value, threshold: rule.threshold } : null;
+}
+
+function evaluateTextRule(
+  rule: PreSendCheckRule,
+  context: PreSendMeasurementContext,
+): TrippedComparison | null {
+  const compare = TEXT_COMPARATORS_BY_NAME[rule.operator];
+  if (!compare) {
+    return null;
+  }
+  // An empty operand would match every message, which for a redirect means every
+  // send disappearing into an aside. A rule that says nothing matches nothing.
+  if (typeof rule.text !== "string" || rule.text.length === 0) {
+    return null;
+  }
+  const value = readTextMeasurement(rule.measurement, context);
+  if (value === undefined) {
+    return null;
+  }
+  return compare(value, rule.text) ? { value, threshold: rule.text } : null;
+}
+
+function readTextMeasurement(
+  measurement: string,
+  context: PreSendMeasurementContext,
+): string | undefined {
+  return measurement === "message" ? context.message : undefined;
 }
 
 /**
@@ -74,36 +199,10 @@ export function evaluatePreSendChecks(
   const findings: PreSendFinding[] = [];
 
   for (const rule of rules) {
-    // Explicitly `false`, not falsy: absent means enabled, so a rule that predates
-    // the field or was written by hand is live without saying so.
-    if (rule.enabled === false) {
-      continue;
+    const finding = evaluateRule(rule, context);
+    if (finding) {
+      findings.push(finding);
     }
-    if (rule.disposition !== "warn" && rule.disposition !== "block") {
-      continue;
-    }
-    const compare = COMPARATORS_BY_NAME[rule.operator];
-    if (!compare) {
-      continue;
-    }
-    if (typeof rule.threshold !== "number" || !Number.isFinite(rule.threshold)) {
-      continue;
-    }
-    const value = readMeasurement(rule.measurement, context);
-    if (value === undefined || value === null || !Number.isFinite(value)) {
-      continue;
-    }
-    if (!compare(value, rule.threshold)) {
-      continue;
-    }
-    findings.push({
-      ruleId: rule.id,
-      measurement: rule.measurement,
-      disposition: rule.disposition,
-      value,
-      threshold: rule.threshold,
-      message: rule.message ?? null,
-    });
   }
 
   const disposition = findings.reduce<PreSendDisposition>(
