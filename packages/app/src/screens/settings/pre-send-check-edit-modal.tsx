@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField } from "@/components/ui/select-field";
 import { Switch } from "@/components/ui/switch";
-import type {
-  PreSendActionDescriptor,
-  PreSendActionParameter,
+import {
+  isTextMeasurement,
+  type PreSendActionDescriptor,
+  type PreSendActionParameter,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { settingsStyles } from "@/styles/settings";
 import {
@@ -443,8 +444,15 @@ export function PreSendCheckEditModal({
 
   const header = useMemo<SheetHeader>(() => ({ title }), [title]);
   const resetKey = visible ? "open" : "closed";
-  const thresholdUnitKey = THRESHOLD_UNIT_KEYS[draft.measurement];
-  const thresholdLabel = t("settings.preSendChecks.thresholdLabel");
+  // One input holds either the number a numeric rule compares against or the
+  // text a trigger matches, so it has to say which it currently is. Calling a
+  // string "Threshold" reads as a mistake in the rule rather than in the label.
+  const isTextRule = isTextMeasurement(draft.measurement);
+  const thresholdUnitKey = isTextRule ? undefined : THRESHOLD_UNIT_KEYS[draft.measurement];
+  const thresholdLabel = t(
+    isTextRule ? "settings.preSendChecks.textLabel" : "settings.preSendChecks.thresholdLabel",
+  );
+  const thresholdHint = isTextRule ? t("settings.preSendChecks.textHint") : undefined;
   const messageLabel = t("settings.preSendChecks.messageLabel");
 
   return (
@@ -477,7 +485,7 @@ export function PreSendCheckEditModal({
 
         <Field
           label={thresholdLabel}
-          hint={thresholdUnitKey ? t(thresholdUnitKey) : undefined}
+          hint={thresholdUnitKey ? t(thresholdUnitKey) : thresholdHint}
           error={fieldErrors.threshold ? t(fieldErrors.threshold) : undefined}
           testID={`${prefix}-threshold`}
         >
@@ -486,7 +494,7 @@ export function PreSendCheckEditModal({
             value={draft.threshold}
             resetKey={resetKey}
             onChangeText={handleThresholdChange}
-            keyboardType="number-pad"
+            keyboardType={isTextRule ? "default" : "number-pad"}
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isPending}
