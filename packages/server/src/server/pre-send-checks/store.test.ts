@@ -107,6 +107,46 @@ describe("PreSendCheckStore", () => {
     await expect(store.delete("never-existed")).resolves.toBeUndefined();
   });
 
+  describe("ids and filenames", () => {
+    // Renaming the file is how a rule gets copied by hand, so the name has to be
+    // what counts. Trusting the id inside instead let two files claim one id,
+    // with list reporting one of them and get answering with the other.
+    test("takes the id from the filename when the file disagrees", async () => {
+      await writeRule("renamed-by-hand.json", RULE);
+
+      expect(await store.list()).toEqual([{ ...RULE, id: "renamed-by-hand" }]);
+      expect(await store.get("renamed-by-hand")).toEqual({ ...RULE, id: "renamed-by-hand" });
+    });
+
+    test("reads a rule file that carries no id at all", async () => {
+      const { id: _id, ...withoutId } = RULE;
+      await writeRule("no-id-inside.json", withoutId);
+
+      expect(await store.list()).toEqual([{ ...RULE, id: "no-id-inside" }]);
+    });
+
+    // The client mints ids and sends them over the wire, so this is the daemon's
+    // boundary: without it an upsert could write outside the rules directory.
+    test("refuses an id that would leave the rules directory", async () => {
+      await expect(store.write({ ...RULE, id: "../escaped" })).rejects.toThrow(/usable filename/);
+      await expect(store.get("../escaped")).rejects.toThrow(/usable filename/);
+      await expect(store.delete("../escaped")).rejects.toThrow(/usable filename/);
+    });
+
+    test("refuses an id that is empty or a bare dot", async () => {
+      await expect(store.write({ ...RULE, id: "" })).rejects.toThrow(/usable filename/);
+      await expect(store.write({ ...RULE, id: "." })).rejects.toThrow(/usable filename/);
+    });
+
+    // Listing it would hand out a rule that throws the moment anyone saves it.
+    test("skips a file whose name cannot be an id", async () => {
+      await writeRule("cold-prompt-cache.json", RULE);
+      await writeRule("..json", RULE);
+
+      expect(await store.list()).toEqual([RULE]);
+    });
+  });
+
   describe("update", () => {
     test("applies the updater and persists the result", async () => {
       await writeRule("cold-prompt-cache.json", RULE);

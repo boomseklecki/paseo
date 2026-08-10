@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { Logger } from "pino";
 import {
   PreSendCheckRuleSchema,
@@ -43,7 +43,17 @@ export class PreSendCheckStore {
     this.logger = logger.child({ module: "pre-send-checks", component: "store" });
   }
 
+  /**
+   * An id is a filename, so it has to be one path segment and nothing clever.
+   *
+   * The client mints these and sends them over the wire, which makes this the
+   * daemon's own boundary rather than a formality: `../../..` in an id would put
+   * a write outside the rules directory entirely.
+   */
   private filePath(id: string): string {
+    if (!isRuleIdAFilename(id)) {
+      throw new Error(`Pre-send check rule id is not a usable filename: ${JSON.stringify(id)}`);
+    }
     return join(this.dir, `${id}.json`);
   }
 
@@ -70,6 +80,15 @@ export class PreSendCheckStore {
 
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) {
+        continue;
+      }
+      // A name the id rules would reject cannot be written back, so listing it
+      // would hand out a rule that fails the moment anyone edits it.
+      if (!isRuleIdAFilename(basename(entry.name, ".json"))) {
+        this.logger.warn(
+          { fileName: entry.name },
+          "Skipping a pre-send check rule whose filename cannot be a rule id",
+        );
         continue;
       }
       const rule = await this.readRuleFile(join(this.dir, entry.name));
@@ -213,10 +232,36 @@ export class PreSendCheckStore {
     }
   }
 
+  /**
+   * Reads one file, and takes the rule's id from its name rather than from
+   * inside it.
+   *
+   * `get` looked a rule up by filename while `list` trusted the id in the body,
+   * so the two could disagree: copying a rule file to a new name left two files
+   * claiming one id, and `get` would answer with whichever one the name pointed
+   * at. That is a duplicate primary key waiting for a store that has one.
+   *
+   * The filename wins because it is the half a person edits — renaming a file is
+   * how you copy a rule, and having to remember to change a field inside it is
+   * the kind of bookkeeping a hand-editable directory should not ask for. It
+   * also means a rule file needs no `id` at all. Logged at debug rather than
+   * warn: the list is re-read every 30 seconds, so anything louder is a
+   * permanent stream about a file that works.
+   */
   private async readRuleFile(filePath: string): Promise<PreSendCheckRule | null> {
+    const id = basename(filePath, ".json");
     try {
       const content = await readFile(filePath, "utf-8");
-      return PreSendCheckRuleSchema.parse(JSON.parse(content));
+      const parsed: unknown = JSON.parse(content);
+      const body = parsed !== null && typeof parsed === "object" ? parsed : {};
+      const declared = (body as { id?: unknown }).id;
+      if (typeof declared === "string" && declared !== id) {
+        this.logger.debug(
+          { filePath, declaredId: declared, id },
+          "Pre-send check rule id does not match its filename; the filename wins",
+        );
+      }
+      return PreSendCheckRuleSchema.parse({ ...body, id });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return null;
@@ -225,6 +270,21 @@ export class PreSendCheckStore {
       return null;
     }
   }
+}
+
+/**
+ * Deliberately narrower than "contains no separator".
+ *
+ * An id is both a wire value and a filename, and the two disagree about what is
+ * legal — a name can hold a newline, a leading dash, or a codepoint the next
+ * filesystem normalises differently. Restricting to this set costs nothing,
+ * since what mints ids is a hex generator and what a person types is a slug,
+ * and it means an id that round-trips here round-trips everywhere.
+ */
+const RULE_ID_PATTERN = /^[A-Za-z0-9._-]{1,120}$/;
+
+function isRuleIdAFilename(id: string): boolean {
+  return id !== "." && id !== ".." && RULE_ID_PATTERN.test(id);
 }
 
 // Unordered rules go last rather than first, so a rule saved by a client that
