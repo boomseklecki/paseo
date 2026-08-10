@@ -77,6 +77,13 @@ export const zhCN: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds: "该 Agent 已空闲 {{duration}}，提示缓存已过期。此时发送会重新处理整段对话。",
+      contextUsedPercent: "上下文窗口已用 {{value}}，超过 {{threshold}} 的上限。",
+      sessionCostUsd: "本次会话已花费 {{value}}，超过 {{threshold}} 的上限。",
+      generic: "命中了一条发送前检查：{{value}}，上限为 {{threshold}}。",
+      overrideHint: "再次发送即可继续。",
+    },
     placeholders: {
       desktop: "给 Agent 发消息，标记 @files，或使用 /commands 和 /skills",
       mobile: "发消息，@files，/commands",

@@ -77,6 +77,14 @@ export const ko: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "이 에이전트가 {{duration}} 동안 유휴 상태여서 프롬프트 캐시가 만료되었습니다. 지금 보내면 대화 전체를 다시 처리합니다.",
+      contextUsedPercent: "컨텍스트 창 사용량이 {{value}}로 {{threshold}} 한도를 넘었습니다.",
+      sessionCostUsd: "이 세션의 비용이 {{value}}로 {{threshold}} 한도를 넘었습니다.",
+      generic: "전송 전 검사에 걸렸습니다: {{value}}, 한도 {{threshold}}.",
+      overrideHint: "그래도 보내려면 다시 전송하세요.",
+    },
     placeholders: {
       desktop: "에이전트에게 메시지를 보내거나 @files 태그, /commands, /skills를 사용하세요",
       mobile: "메시지, @files, /commands",

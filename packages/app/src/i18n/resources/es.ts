@@ -77,6 +77,16 @@ export const es: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "Este agente lleva {{duration}} inactivo, por lo que su caché de prompts ha caducado. Enviar ahora reprocesa toda la conversación.",
+      contextUsedPercent:
+        "La ventana de contexto está al {{value}}, por encima del límite de {{threshold}}.",
+      sessionCostUsd: "Esta sesión ha costado {{value}}, por encima del límite de {{threshold}}.",
+      generic:
+        "Una comprobación previa al envío coincidió: {{value}} frente a un límite de {{threshold}}.",
+      overrideHint: "Vuelva a enviar para continuar de todos modos.",
+    },
     placeholders: {
       desktop: "Envíe un mensaje al agente, etiquete@fileso use/commandsy/skills",
       mobile: "Mensaje,@files,/commands",

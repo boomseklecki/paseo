@@ -75,6 +75,14 @@ export const en = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "This agent has been idle for {{duration}}, so its prompt cache has expired. Sending now reprocesses the whole conversation.",
+      contextUsedPercent: "The context window is {{value}} full, past the {{threshold}} limit.",
+      sessionCostUsd: "This session has cost {{value}}, past the {{threshold}} limit.",
+      generic: "A pre-send check matched: {{value}} against a limit of {{threshold}}.",
+      overrideHint: "Send again to go ahead anyway.",
+    },
     placeholders: {
       desktop: "Message the agent, tag @files, or use /commands and /skills",
       mobile: "Message, @files, /commands",

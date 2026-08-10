@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n/i18next";
 
-export type AgentInputSubmitResult = "noop" | "queued" | "submitted" | "failed";
+export type AgentInputSubmitResult = "noop" | "queued" | "submitted" | "blocked" | "failed";
 
 export interface AgentInputSubmitActionInput<TAttachment> {
   message: string;
@@ -12,6 +12,15 @@ export interface AgentInputSubmitActionInput<TAttachment> {
   isAgentRunning: boolean;
   canSubmit: boolean;
   queueMessage: (input: { message: string; attachments: TAttachment[] }) => void;
+  /**
+   * Consulted once the send is otherwise going ahead. Returning `"block"` stops
+   * it before any state is touched, so the typed message and its attachments
+   * stay exactly where the user left them.
+   *
+   * Synchronous by contract: an `await` between this decision and the clear
+   * below would leave a window for another send to interleave.
+   */
+  runPreSendChecks?: (input: { message: string }) => "allow" | "block";
   submitMessage: (input: { message: string; attachments: TAttachment[] }) => Promise<void>;
   clearDraft: (lifecycle: "sent" | "abandoned") => void;
   setUserInput: (text: string) => void;
@@ -49,6 +58,14 @@ export async function submitAgentInput<TAttachment>(
       input.setAttachments([]);
     }
     return "queued";
+  }
+
+  // Deliberately after the queue branch: a running agent means the provider-side
+  // cache is warm by definition, so gating a queued message would be pure noise.
+  // Deliberately before the clear: returning here has to leave the composer
+  // untouched, and the only way to guarantee that is to have touched nothing yet.
+  if (input.runPreSendChecks?.({ message: trimmedMessage }) === "block") {
+    return "blocked";
   }
 
   // Clear immediately so the submitted timeline row and composer state stay in sync.

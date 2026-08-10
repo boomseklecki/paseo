@@ -5,6 +5,7 @@ import type {
   UserComposerAttachment,
   WorkspaceComposerAttachment,
 } from "@/attachments/types";
+import type { AgentInputSubmitResult } from "@/composer/submit";
 import { getWorkspaceAttachmentPillContent } from "@/attachments/attachment-pill-content";
 import { AttachmentLabel, AttachmentPill } from "@/components/attachment-pill";
 import {
@@ -36,7 +37,11 @@ interface OpenWorkspaceAttachmentInput {
 }
 
 interface CompleteSubmitInput {
-  result: "noop" | "queued" | "submitted" | "failed";
+  // Deliberately the whole union rather than the members handled below, so a new
+  // result added to `submitAgentInput` reaches here as an unhandled case rather
+  // than a type error at the call site. `"blocked"` is one: nothing was cleared
+  // and `beginSubmit` never ran, so there is nothing to undo.
+  result: AgentInputSubmitResult;
   outgoingAttachments: readonly ComposerAttachment[];
 }
 

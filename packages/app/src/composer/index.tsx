@@ -95,6 +95,14 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
+import { evaluatePreSendChecks, resolvePreSendChecks } from "@getpaseo/protocol/pre-send-checks";
+import {
+  buildPreSendMeasurementContext,
+  formatPreSendFindings,
+  isPreSendOverrideValid,
+  type PreSendOverride,
+} from "@/composer/pre-send-checks";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider } from "@/composer/keyboard-scope";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -1101,6 +1109,15 @@ export function Composer({
 
   const agentState = useSessionStore(useShallow(buildAgentStateSelector(serverId, agentId)));
 
+  // Held in a ref rather than read in the send callback's deps: the rules change
+  // only when the daemon config does, and rebuilding the send callback on every
+  // config revalidation would churn every consumer that depends on it.
+  const { config: daemonConfig } = useDaemonConfig(serverId);
+  const preSendChecksRef = useRef(daemonConfig?.preSendChecks);
+  preSendChecksRef.current = daemonConfig?.preSendChecks;
+
+  const preSendOverrideRef = useRef<PreSendOverride | null>(null);
+
   const queuedMessagesRaw = useSessionStore((state) =>
     state.sessions[serverId]?.queuedMessages?.get(agentId),
   );
@@ -1371,6 +1388,88 @@ export function Composer({
     ],
   );
 
+  /**
+   * Decides whether this send goes ahead, and says why when it does not.
+   *
+   * Reads the timeline imperatively rather than through a selector on purpose:
+   * the stream tail changes on every token, so subscribing to it here would
+   * rerender the composer throughout a turn to compute a number nothing shows.
+   *
+   * Fails open at every step. A missing agent, an unloaded config or a
+   * disconnected host all allow the send — a gate that blocks during a
+   * reconnect would be worse than one that occasionally misses.
+   */
+  const runPreSendChecks = useCallback(
+    ({ message }: { message: string }): "allow" | "block" => {
+      // A parent-managed submit has no agent behind it. Draft tabs and the
+      // new-workspace screen both pass an `agentId` that is a tab id, and one of
+      // them launches a terminal rather than an agent, so there is no cache to
+      // reason about.
+      if (onSubmitMessageRef.current) {
+        return "allow";
+      }
+      const targetAgentId = agentIdRef.current;
+      if (!targetAgentId) {
+        return "allow";
+      }
+
+      const rules = resolvePreSendChecks(preSendChecksRef.current);
+      if (rules.length === 0) {
+        return "allow";
+      }
+
+      const session = useSessionStore.getState().sessions[serverId];
+      const agent = session?.agents?.get(targetAgentId);
+      if (!session || !agent) {
+        return "allow";
+      }
+
+      const nowMs = Date.now();
+      const evaluation = evaluatePreSendChecks(
+        rules,
+        buildPreSendMeasurementContext({
+          head: session.agentStreamHead.get(targetAgentId) ?? [],
+          tail: session.agentStreamTail.get(targetAgentId) ?? [],
+          lastUserMessageAt: agent.lastUserMessageAt ?? null,
+          contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens ?? null,
+          contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens ?? null,
+          totalCostUsd: agent.lastUsage?.totalCostUsd ?? null,
+          nowMs,
+        }),
+      );
+
+      if (evaluation.disposition === "allow") {
+        return "allow";
+      }
+
+      if (evaluation.disposition === "warn") {
+        toast.show(formatPreSendFindings(evaluation.findings, t), {
+          variant: "warning",
+          durationMs: 5000,
+        });
+        return "allow";
+      }
+
+      // A block the user has already seen and answered by pressing send again.
+      // Consumed on use, so the message after it is evaluated afresh.
+      if (
+        isPreSendOverrideValid(preSendOverrideRef.current, {
+          agentId: targetAgentId,
+          message,
+          nowMs,
+        })
+      ) {
+        preSendOverrideRef.current = null;
+        return "allow";
+      }
+
+      preSendOverrideRef.current = { agentId: targetAgentId, message, atMs: nowMs };
+      toastErrorRef.current(formatPreSendFindings(evaluation.findings, t));
+      return "block";
+    },
+    [serverId, t, toast],
+  );
+
   const sendMessageWithContent = useCallback(
     async (
       outgoingMessage: string,
@@ -1391,6 +1490,7 @@ export function Composer({
         queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => {
           queueMessage(queuedText, queuedAttachments);
         },
+        runPreSendChecks,
         submitMessage: async ({ message: submitText, attachments: submitAttachments }) => {
           if (submitBehavior !== "preserve-and-lock") {
             beginSubmit(submitAttachments);
@@ -1422,6 +1522,7 @@ export function Composer({
       hasExternalContent,
       isAgentRunning,
       queueMessage,
+      runPreSendChecks,
       setSelectedAttachments,
       setUserInput,
       submitBehavior,

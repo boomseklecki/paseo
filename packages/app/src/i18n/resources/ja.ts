@@ -77,6 +77,15 @@ export const ja: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "このエージェントは{{duration}}アイドル状態のため、プロンプトキャッシュが失効しています。今送信すると会話全体が再処理されます。",
+      contextUsedPercent:
+        "コンテキストウィンドウの使用率が{{value}}で、上限の{{threshold}}を超えています。",
+      sessionCostUsd: "このセッションの費用は{{value}}で、上限の{{threshold}}を超えています。",
+      generic: "送信前チェックに一致しました: {{value}}（上限{{threshold}}）。",
+      overrideHint: "もう一度送信すると、そのまま続行します。",
+    },
     placeholders: {
       desktop: "エージェントにメッセージ、@ファイル、/コマンドや/スキルを入力",
       mobile: "メッセージ、@ファイル、/コマンド",

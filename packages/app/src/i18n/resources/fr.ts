@@ -79,6 +79,16 @@ export const fr: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "Cet agent est inactif depuis {{duration}}, son cache de prompt a donc expiré. Envoyer maintenant retraite toute la conversation.",
+      contextUsedPercent:
+        "La fenêtre de contexte est remplie à {{value}}, au-delà de la limite de {{threshold}}.",
+      sessionCostUsd: "Cette session a coûté {{value}}, au-delà de la limite de {{threshold}}.",
+      generic:
+        "Une vérification avant envoi correspond : {{value}} pour une limite de {{threshold}}.",
+      overrideHint: "Envoyez à nouveau pour continuer malgré tout.",
+    },
     placeholders: {
       desktop: "Envoyez un message à l'agent, marquez@filesou utilisez/commandset/skills",
       mobile: "Message,@files,/commands",

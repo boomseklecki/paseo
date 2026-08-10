@@ -77,6 +77,15 @@ export const ru: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "Агент простаивает уже {{duration}}, поэтому кэш промпта истёк. Отправка сейчас приведёт к повторной обработке всего диалога.",
+      contextUsedPercent:
+        "Контекстное окно заполнено на {{value}}, что выше предела в {{threshold}}.",
+      sessionCostUsd: "Эта сессия обошлась в {{value}}, что выше предела в {{threshold}}.",
+      generic: "Сработала проверка перед отправкой: {{value}} при пределе {{threshold}}.",
+      overrideHint: "Отправьте ещё раз, чтобы всё равно продолжить.",
+    },
     placeholders: {
       desktop: "Напишите агенту сообщение, отметьте @files или используйте /commands и /skills.",
       mobile: "Сообщение,@files,/commands",

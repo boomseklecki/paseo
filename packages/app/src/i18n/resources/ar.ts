@@ -77,6 +77,14 @@ export const ar: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "ظل هذا الوكيل خاملاً لمدة {{duration}}، لذا انتهت صلاحية ذاكرة التخزين المؤقت للمطالبة. الإرسال الآن يعيد معالجة المحادثة بأكملها.",
+      contextUsedPercent: "نافذة السياق ممتلئة بنسبة {{value}}، وهو ما يتجاوز الحد {{threshold}}.",
+      sessionCostUsd: "كلفت هذه الجلسة {{value}}، وهو ما يتجاوز الحد {{threshold}}.",
+      generic: "تطابق فحص ما قبل الإرسال: {{value}} مقابل حد {{threshold}}.",
+      overrideHint: "أرسل مرة أخرى للمتابعة على أي حال.",
+    },
     placeholders: {
       desktop: "أرسل رسالة إلى الوكيل أو ضع علامة على @files أو استخدم /commands و /skills",
       mobile: "الرسالة، @files ، /commands",

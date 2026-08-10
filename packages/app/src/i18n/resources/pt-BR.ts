@@ -77,6 +77,16 @@ export const ptBR: TranslationResources = {
     },
   },
   composer: {
+    preSendChecks: {
+      idleSeconds:
+        "Este agente está inativo há {{duration}}, então seu cache de prompt expirou. Enviar agora reprocessa a conversa inteira.",
+      contextUsedPercent:
+        "A janela de contexto está {{value}} cheia, acima do limite de {{threshold}}.",
+      sessionCostUsd: "Esta sessão custou {{value}}, acima do limite de {{threshold}}.",
+      generic:
+        "Uma verificação de pré-envio foi acionada: {{value}} contra um limite de {{threshold}}.",
+      overrideHint: "Envie novamente para prosseguir mesmo assim.",
+    },
     placeholders: {
       desktop: "Envie uma mensagem ao agente, marque @files ou use /commands e /skills",
       mobile: "Mensagem, @files, /commands",
