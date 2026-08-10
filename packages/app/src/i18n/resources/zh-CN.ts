@@ -1727,6 +1727,10 @@ export const zhCN: TranslationResources = {
       measurementRequired: "请选择要检查的内容",
       operatorRequired: "请选择比较方式",
       dispositionRequired: "请选择要执行的动作",
+      actionLabel: "动作",
+      actionPlaceholder: "选择一个动作",
+      actionRequired: "请选择要执行的操作",
+      textRequired: "请输入要匹配的文本",
       thresholdInvalid: "请输入数字",
       unrecognisedOption: "{{value}}（无法识别）",
       measurements: {

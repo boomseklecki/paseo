@@ -2,6 +2,8 @@ import {
   PRE_SEND_MEASUREMENTS,
   PRE_SEND_OPERATORS,
   PRE_SEND_RULE_DISPOSITIONS,
+  isTextMeasurement,
+  type PreSendActionDescriptor,
   type PreSendCheckRule,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { formatMeasurementValue, type PreSendTranslate } from "@/composer/pre-send-checks";
@@ -20,12 +22,23 @@ import { formatDuration } from "@/utils/time";
 export interface PreSendCheckDraft {
   measurement: string;
   operator: string;
+  /** The number for a numeric measurement, or the text a trigger matches. */
   threshold: string;
   disposition: string;
   message: string;
+  /** Which action a redirect performs. Empty for any other disposition. */
+  actionKind: string;
+  /**
+   * The action parameters, keyed by the descriptor's parameter id.
+   *
+   * Kept as strings for the same reason the threshold is: this is what an input
+   * holds. Parameters the current kind does not declare are kept rather than
+   * dropped, so switching kind and switching back does not lose what was typed.
+   */
+  actionParams: Record<string, string>;
 }
 
-export type PreSendCheckField = "measurement" | "operator" | "threshold" | "disposition";
+export type PreSendCheckField = "measurement" | "operator" | "threshold" | "disposition" | "action";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
@@ -35,15 +48,27 @@ export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
   threshold: "",
   disposition: "block",
   message: "",
+  actionKind: "",
+  actionParams: {},
 };
 
 export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
+  const { kind, ...params } = rule.action ?? {};
   return {
     measurement: rule.measurement,
     operator: rule.operator,
-    threshold: String(rule.threshold),
+    // A text rule compares against `text`; a numeric one against `threshold`.
+    // One input holds whichever applies, so the editor has one field rather
+    // than two that are never both meaningful.
+    threshold: isTextMeasurement(rule.measurement)
+      ? (rule.text ?? "")
+      : String(rule.threshold ?? ""),
     disposition: rule.disposition,
     message: rule.message ?? "",
+    actionKind: typeof kind === "string" ? kind : "",
+    actionParams: Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
+    ),
   };
 }
 
@@ -59,21 +84,56 @@ export function applyPreSendCheckDraft(input: {
   existing: PreSendCheckRule | null;
   draft: PreSendCheckDraft;
   id: string;
+  /** What the daemon says each action takes. Absent keeps every parameter. */
+  descriptors?: readonly PreSendActionDescriptor[];
 }): PreSendCheckRule {
   const message = input.draft.message.trim();
+  const isText = isTextMeasurement(input.draft.measurement);
   const next: PreSendCheckRule = {
     ...input.existing,
     id: input.id,
     measurement: input.draft.measurement,
     operator: input.draft.operator,
-    threshold: Number(input.draft.threshold.trim()),
     disposition: input.draft.disposition,
   };
+
+  // Only the one that applies is written, and the other is removed. A rule
+  // carrying both would compare against whichever the evaluator happened to
+  // read, which is a rule whose meaning depends on its measurement twice.
+  if (isText) {
+    next.text = input.draft.threshold.trim();
+    delete next.threshold;
+  } else {
+    next.threshold = Number(input.draft.threshold.trim());
+    delete next.text;
+  }
+
   if (message) {
     next.message = message;
   } else {
     delete next.message;
   }
+
+  if (input.draft.disposition === "redirect" && input.draft.actionKind) {
+    // Only the parameters the chosen kind declares are written. The draft keeps
+    // the rest so switching kind and back does not lose them, but a rule should
+    // not carry settings for an action it does not perform.
+    const declared = new Set(
+      (input.descriptors ?? [])
+        .find((descriptor) => descriptor.kind === input.draft.actionKind)
+        ?.parameters.map((parameter) => parameter.id) ?? Object.keys(input.draft.actionParams),
+    );
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(input.draft.actionParams)) {
+      if (declared.has(key) && value.trim()) {
+        params[key] = value;
+      }
+    }
+    next.action = { ...params, kind: input.draft.actionKind };
+  } else {
+    delete next.action;
+  }
+
   return next;
 }
 
@@ -88,9 +148,21 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
   if (!draft.disposition.trim()) {
     errors.disposition = "settings.preSendChecks.dispositionRequired";
   }
-  const threshold = Number(draft.threshold.trim());
-  if (!draft.threshold.trim() || !Number.isFinite(threshold)) {
-    errors.threshold = "settings.preSendChecks.thresholdInvalid";
+  // A text rule compares against a string, so any non-empty value is usable and
+  // only a numeric one has to parse.
+  if (isTextMeasurement(draft.measurement)) {
+    if (!draft.threshold.trim()) {
+      errors.threshold = "settings.preSendChecks.textRequired";
+    }
+  } else {
+    const threshold = Number(draft.threshold.trim());
+    if (!draft.threshold.trim() || !Number.isFinite(threshold)) {
+      errors.threshold = "settings.preSendChecks.thresholdInvalid";
+    }
+  }
+  // A redirect with no action would consume the message and take it nowhere.
+  if (draft.disposition === "redirect" && !draft.actionKind.trim()) {
+    errors.action = "settings.preSendChecks.actionRequired";
   }
   return errors;
 }

@@ -16,6 +16,7 @@ import {
   type PreSendCheckHostState,
 } from "@/hooks/use-aggregated-pre-send-checks";
 import { usePreSendCheckHostMutations } from "@/hooks/use-pre-send-check-host-mutations";
+import { usePreSendCheckActions } from "@/hooks/use-pre-send-check-actions";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
@@ -332,6 +333,9 @@ export function PreSendChecksPage() {
     [hosts],
   );
   const showHosts = hosts.length > 1;
+  // Descriptors come from one host: they describe the daemon build rather than
+  // the machine, and a rule assigned to several is written identically to each.
+  const actions = usePreSendCheckActions(usableServerIds[0] ?? null);
 
   const handleOpenCreate = useCallback(() => {
     setForm({ kind: "create" });
@@ -350,6 +354,7 @@ export function PreSendChecksPage() {
         existing: existing?.rule ?? null,
         draft,
         id: existing?.id ?? generateRuleId(),
+        descriptors: actions,
       });
       await saveRule({
         rule,
@@ -359,7 +364,7 @@ export function PreSendChecksPage() {
         targetServerIds: serverIds.length > 0 ? serverIds : usableServerIds,
       });
     },
-    [form, saveRule, usableServerIds],
+    [actions, form, saveRule, usableServerIds],
   );
 
   const handleRemove = useCallback(
@@ -527,6 +532,7 @@ export function PreSendChecksPage() {
         initialDraft={initialDraft}
         hosts={modalHosts}
         initialServerIds={initialServerIds}
+        actions={actions}
         onClose={handleCloseForm}
         onSave={handleSave}
         testID="pre-send-check-modal"

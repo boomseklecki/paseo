@@ -34,6 +34,28 @@ describe("toPreSendCheckDraft", () => {
       threshold: "3600",
       disposition: "block",
       message: "",
+      actionKind: "",
+      actionParams: {},
+    });
+  });
+
+  // The text a trigger matches lives in `text`, not `threshold`, but the editor
+  // has one input for whichever applies — two fields that are never both
+  // meaningful would be two ways to say the same thing.
+  it("reads a text rule's operand out of text rather than threshold", () => {
+    expect(
+      toPreSendCheckDraft({
+        id: "aside",
+        measurement: "message",
+        operator: "startsWith",
+        text: "/btw",
+        disposition: "redirect",
+        action: { kind: "aside", title: "Aside" },
+      }),
+    ).toMatchObject({
+      threshold: "/btw",
+      actionKind: "aside",
+      actionParams: { title: "Aside" },
     });
   });
 });
@@ -79,6 +101,53 @@ describe("applyPreSendCheckDraft", () => {
       id: odd.id,
     });
     expect(saved.operator).toBe("approaches");
+  });
+
+  // A text rule and a numeric one must never both be on the same record: a rule
+  // carrying both compares against whichever the evaluator happens to read.
+  it("writes text for a trigger and clears any threshold it had", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: RULE,
+      draft: draft({ measurement: "message", operator: "startsWith", threshold: "/btw" }),
+      id: RULE.id,
+    });
+    expect(saved.text).toBe("/btw");
+    expect(saved).not.toHaveProperty("threshold");
+  });
+
+  it("writes threshold for a numeric rule and clears any text it had", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: { ...RULE, text: "/btw" },
+      draft: draft({ threshold: "60" }),
+      id: RULE.id,
+    });
+    expect(saved.threshold).toBe(60);
+    expect(saved).not.toHaveProperty("text");
+  });
+
+  it("keeps only the parameters the chosen action declares", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: null,
+      draft: draft({
+        disposition: "redirect",
+        actionKind: "aside",
+        actionParams: { title: "Aside", leftover: "from another kind" },
+      }),
+      id: "r",
+      descriptors: [
+        { kind: "aside", label: "Aside", parameters: [{ type: "text", id: "title", label: "T" }] },
+      ],
+    });
+    expect(saved.action).toEqual({ kind: "aside", title: "Aside" });
+  });
+
+  it("drops the action when the disposition is not a redirect", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: { ...RULE, action: { kind: "aside" } },
+      draft: draft({ disposition: "warn" }),
+      id: RULE.id,
+    });
+    expect(saved).not.toHaveProperty("action");
   });
 
   it("builds a rule with no existing record", () => {

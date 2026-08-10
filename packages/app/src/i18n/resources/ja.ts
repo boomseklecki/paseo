@@ -1766,6 +1766,10 @@ export const ja: TranslationResources = {
       measurementRequired: "測定するものを選んでください",
       operatorRequired: "比較方法を選んでください",
       dispositionRequired: "どうするかを選んでください",
+      actionLabel: "アクション",
+      actionPlaceholder: "アクションを選択",
+      actionRequired: "何をするか選択してください",
+      textRequired: "照合するテキストを入力してください",
       thresholdInvalid: "数値を入力してください",
       unrecognisedOption: "{{value}}（未対応）",
       measurements: {

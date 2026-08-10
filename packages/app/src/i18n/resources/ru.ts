@@ -1785,6 +1785,10 @@ export const ru: TranslationResources = {
       measurementRequired: "Выберите, что измерять",
       operatorRequired: "Выберите сравнение",
       dispositionRequired: "Выберите, что должно произойти",
+      actionLabel: "Действие",
+      actionPlaceholder: "Выберите действие",
+      actionRequired: "Выберите, что должно произойти",
+      textRequired: "Введите текст для сравнения",
       thresholdInvalid: "Введите число",
       unrecognisedOption: "{{value}} (не распознано)",
       measurements: {

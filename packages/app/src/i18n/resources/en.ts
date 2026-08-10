@@ -1760,6 +1760,10 @@ export const en = {
       measurementRequired: "Pick something to measure",
       operatorRequired: "Pick a comparison",
       dispositionRequired: "Pick what should happen",
+      actionLabel: "Action",
+      actionPlaceholder: "Pick an action",
+      actionRequired: "Pick what should happen",
+      textRequired: "Enter the text to match",
       thresholdInvalid: "Enter a number",
       unrecognisedOption: "{{value}} (not recognised)",
       measurements: {

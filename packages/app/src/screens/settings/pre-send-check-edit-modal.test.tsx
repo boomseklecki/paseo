@@ -207,6 +207,8 @@ const DRAFT: PreSendCheckDraft = {
   threshold: "3600",
   disposition: "block",
   message: "",
+  actionKind: "",
+  actionParams: {},
 };
 
 beforeEach(() => {
@@ -272,6 +274,7 @@ function renderModal(options: RenderOptions = {}) {
         title="Edit rule"
         initialDraft={initialDraft}
         hosts={hosts}
+        actions={[]}
         initialServerIds={initialServerIds}
         onClose={onClose}
         onSave={onSave}

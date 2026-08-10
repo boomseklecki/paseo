@@ -1781,6 +1781,10 @@ export const ptBR: TranslationResources = {
       measurementRequired: "Escolha o que medir",
       operatorRequired: "Escolha uma comparação",
       dispositionRequired: "Escolha o que deve acontecer",
+      actionLabel: "Ação",
+      actionPlaceholder: "Escolha uma ação",
+      actionRequired: "Escolha o que deve acontecer",
+      textRequired: "Digite o texto a comparar",
       thresholdInvalid: "Digite um número",
       unrecognisedOption: "{{value}} (não reconhecido)",
       measurements: {

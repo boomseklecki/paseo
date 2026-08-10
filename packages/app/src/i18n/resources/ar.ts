@@ -1748,6 +1748,10 @@ export const ar: TranslationResources = {
       measurementRequired: "اختر ما تريد قياسه",
       operatorRequired: "اختر طريقة المقارنة",
       dispositionRequired: "اختر ما ينبغي أن يحدث",
+      actionLabel: "إجراء",
+      actionPlaceholder: "اختر إجراءً",
+      actionRequired: "اختر ما ينبغي حدوثه",
+      textRequired: "أدخل النص المراد مطابقته",
       thresholdInvalid: "أدخل رقمًا",
       unrecognisedOption: "{{value}} (غير معروف)",
       measurements: {

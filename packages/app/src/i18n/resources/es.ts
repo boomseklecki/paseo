@@ -1794,6 +1794,10 @@ export const es: TranslationResources = {
       measurementRequired: "Elija qué medir",
       operatorRequired: "Elija una comparación",
       dispositionRequired: "Elija qué debe ocurrir",
+      actionLabel: "Acción",
+      actionPlaceholder: "Elija una acción",
+      actionRequired: "Elija qué debe ocurrir",
+      textRequired: "Escriba el texto a comparar",
       thresholdInvalid: "Introduzca un número",
       unrecognisedOption: "{{value}} (no reconocido)",
       measurements: {

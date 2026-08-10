@@ -1800,6 +1800,10 @@ export const fr: TranslationResources = {
       measurementRequired: "Choisissez ce qu'il faut mesurer",
       operatorRequired: "Choisissez une comparaison",
       dispositionRequired: "Choisissez ce qui doit se passer",
+      actionLabel: "Action",
+      actionPlaceholder: "Choisissez une action",
+      actionRequired: "Choisissez ce qui doit se passer",
+      textRequired: "Saisissez le texte à comparer",
       thresholdInvalid: "Saisissez un nombre",
       unrecognisedOption: "{{value}} (non reconnu)",
       measurements: {

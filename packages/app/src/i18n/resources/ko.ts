@@ -1758,6 +1758,10 @@ export const ko: TranslationResources = {
       measurementRequired: "측정할 항목을 고르세요",
       operatorRequired: "비교 방식을 고르세요",
       dispositionRequired: "어떻게 할지 고르세요",
+      actionLabel: "동작",
+      actionPlaceholder: "동작을 선택하세요",
+      actionRequired: "무엇을 할지 선택하세요",
+      textRequired: "비교할 텍스트를 입력하세요",
       thresholdInvalid: "숫자를 입력하세요",
       unrecognisedOption: "{{value}}(알 수 없음)",
       measurements: {
