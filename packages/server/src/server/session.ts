@@ -61,8 +61,7 @@ import {
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
 import { AsideAction } from "./pre-send-checks/actions/aside.js";
-import { PRE_SEND_ACTION_DESCRIPTORS } from "./pre-send-checks/actions/descriptors.js";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import { PreSendChecksSession } from "./session/pre-send-checks/pre-send-checks-session.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@getpaseo/protocol/error-utils";
@@ -632,13 +631,6 @@ export class Session {
   private readonly workspaceProvisioning: WorkspaceProvisioningService;
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private readonly daemonConfigStore: DaemonConfigStore;
-  private readonly preSendChecksService: PreSendChecksService;
-  /**
-   * Built on first use rather than in the constructor, because most sessions
-   * never run an action and the manager it needs is assigned partway through
-   * construction.
-   */
-  private asideActionInstance: AsideAction | null = null;
   private readonly pushNotifications: PushNotifications;
   private unsubscribeAgentEvents: (() => void) | null = null;
   private unsubscribeProjectMutations: (() => void) | null = null;
@@ -680,6 +672,7 @@ export class Session {
   private readonly voiceSession: VoiceSession;
   private readonly checkoutSession: CheckoutSession;
   private readonly scheduleSession: ScheduleSession;
+  private readonly preSendChecksSession: PreSendChecksSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
@@ -844,6 +837,15 @@ export class Session {
       scheduleService,
       logger: this.sessionLogger,
     });
+    this.preSendChecksSession = new PreSendChecksSession({
+      host: { emit: (msg) => this.emit(msg) },
+      preSendChecksService,
+      // Passed as the port rather than the class, so the subsystem never sees
+      // AgentManager. Built here and not on demand: the manager is assigned
+      // well before this line, and an action is a logger and a reference.
+      actionRunner: new AsideAction({ manager: agentManager, logger: this.sessionLogger }),
+      logger: this.sessionLogger,
+    });
     this.providerCatalogSession = new ProviderCatalogSession({
       host: {
         emit: (msg) => this.emit(msg),
@@ -913,7 +915,6 @@ export class Session {
         })
       : null;
     this.daemonConfigStore = daemonConfigStore;
-    this.preSendChecksService = preSendChecksService;
     this.terminalManager = terminalManager;
     this.terminalController = new TerminalSessionController({
       terminalManager,
@@ -2069,20 +2070,6 @@ export class Session {
   }
 
   /**
-   * Rules come off disk on every call rather than out of a cache, which is the
-   * whole reason they no longer live in the daemon config. `error` is reported
-   * rather than thrown: a client that cannot read the rules must be able to tell
-   * that apart from there being none, because only one of those two states means
-   * "send freely".
-   */
-  /**
-   * Carries out a rule's action instead of sending the message.
-   *
-   * Every failure answers `declined` rather than an error, because the caller
-   * reads that as "I did not take your message, send it yourself". An error
-   * here would leave the person having typed something that went nowhere.
-   */
-  /**
    * Its own dispatch because the five verbs together push the agent-config
    * switch past the complexity ceiling, and grouping the ones that share a
    * subject is the honest way under it rather than raising the limit.
@@ -2092,145 +2079,17 @@ export class Session {
   ): Promise<void> | undefined {
     switch (msg.type) {
       case "pre_send_checks/list":
-        return this.handlePreSendChecksListRequest(msg);
+        return this.preSendChecksSession.handlePreSendChecksListRequest(msg);
       case "pre_send_checks/upsert":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.upsert(msg.check),
-        );
+        return this.preSendChecksSession.handlePreSendChecksUpsertRequest(msg);
       case "pre_send_checks/delete":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.delete(msg.ruleId),
-        );
+        return this.preSendChecksSession.handlePreSendChecksDeleteRequest(msg);
       case "pre_send_checks/reorder":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.reorder(msg.ruleIds),
-        );
+        return this.preSendChecksSession.handlePreSendChecksReorderRequest(msg);
       case "pre_send_checks/run_action":
-        return this.handlePreSendChecksRunActionRequest(msg);
+        return this.preSendChecksSession.handlePreSendChecksRunActionRequest(msg);
       default:
         return undefined;
-    }
-  }
-
-  private get asideAction(): AsideAction {
-    this.asideActionInstance ??= new AsideAction({
-      manager: this.agentManager,
-      logger: this.sessionLogger,
-    });
-    return this.asideActionInstance;
-  }
-
-  private async handlePreSendChecksRunActionRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/run_action" }>,
-  ): Promise<void> {
-    const respond = (payload: {
-      status: "started" | "needs_confirmation" | "declined" | "failed";
-      subagentId?: string | null;
-      reason?: string | null;
-      estimatedTokens?: number | null;
-    }) => {
-      this.emit({
-        type: "pre_send_checks/run_action/response",
-        payload: {
-          requestId: msg.requestId,
-          status: payload.status,
-          subagentId: payload.subagentId ?? null,
-          reason: payload.reason ?? null,
-          estimatedTokens: payload.estimatedTokens ?? null,
-        },
-      });
-    };
-
-    if (msg.action.kind !== "aside") {
-      respond({ status: "declined", reason: `Unknown action '${msg.action.kind}'` });
-      return;
-    }
-
-    try {
-      const outcome = await this.asideAction.run({
-        agentId: msg.agentId,
-        message: msg.message,
-        action: msg.action,
-        confirmed: msg.confirmed === true,
-      });
-      respond({
-        status: outcome.status,
-        subagentId: outcome.status === "started" ? outcome.subagentId : null,
-        reason: "reason" in outcome ? outcome.reason : null,
-        estimatedTokens:
-          outcome.status === "needs_confirmation" ? (outcome.estimatedTokens ?? null) : null,
-      });
-    } catch (error) {
-      this.sessionLogger.warn({ err: error }, "Pre-send action failed");
-      respond({
-        status: "failed",
-        reason: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  private async handlePreSendChecksListRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/list" }>,
-  ): Promise<void> {
-    try {
-      this.emit({
-        type: "pre_send_checks/list/response",
-        payload: {
-          requestId: msg.requestId,
-          checks: await this.preSendChecksService.list(),
-          actions: [...PRE_SEND_ACTION_DESCRIPTORS],
-          error: null,
-        },
-      });
-    } catch (error) {
-      this.sessionLogger.warn({ err: error }, "Failed to list pre-send checks");
-      this.emit({
-        type: "pre_send_checks/list/response",
-        payload: {
-          requestId: msg.requestId,
-          checks: [],
-          error: error instanceof Error ? error.message : String(error),
-        },
-      });
-    }
-  }
-
-  /**
-   * Shared by upsert and delete, because the two differ only in which store call
-   * they make. Both answer with the whole resulting list so the caller replaces
-   * its cache rather than merging into it, and both report a failure as `error`
-   * with the rules they could still read — a write that failed says nothing about
-   * whether the existing rules are readable, and a client that blanked its list
-   * on a failed save would stop gating sends because of it.
-   */
-  private async handlePreSendChecksWriteRequest(
-    msg: Extract<
-      SessionInboundMessage,
-      | { type: "pre_send_checks/upsert" }
-      | { type: "pre_send_checks/delete" }
-      | { type: "pre_send_checks/reorder" }
-    >,
-    write: () => Promise<PreSendCheckRule[]>,
-  ): Promise<void> {
-    const responseType = `${msg.type}/response` as
-      | "pre_send_checks/upsert/response"
-      | "pre_send_checks/delete/response"
-      | "pre_send_checks/reorder/response";
-    try {
-      this.emit({
-        type: responseType,
-        payload: { requestId: msg.requestId, checks: await write(), error: null },
-      });
-    } catch (error) {
-      this.sessionLogger.warn({ err: error, type: msg.type }, "Failed to write pre-send check");
-      this.emit({
-        type: responseType,
-        payload: {
-          requestId: msg.requestId,
-          checks: await this.preSendChecksService.list().catch(() => []),
-          error: error instanceof Error ? error.message : String(error),
-        },
-      });
     }
   }
 
