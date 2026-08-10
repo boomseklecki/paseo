@@ -148,6 +148,7 @@ import { FileBackedChatService } from "./chat/chat-service.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { LoopService } from "./loop-service.js";
 import { ScheduleService } from "./schedule/service.js";
+import { PreSendChecksService } from "./pre-send-checks/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { DaemonConfigBrowserToolsPolicy } from "./browser-tools/policy.js";
@@ -1223,6 +1224,11 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
+  const preSendChecksService = new PreSendChecksService({
+    paseoHome: config.paseoHome,
+    logger,
+  });
+  await preSendChecksService.start();
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {
       await scheduleService.completeForAgent(agentId);
@@ -1541,6 +1547,7 @@ export async function createPaseoDaemon(
               chatService,
               loopService,
               scheduleService,
+              preSendChecksService,
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -1637,6 +1644,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    preSendChecksService.stop();
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

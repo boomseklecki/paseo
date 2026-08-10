@@ -8,6 +8,7 @@ import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { FileBackedChatService } from "./chat/chat-service.js";
 import type { LoopService } from "./loop-service.js";
 import type { ScheduleService } from "./schedule/service.js";
+import type { PreSendChecksService } from "./pre-send-checks/service.js";
 import type { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { asInternals, createStub } from "./test-utils/class-mocks.js";
 import { createProviderSnapshotManagerStub } from "./test-utils/session-stubs.js";
@@ -128,6 +129,7 @@ function createServer(agentManagerOverrides?: Record<string, unknown>) {
     createStub<FileBackedChatService>({}),
     createStub<LoopService>({}),
     createStub<ScheduleService>({}),
+    createStub<PreSendChecksService>({ onChange: () => () => {}, list: async () => [] }),
     createStub<CheckoutDiffManager>({
       subscribe: vi.fn(),
       scheduleRefreshForCwd: vi.fn(),

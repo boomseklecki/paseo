@@ -372,6 +372,22 @@ function stripRemovedConfigFields(parsed: unknown): unknown {
   }
 
   const root = { ...(parsed as Record<string, unknown>) };
+
+  const daemon = root.daemon;
+  if (daemon && typeof daemon === "object" && !Array.isArray(daemon)) {
+    const daemonRecord = { ...(daemon as Record<string, unknown>) };
+    // COMPAT(preSendChecks): added 2026-08-10, remove after 2027-02-10.
+    // Rules briefly lived here and now live one per file under
+    // `<PASEO_HOME>/pre-send-checks/`, because this block is strict() and a config
+    // the daemon holds in memory cannot be hand-edited while it runs. Discarded
+    // rather than migrated: the key never reached a release, so anything carrying
+    // it is a working tree that can re-author two lines of JSON, and a migration
+    // nobody needs is a code path nobody tests. Without this line an older config
+    // stops the daemon starting rather than losing one setting.
+    delete daemonRecord.preSendChecks;
+    root.daemon = daemonRecord;
+  }
+
   const providers = root.providers;
   if (!providers || typeof providers !== "object" || Array.isArray(providers)) {
     return root;

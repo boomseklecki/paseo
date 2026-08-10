@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { PreSendCheckRule } from "./messages.js";
-import {
-  DEFAULT_PRE_SEND_CHECKS,
-  evaluatePreSendChecks,
-  resolvePreSendChecks,
-  type PreSendMeasurementContext,
-} from "./pre-send-checks.js";
+import { evaluatePreSendChecks } from "./evaluate.js";
+import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
@@ -27,21 +22,6 @@ function rule(overrides: Partial<PreSendCheckRule> = {}): PreSendCheckRule {
     ...overrides,
   };
 }
-
-describe("resolvePreSendChecks", () => {
-  it("returns the defaults when no rules are configured", () => {
-    expect(resolvePreSendChecks(undefined)).toEqual(DEFAULT_PRE_SEND_CHECKS);
-  });
-
-  it("treats an empty array as explicitly no rules", () => {
-    expect(resolvePreSendChecks([])).toEqual([]);
-  });
-
-  it("returns configured rules as given", () => {
-    const configured = [rule({ id: "mine" })];
-    expect(resolvePreSendChecks(configured)).toEqual(configured);
-  });
-});
 
 describe("evaluatePreSendChecks operators", () => {
   const cases: Array<{
@@ -203,25 +183,6 @@ describe("evaluatePreSendChecks fails open", () => {
   });
 });
 
-describe("the seeded cold-prompt-cache rule", () => {
-  it("allows a send one second short of an hour idle", () => {
-    const evaluation = evaluatePreSendChecks(
-      DEFAULT_PRE_SEND_CHECKS,
-      context({ idleSeconds: 3599 }),
-    );
-    expect(evaluation.disposition).toBe("allow");
-  });
-
-  it("blocks a send at exactly an hour idle", () => {
-    const evaluation = evaluatePreSendChecks(
-      DEFAULT_PRE_SEND_CHECKS,
-      context({ idleSeconds: 3600 }),
-    );
-    expect(evaluation.disposition).toBe("block");
-    expect(evaluation.findings[0]?.ruleId).toBe("cold-prompt-cache");
-  });
-
-  it("does not fire on an agent whose idle time is unknown", () => {
-    expect(evaluatePreSendChecks(DEFAULT_PRE_SEND_CHECKS, context()).disposition).toBe("allow");
-  });
-});
+// The three cases that pinned the shipped cold-prompt-cache rule moved to the
+// server's seeder test, where they now assert against the file the daemon actually
+// writes rather than a constant this package no longer owns.

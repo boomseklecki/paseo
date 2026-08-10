@@ -20,6 +20,7 @@ import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { DownloadTokenStore } from "./file-download/token-store.js";
 import type { LoopService } from "./loop-service.js";
 import type { ScheduleService } from "./schedule/service.js";
+import type { PreSendChecksService } from "./pre-send-checks/service.js";
 import { createStub } from "./test-utils/class-mocks.js";
 import { DaemonClient } from "./test-utils/daemon-client.js";
 import { createProviderSnapshotManagerStub } from "./test-utils/session-stubs.js";
@@ -310,6 +311,7 @@ function createVoiceAssistantWebSocketServer(params: {
     createStub<FileBackedChatService>({}),
     createStub<LoopService>({}),
     createStub<ScheduleService>({}),
+    createStub<PreSendChecksService>({ onChange: () => () => {}, list: async () => [] }),
     createStub<CheckoutDiffManager>({
       subscribe: () => {},
       scheduleRefreshForCwd: () => {},

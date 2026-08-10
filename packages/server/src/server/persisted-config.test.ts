@@ -46,6 +46,34 @@ describe("PersistedConfigSchema daemon append system prompt config", () => {
   });
 });
 
+// Rules moved out of the daemon config to a per-record store. The daemon block is
+// `.strict()` and `loadPersistedConfig` throws, so without the strip a config left
+// over from the branch where they lived here would stop the daemon starting — a
+// worse outcome than any setting being lost.
+describe("loadPersistedConfig drops pre-send checks left in the daemon config", () => {
+  test("still starts on a config that carries the removed key", () => {
+    const home = createTempHome();
+    try {
+      writeFileSync(
+        path.join(home, "config.json"),
+        JSON.stringify({
+          daemon: {
+            appendSystemPrompt: "kept",
+            preSendChecks: [{ id: "cold-prompt-cache", threshold: 3600 }],
+          },
+        }),
+      );
+
+      const loaded = loadPersistedConfig(home);
+
+      expect(loaded.daemon).not.toHaveProperty("preSendChecks");
+      expect(loaded.daemon?.appendSystemPrompt).toBe("kept");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
 // The daemon block is `.strict()`, so an unrecognised key there is fatal at boot.
 // Inside a profile it is the opposite: the element schema passes unknown keys
 // through on purpose, so a config written by a newer daemon survives an older one

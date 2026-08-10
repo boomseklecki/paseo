@@ -42,6 +42,10 @@ import {
   ScheduleUpdateResponseSchema,
 } from "./schedule/rpc-schemas.js";
 import {
+  PreSendChecksListRequestSchema,
+  PreSendChecksListResponseSchema,
+} from "./pre-send-checks/rpc-schemas.js";
+import {
   LoopRunRequestSchema,
   LoopListRequestSchema,
   LoopInspectRequestSchema,
@@ -133,26 +137,6 @@ export const TerminalProfileSchema = z
   .passthrough();
 
 export type TerminalProfile = z.infer<typeof TerminalProfileSchema>;
-
-// `measurement`, `operator` and `disposition` are plain strings rather than enums on
-// purpose. Narrowing them here would make an older client drop a whole rule it merely
-// failed to recognise, and once a settings UI round-trips the array that drop becomes
-// permanent. The evaluator in ./pre-send-checks.ts narrows instead, skipping rules it
-// cannot read. It also means a hand-typed operator costs one rule rather than making the
-// whole daemon config invalid, which matters while hand-editing is the only way to author
-// these.
-export const PreSendCheckRuleSchema = z
-  .object({
-    id: z.string(),
-    measurement: z.string(),
-    operator: z.string(),
-    threshold: z.number(),
-    disposition: z.string(),
-    message: z.string().optional(),
-  })
-  .passthrough();
-
-export type PreSendCheckRule = z.infer<typeof PreSendCheckRuleSchema>;
 
 const MutableBrowserToolsConfigSchema = z
   .object({
@@ -2734,6 +2718,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ChatPostRequestSchema,
   ChatReadRequestSchema,
   ChatWaitRequestSchema,
+  PreSendChecksListRequestSchema,
   ScheduleCreateRequestSchema,
   ScheduleListRequestSchema,
   ScheduleInspectRequestSchema,
@@ -5587,6 +5572,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ChatPostResponseSchema,
   ChatReadResponseSchema,
   ChatWaitResponseSchema,
+  PreSendChecksListResponseSchema,
   ScheduleCreateResponseSchema,
   ScheduleListResponseSchema,
   ScheduleInspectResponseSchema,
@@ -5759,6 +5745,7 @@ export type ChatPostResponse = z.infer<typeof ChatPostResponseSchema>;
 export type ChatReadResponse = z.infer<typeof ChatReadResponseSchema>;
 export type ChatWaitResponse = z.infer<typeof ChatWaitResponseSchema>;
 export type ScheduleCreateResponse = z.infer<typeof ScheduleCreateResponseSchema>;
+export type PreSendChecksListResponse = z.infer<typeof PreSendChecksListResponseSchema>;
 export type ScheduleListResponse = z.infer<typeof ScheduleListResponseSchema>;
 export type ScheduleInspectResponse = z.infer<typeof ScheduleInspectResponseSchema>;
 export type ScheduleLogsResponse = z.infer<typeof ScheduleLogsResponseSchema>;
@@ -5827,6 +5814,7 @@ export type ChatPostRequest = z.infer<typeof ChatPostRequestSchema>;
 export type ChatReadRequest = z.infer<typeof ChatReadRequestSchema>;
 export type ChatWaitRequest = z.infer<typeof ChatWaitRequestSchema>;
 export type ScheduleCreateRequest = z.infer<typeof ScheduleCreateRequestSchema>;
+export type PreSendChecksListRequest = z.infer<typeof PreSendChecksListRequestSchema>;
 export type ScheduleListRequest = z.infer<typeof ScheduleListRequestSchema>;
 export type ScheduleInspectRequest = z.infer<typeof ScheduleInspectRequestSchema>;
 export type ScheduleLogsRequest = z.infer<typeof ScheduleLogsRequestSchema>;

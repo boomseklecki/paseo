@@ -7,6 +7,8 @@ import type {
 import { agentCommandsQueryRoot } from "@/hooks/agent-commands-query";
 import { orderCheckoutDiffFiles } from "@/git/diff-order";
 import { daemonConfigQueryKey } from "@/data/daemon-config";
+import { preSendChecksQueryKey } from "@/data/pre-send-checks";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
 import { providerSnapshotCache, type ProviderSnapshotCache } from "@/data/provider-snapshot-cache";
 import {
@@ -109,6 +111,16 @@ const RECONNECT_REPAIR_POLICIES: ReconnectRepairPolicy[] = [
     domain: "daemonConfig",
     invalidate: ({ queryClient, serverId }) => {
       void queryClient.invalidateQueries({ queryKey: daemonConfigQueryKey(serverId) });
+    },
+  },
+  {
+    // Not optional. Pre-send checks live in a replica query, which never refetches
+    // on mount, focus or reconnect, so this is the only thing that repairs a push
+    // missed while the app was asleep. Without it a rule edited during that window
+    // stays invisible for the life of the process.
+    domain: "preSendChecks",
+    invalidate: ({ queryClient, serverId }) => {
+      void queryClient.invalidateQueries({ queryKey: preSendChecksQueryKey(serverId) });
     },
   },
   {
@@ -289,8 +301,13 @@ export function mountServerDataPushRouter(input: PushRouterInput): () => void {
       message,
     });
   });
-  const unsubscribeDaemonConfig = input.client.on("status", (message) => {
-    applyDaemonConfigStatus({ queryClient: input.queryClient, serverId: input.serverId, message });
+  // One listener for every status frame, dispatching by `status`. A second
+  // `client.on("status", ...)` would work, but each appliers' early return already
+  // does the filtering, and one registration keeps the teardown honest.
+  const unsubscribeStatus = input.client.on("status", (message) => {
+    const route = { queryClient: input.queryClient, serverId: input.serverId, message };
+    applyDaemonConfigStatus(route);
+    applyPreSendChecksStatus(route);
   });
   const unsubscribeCheckoutDiffUpdate = input.client.on("checkout_diff_update", (message) => {
     applyCheckoutDiffUpdate({
@@ -337,7 +354,7 @@ export function mountServerDataPushRouter(input: PushRouterInput): () => void {
     }
     unsubscribeQueryCache();
     unsubscribeProviders();
-    unsubscribeDaemonConfig();
+    unsubscribeStatus();
     unsubscribeCheckoutDiffUpdate();
     unsubscribeCheckoutDiffResponse();
     unsubscribeTerminalsChanged();
@@ -429,6 +446,35 @@ function applyDaemonConfigStatus(input: {
   void input.queryClient.invalidateQueries({
     queryKey: daemonPairingOfferQueryKey(input.serverId),
   });
+}
+
+/**
+ * Only ever writes a validated array.
+ *
+ * A malformed push falls through to invalidation rather than `setQueryData`,
+ * because writing `undefined` here would blank the cache — and an empty cache
+ * reads as "rules not loaded", which the composer answers by letting every send
+ * through. A bad frame must not be able to turn the gate off.
+ */
+function applyPreSendChecksStatus(input: {
+  queryClient: QueryClient;
+  serverId: string;
+  message: StatusMessage;
+}): void {
+  const payload = input.message.payload;
+  if (payload.status !== "pre_send_checks_changed") {
+    return;
+  }
+  if (!isPreSendChecksChangedPayload(payload)) {
+    void input.queryClient.invalidateQueries({
+      queryKey: preSendChecksQueryKey(input.serverId),
+    });
+    return;
+  }
+  input.queryClient.setQueryData<readonly PreSendCheckRule[]>(
+    preSendChecksQueryKey(input.serverId),
+    payload.checks,
+  );
 }
 
 function applyCheckoutDiffUpdate(input: {
@@ -783,4 +829,10 @@ function isDaemonConfigChangedPayload(
   payload: StatusMessage["payload"],
 ): payload is { status: "daemon_config_changed"; config: MutableDaemonConfig } {
   return payload.status === "daemon_config_changed" && isRecord(payload.config);
+}
+
+function isPreSendChecksChangedPayload(
+  payload: StatusMessage["payload"],
+): payload is { status: "pre_send_checks_changed"; checks: PreSendCheckRule[] } {
+  return payload.status === "pre_send_checks_changed" && Array.isArray(payload.checks);
 }

@@ -14,6 +14,8 @@ import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { FileBackedChatService } from "./chat/chat-service.js";
 import type { LoopService } from "./loop-service.js";
 import type { ScheduleService } from "./schedule/service.js";
+import type { PreSendChecksService } from "./pre-send-checks/service.js";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
@@ -473,6 +475,7 @@ interface RequiredWebSocketServices {
   chatService: FileBackedChatService;
   loopService: LoopService;
   scheduleService: ScheduleService;
+  preSendChecksService: PreSendChecksService;
   checkoutDiffManager: CheckoutDiffManager;
 }
 
@@ -480,9 +483,11 @@ function requireWebSocketServices(params: {
   chatService?: FileBackedChatService;
   loopService?: LoopService;
   scheduleService?: ScheduleService;
+  preSendChecksService?: PreSendChecksService;
   checkoutDiffManager?: CheckoutDiffManager;
 }): RequiredWebSocketServices {
-  const { chatService, loopService, scheduleService, checkoutDiffManager } = params;
+  const { chatService, loopService, scheduleService, preSendChecksService, checkoutDiffManager } =
+    params;
   if (!chatService) {
     throw new Error("VoiceAssistantWebSocketServer requires a chat service.");
   }
@@ -492,10 +497,19 @@ function requireWebSocketServices(params: {
   if (!scheduleService) {
     throw new Error("VoiceAssistantWebSocketServer requires a schedule service.");
   }
+  if (!preSendChecksService) {
+    throw new Error("VoiceAssistantWebSocketServer requires a pre-send checks service.");
+  }
   if (!checkoutDiffManager) {
     throw new Error("VoiceAssistantWebSocketServer requires a checkout diff manager.");
   }
-  return { chatService, loopService, scheduleService, checkoutDiffManager };
+  return {
+    chatService,
+    loopService,
+    scheduleService,
+    preSendChecksService,
+    checkoutDiffManager,
+  };
 }
 
 /**
@@ -518,6 +532,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly chatService: FileBackedChatService;
   private readonly loopService: LoopService;
   private readonly scheduleService: ScheduleService;
+  private readonly preSendChecksService: PreSendChecksService;
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
   private readonly workspaceGitService: WorkspaceGitService;
@@ -558,6 +573,7 @@ export class VoiceAssistantWebSocketServer {
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
   private unsubscribeSpeechReadiness: (() => void) | null = null;
   private unsubscribeDaemonConfigChange: (() => void) | null = null;
+  private unsubscribePreSendChecksChange: (() => void) | null = null;
   private readonly providerUsageService: ProviderUsageService;
   private unsubscribeTerminalActivity: (() => void) | null = null;
   private readonly browserToolsBroker: BrowserToolsBroker | null;
@@ -592,6 +608,7 @@ export class VoiceAssistantWebSocketServer {
     chatService?: FileBackedChatService,
     loopService?: LoopService,
     scheduleService?: ScheduleService,
+    preSendChecksService?: PreSendChecksService,
     checkoutDiffManager?: CheckoutDiffManager,
     serviceProxy?: ServiceProxySubsystem | null,
     scriptRuntimeStore?: WorkspaceScriptRuntimeStore | null,
@@ -633,11 +650,13 @@ export class VoiceAssistantWebSocketServer {
       chatService,
       loopService,
       scheduleService,
+      preSendChecksService,
       checkoutDiffManager,
     });
     this.chatService = requiredServices.chatService;
     this.loopService = requiredServices.loopService;
     this.scheduleService = requiredServices.scheduleService;
+    this.preSendChecksService = requiredServices.preSendChecksService;
     this.checkoutDiffManager = requiredServices.checkoutDiffManager;
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
@@ -678,6 +697,12 @@ export class VoiceAssistantWebSocketServer {
       );
       this.agentManager.updateProviderRegistry(nextAgentManagerState);
       this.broadcastDaemonConfigChanged(config);
+    });
+    // Fires when the rules directory changed on disk, which is how a hand-edit
+    // reaches a running app. Nothing else pushes this: the store has no cache to
+    // invalidate, so the service's periodic re-read is the only thing that notices.
+    this.unsubscribePreSendChecksChange = this.preSendChecksService.onChange((checks) => {
+      this.broadcastPreSendChecksChanged(checks);
     });
 
     const pushLogger = this.logger.child({ module: "push" });
@@ -967,6 +992,8 @@ export class VoiceAssistantWebSocketServer {
     this.unsubscribeSpeechReadiness = null;
     this.unsubscribeDaemonConfigChange?.();
     this.unsubscribeDaemonConfigChange = null;
+    this.unsubscribePreSendChecksChange?.();
+    this.unsubscribePreSendChecksChange = null;
     this.unsubscribeTerminalActivity?.();
     this.unsubscribeTerminalActivity = null;
     if (this.runtimeMetricsInterval) {
@@ -1340,6 +1367,7 @@ export class VoiceAssistantWebSocketServer {
       chatService: this.chatService,
       loopService: this.loopService,
       scheduleService: this.scheduleService,
+      preSendChecksService: this.preSendChecksService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,
       workspaceGitService: this.workspaceGitService,
@@ -1541,6 +1569,9 @@ export class VoiceAssistantWebSocketServer {
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
         // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2028-02-09.
+        // Means "serves pre_send_checks/list". A client that does not see this must
+        // not send the verb, and must let the send through rather than gate on rules
+        // it cannot fetch.
         preSendChecks: true,
         // COMPAT(terminalRestoreModes): added in v0.1.81, remove gate after 2026-11-23.
         "terminal-restore-modes": true,
@@ -1646,6 +1677,19 @@ export class VoiceAssistantWebSocketServer {
 
   private broadcastDaemonConfigChanged(config: MutableDaemonConfig): void {
     this.broadcast(this.createDaemonConfigChangedMessage(config));
+  }
+
+  // Rides StatusMessageSchema's passthrough, like daemon_config_changed, so a new
+  // status needs no protocol change. The full list travels rather than a hint to
+  // refetch: clients hold these in a cache with no refetch trigger of its own, and
+  // a client that only learned "something changed" would have nothing to do about it.
+  private broadcastPreSendChecksChanged(checks: readonly PreSendCheckRule[]): void {
+    this.broadcast(
+      wrapSessionMessage({
+        type: "status",
+        payload: { status: "pre_send_checks_changed", checks },
+      }),
+    );
   }
 
   private bindSocketHandlers(ws: WebSocketLike): void {

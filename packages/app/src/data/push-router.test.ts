@@ -5,6 +5,7 @@ import { checkoutDiffQueryKey } from "@/git/query-keys";
 import { buildTerminalsQueryKey } from "@/screens/workspace/terminals/state";
 import { daemonConfigQueryKey } from "@/data/daemon-config";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
+import { preSendChecksQueryKey } from "@/data/pre-send-checks";
 import { providersSnapshotQueryKey } from "@/data/providers-snapshot";
 import {
   checkoutDiffPushRoute,
@@ -141,6 +142,63 @@ function providerUpdate(generatedAt: string): ProvidersSnapshotUpdateMessage {
     },
   };
 }
+
+describe("server data push router pre-send checks", () => {
+  const RULES = [
+    {
+      id: "cold-prompt-cache",
+      measurement: "agent.idleSeconds",
+      operator: "gte",
+      threshold: 3600,
+      disposition: "block",
+    },
+  ];
+
+  it("writes the pushed rules into the cache", () => {
+    const queryClient = new QueryClient();
+    const fake = createFakeClient();
+    const serverId = "server-1";
+    mountServerDataPushRouter({ client: fake.client, queryClient, serverId });
+
+    fake.emit({
+      type: "status",
+      payload: { status: "pre_send_checks_changed", checks: RULES },
+    });
+
+    expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);
+  });
+
+  // Writing `undefined` here would blank the cache, and an empty cache reads as
+  // "rules not loaded", which the composer answers by letting every send through.
+  // A malformed frame must not be able to switch the gate off.
+  it("leaves cached rules alone when the payload is malformed", () => {
+    const queryClient = new QueryClient();
+    const fake = createFakeClient();
+    const serverId = "server-1";
+    queryClient.setQueryData(preSendChecksQueryKey(serverId), RULES);
+    mountServerDataPushRouter({ client: fake.client, queryClient, serverId });
+
+    fake.emit({
+      type: "status",
+      payload: { status: "pre_send_checks_changed" },
+    });
+
+    expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);
+    expect(queryClient.getQueryState(preSendChecksQueryKey(serverId))?.isInvalidated).toBe(true);
+  });
+
+  // A replica query never refetches on mount, focus or reconnect, so this is the
+  // only repair for a push missed while the app was asleep.
+  it("invalidates the rules after a reconnect", () => {
+    const queryClient = new QueryClient();
+    const serverId = "server-1";
+    queryClient.setQueryData(preSendChecksQueryKey(serverId), RULES);
+
+    invalidateServerDataQueriesAfterReconnect({ queryClient, serverId });
+
+    expect(queryClient.getQueryState(preSendChecksQueryKey(serverId))?.isInvalidated).toBe(true);
+  });
+});
 
 describe("server data push router", () => {
   it("routes provider snapshot and daemon config payloads until detached", () => {

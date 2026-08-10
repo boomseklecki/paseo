@@ -524,6 +524,10 @@ type ScheduleListPayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/list/response" }
 >["payload"];
+type PreSendChecksListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "pre_send_checks/list/response" }
+>["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/inspect/response" }
@@ -5169,6 +5173,21 @@ export class DaemonClient {
         ...(typeof options.runOnCreate === "boolean" ? { runOnCreate: options.runOnCreate } : {}),
       },
       responseType: "schedule/create/response",
+    });
+  }
+
+  /**
+   * Gated on `server_info.features.preSendChecks`. A daemon without that flag has
+   * no handler for the verb, so the request would sit unanswered until it times
+   * out — callers check the feature rather than relying on an error.
+   */
+  async preSendChecksList(requestId?: string): Promise<PreSendChecksListPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "pre_send_checks/list",
+      },
+      responseType: "pre_send_checks/list/response",
     });
   }
 

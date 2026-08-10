@@ -187,6 +187,7 @@ import {
   type TerminalProfileInput,
 } from "@/screens/workspace/terminals/use-workspace-terminals";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
 import {
   resolveTerminalProfileLaunch,
   getTerminalProfileIcon,
@@ -1000,6 +1001,11 @@ function WorkspaceHeaderMenu({
   const { t } = useTranslation();
   const router = useRouter();
   const { config } = useDaemonConfig(normalizedServerId);
+  // Mounted here rather than only in the composer so the rules are in the cache
+  // before anyone can type. A composer-only mount starts cold, and the first send
+  // into a freshly opened pane could beat the response — allowing exactly the
+  // long-idle send the rules exist to catch.
+  usePreSendChecks(normalizedServerId);
   const profiles = useMemo(
     () => resolveTerminalProfiles(config?.terminalProfiles),
     [config?.terminalProfiles],

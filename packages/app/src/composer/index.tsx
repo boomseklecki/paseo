@@ -95,14 +95,15 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
-import { evaluatePreSendChecks, resolvePreSendChecks } from "@getpaseo/protocol/pre-send-checks";
+import { evaluatePreSendChecks } from "@getpaseo/protocol/pre-send-checks/evaluate";
+import type { PreSendMeasurementContext } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   buildPreSendMeasurementContext,
   formatPreSendFindings,
   isPreSendOverrideValid,
   type PreSendOverride,
 } from "@/composer/pre-send-checks";
-import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider } from "@/composer/keyboard-scope";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -245,6 +246,35 @@ function buildRealtimeVoiceButtonStyle(
   return [styles.realtimeVoiceButton, reserveStyle, hoveredStyle, disabledStyle].filter(
     (value): value is object => Boolean(value),
   );
+}
+
+/**
+ * Gathers what the pre-send rules measure, straight from the session store.
+ *
+ * Read imperatively rather than through a selector: the stream tail changes on
+ * every token, so subscribing here would rerender the composer throughout a turn
+ * to compute numbers nothing displays. `null` when there is no such agent, which
+ * the caller treats as "do not gate".
+ */
+function readPreSendMeasurements(
+  serverId: string,
+  agentId: string,
+  nowMs: number,
+): PreSendMeasurementContext | null {
+  const session = useSessionStore.getState().sessions[serverId];
+  const agent = session?.agents?.get(agentId);
+  if (!session || !agent) {
+    return null;
+  }
+  return buildPreSendMeasurementContext({
+    head: session.agentStreamHead.get(agentId) ?? [],
+    tail: session.agentStreamTail.get(agentId) ?? [],
+    lastUserMessageAt: agent.lastUserMessageAt ?? null,
+    contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens ?? null,
+    contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens ?? null,
+    totalCostUsd: agent.lastUsage?.totalCostUsd ?? null,
+    nowMs,
+  });
 }
 
 function buildAgentStateSelector(serverId: string, agentId: string) {
@@ -1109,12 +1139,11 @@ export function Composer({
 
   const agentState = useSessionStore(useShallow(buildAgentStateSelector(serverId, agentId)));
 
-  // Held in a ref rather than read in the send callback's deps: the rules change
-  // only when the daemon config does, and rebuilding the send callback on every
-  // config revalidation would churn every consumer that depends on it.
-  const { config: daemonConfig } = useDaemonConfig(serverId);
-  const preSendChecksRef = useRef(daemonConfig?.preSendChecks);
-  preSendChecksRef.current = daemonConfig?.preSendChecks;
+  // `readRules` reads the query cache when called rather than capturing a value at
+  // render, so a rule that arrived on a push since the last commit is already in
+  // effect. Its identity is stable, which keeps it out of the way of the send
+  // callback's deps.
+  const { readRules } = usePreSendChecks(serverId);
 
   const preSendOverrideRef = useRef<PreSendOverride | null>(null);
 
@@ -1413,30 +1442,23 @@ export function Composer({
         return "allow";
       }
 
-      const rules = resolvePreSendChecks(preSendChecksRef.current);
-      if (rules.length === 0) {
-        return "allow";
-      }
-
-      const session = useSessionStore.getState().sessions[serverId];
-      const agent = session?.agents?.get(targetAgentId);
-      if (!session || !agent) {
+      // `null` is "not loaded" — an old daemon, a first send before the list
+      // arrived, a query that errored. It is never "use a default": the daemon
+      // seeds its rules to disk and always serves a concrete list, so there is no
+      // default on this side to fall back to and no way for an unloaded gate to
+      // block a send.
+      const rules = readRules();
+      if (!rules || rules.length === 0) {
         return "allow";
       }
 
       const nowMs = Date.now();
-      const evaluation = evaluatePreSendChecks(
-        rules,
-        buildPreSendMeasurementContext({
-          head: session.agentStreamHead.get(targetAgentId) ?? [],
-          tail: session.agentStreamTail.get(targetAgentId) ?? [],
-          lastUserMessageAt: agent.lastUserMessageAt ?? null,
-          contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens ?? null,
-          contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens ?? null,
-          totalCostUsd: agent.lastUsage?.totalCostUsd ?? null,
-          nowMs,
-        }),
-      );
+      const measurements = readPreSendMeasurements(serverId, targetAgentId, nowMs);
+      if (!measurements) {
+        return "allow";
+      }
+
+      const evaluation = evaluatePreSendChecks(rules, measurements);
 
       if (evaluation.disposition === "allow") {
         return "allow";
@@ -1467,7 +1489,7 @@ export function Composer({
       toastErrorRef.current(formatPreSendFindings(evaluation.findings, t));
       return "block";
     },
-    [serverId, t, toast],
+    [readRules, serverId, t, toast],
   );
 
   const sendMessageWithContent = useCallback(

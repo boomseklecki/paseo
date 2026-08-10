@@ -60,6 +60,7 @@ import {
   type WorkspaceScriptsService,
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
+import type { PreSendChecksService } from "./pre-send-checks/service.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@getpaseo/protocol/error-utils";
@@ -462,6 +463,7 @@ export interface SessionOptions {
   workspaceGitService: WorkspaceGitService;
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
+  preSendChecksService: PreSendChecksService;
   mcpBaseUrl?: string | null;
   stt: Resolvable<SpeechToTextProvider | null>;
   sttLanguage?: string;
@@ -632,6 +634,7 @@ export class Session {
   private readonly workspaceProvisioning: WorkspaceProvisioningService;
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private readonly daemonConfigStore: DaemonConfigStore;
+  private readonly preSendChecksService: PreSendChecksService;
   private readonly pushTokenStore: PushTokenStore;
   private unsubscribeAgentEvents: (() => void) | null = null;
   private unsubscribeProjectMutations: (() => void) | null = null;
@@ -713,6 +716,7 @@ export class Session {
       workspaceGitService,
       workspaceAutoName,
       daemonConfigStore,
+      preSendChecksService,
       stt,
       sttLanguage,
       tts,
@@ -922,6 +926,7 @@ export class Session {
         })
       : null;
     this.daemonConfigStore = daemonConfigStore;
+    this.preSendChecksService = preSendChecksService;
     this.terminalManager = terminalManager;
     this.terminalController = new TerminalSessionController({
       terminalManager,
@@ -2035,6 +2040,8 @@ export class Session {
           payload: { requestId: msg.requestId, config: this.daemonConfigStore.get() },
         });
         return undefined;
+      case "pre_send_checks/list":
+        return this.handlePreSendChecksListRequest(msg);
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
       case "daemon.get_pairing_offer.request":
@@ -2062,6 +2069,38 @@ export class Session {
         return this.projectConfigSession.handleWriteProjectConfigRequest(msg);
       default:
         return undefined;
+    }
+  }
+
+  /**
+   * Rules come off disk on every call rather than out of a cache, which is the
+   * whole reason they no longer live in the daemon config. `error` is reported
+   * rather than thrown: a client that cannot read the rules must be able to tell
+   * that apart from there being none, because only one of those two states means
+   * "send freely".
+   */
+  private async handlePreSendChecksListRequest(
+    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/list" }>,
+  ): Promise<void> {
+    try {
+      this.emit({
+        type: "pre_send_checks/list/response",
+        payload: {
+          requestId: msg.requestId,
+          checks: await this.preSendChecksService.list(),
+          error: null,
+        },
+      });
+    } catch (error) {
+      this.sessionLogger.warn({ err: error }, "Failed to list pre-send checks");
+      this.emit({
+        type: "pre_send_checks/list/response",
+        payload: {
+          requestId: msg.requestId,
+          checks: [],
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   }
 
