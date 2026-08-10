@@ -541,6 +541,10 @@ type PreSendChecksReorderPayload = Extract<
   SessionOutboundMessage,
   { type: "pre_send_checks/reorder/response" }
 >["payload"];
+type PreSendChecksRunActionPayload = Extract<
+  SessionOutboundMessage,
+  { type: "pre_send_checks/run_action/response" }
+>["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/inspect/response" }
@@ -5231,6 +5235,35 @@ export class DaemonClient {
         ruleIds: [...ruleIds],
       },
       responseType: "pre_send_checks/reorder/response",
+    });
+  }
+
+  /**
+   * Carries out a rule's action instead of sending the message.
+   *
+   * A `declined` status is the normal answer for anything the daemon will not
+   * do, and means the message was not consumed — the caller should send it the
+   * ordinary way rather than surfacing an error.
+   */
+  async preSendChecksRunAction(
+    input: {
+      agentId: string;
+      message: string;
+      action: { kind: string } & Record<string, unknown>;
+      confirmed?: boolean;
+    },
+    requestId?: string,
+  ): Promise<PreSendChecksRunActionPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "pre_send_checks/run_action",
+        agentId: input.agentId,
+        message: input.message,
+        action: input.action,
+        confirmed: input.confirmed === true,
+      },
+      responseType: "pre_send_checks/run_action/response",
     });
   }
 

@@ -61,6 +61,7 @@ import {
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
+import { AsideAction } from "./pre-send-checks/actions/aside.js";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
@@ -636,6 +637,12 @@ export class Session {
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private readonly daemonConfigStore: DaemonConfigStore;
   private readonly preSendChecksService: PreSendChecksService;
+  /**
+   * Built on first use rather than in the constructor, because most sessions
+   * never run an action and the manager it needs is assigned partway through
+   * construction.
+   */
+  private asideActionInstance: AsideAction | null = null;
   private readonly pushTokenStore: PushTokenStore;
   private unsubscribeAgentEvents: (() => void) | null = null;
   private unsubscribeProjectMutations: (() => void) | null = null;
@@ -2026,6 +2033,14 @@ export class Session {
   }
 
   private dispatchAgentConfigMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    // Matched by prefix rather than by five case labels, which is what keeps
+    // this switch under the complexity ceiling. Grouping verbs that share a
+    // subject is also how they read: they are one feature, not five settings.
+    if (msg.type.startsWith("pre_send_checks/")) {
+      return this.dispatchPreSendChecksMessage(
+        msg as Extract<SessionInboundMessage, { type: `pre_send_checks/${string}` }>,
+      );
+    }
     switch (msg.type) {
       case "set_agent_mode_request":
         return this.agentConfigSession.handleSetAgentModeRequest(msg);
@@ -2041,20 +2056,6 @@ export class Session {
           payload: { requestId: msg.requestId, config: this.daemonConfigStore.get() },
         });
         return undefined;
-      case "pre_send_checks/list":
-        return this.handlePreSendChecksListRequest(msg);
-      case "pre_send_checks/upsert":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.upsert(msg.check),
-        );
-      case "pre_send_checks/delete":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.delete(msg.ruleId),
-        );
-      case "pre_send_checks/reorder":
-        return this.handlePreSendChecksWriteRequest(msg, () =>
-          this.preSendChecksService.reorder(msg.ruleIds),
-        );
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
       case "daemon.get_pairing_offer.request":
@@ -2092,6 +2093,100 @@ export class Session {
    * that apart from there being none, because only one of those two states means
    * "send freely".
    */
+  /**
+   * Carries out a rule's action instead of sending the message.
+   *
+   * Every failure answers `declined` rather than an error, because the caller
+   * reads that as "I did not take your message, send it yourself". An error
+   * here would leave the person having typed something that went nowhere.
+   */
+  /**
+   * Its own dispatch because the five verbs together push the agent-config
+   * switch past the complexity ceiling, and grouping the ones that share a
+   * subject is the honest way under it rather than raising the limit.
+   */
+  private dispatchPreSendChecksMessage(
+    msg: Extract<SessionInboundMessage, { type: `pre_send_checks/${string}` }>,
+  ): Promise<void> | undefined {
+    switch (msg.type) {
+      case "pre_send_checks/list":
+        return this.handlePreSendChecksListRequest(msg);
+      case "pre_send_checks/upsert":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.upsert(msg.check),
+        );
+      case "pre_send_checks/delete":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.delete(msg.ruleId),
+        );
+      case "pre_send_checks/reorder":
+        return this.handlePreSendChecksWriteRequest(msg, () =>
+          this.preSendChecksService.reorder(msg.ruleIds),
+        );
+      case "pre_send_checks/run_action":
+        return this.handlePreSendChecksRunActionRequest(msg);
+      default:
+        return undefined;
+    }
+  }
+
+  private get asideAction(): AsideAction {
+    this.asideActionInstance ??= new AsideAction({
+      manager: this.agentManager,
+      logger: this.sessionLogger,
+    });
+    return this.asideActionInstance;
+  }
+
+  private async handlePreSendChecksRunActionRequest(
+    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/run_action" }>,
+  ): Promise<void> {
+    const respond = (payload: {
+      status: "started" | "needs_confirmation" | "declined" | "failed";
+      subagentId?: string | null;
+      reason?: string | null;
+      estimatedTokens?: number | null;
+    }) => {
+      this.emit({
+        type: "pre_send_checks/run_action/response",
+        payload: {
+          requestId: msg.requestId,
+          status: payload.status,
+          subagentId: payload.subagentId ?? null,
+          reason: payload.reason ?? null,
+          estimatedTokens: payload.estimatedTokens ?? null,
+        },
+      });
+    };
+
+    if (msg.action.kind !== "aside") {
+      respond({ status: "declined", reason: `Unknown action '${msg.action.kind}'` });
+      return;
+    }
+
+    try {
+      const outcome = await this.asideAction.run({
+        agentId: msg.agentId,
+        message: msg.message,
+        action: msg.action,
+        confirmed: msg.confirmed === true,
+      });
+      respond({
+        status: outcome.status,
+        subagentId: outcome.status === "started" ? outcome.subagentId : null,
+        reason: "reason" in outcome ? outcome.reason : null,
+        estimatedTokens:
+          outcome.status === "needs_confirmation" ? (outcome.estimatedTokens ?? null) : null,
+      });
+    } catch (error) {
+      this.sessionLogger.warn({ err: error }, "Pre-send action failed");
+      respond({
+        status: "failed",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   private async handlePreSendChecksListRequest(
     msg: Extract<SessionInboundMessage, { type: "pre_send_checks/list" }>,
   ): Promise<void> {
