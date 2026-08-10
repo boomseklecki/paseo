@@ -71,7 +71,10 @@ export class AsideAction {
       type: "upsert",
       id: subagentId,
       title,
-      description: question,
+      // What was typed, not the prompt it gets wrapped in. The panel row shows
+      // this, and a row reading back the template rather than the question is a
+      // list of identical entries.
+      description: request.message,
       status: "running",
       // Nothing in the parent's transcript asked for this, so there is no tool
       // call to point at. The field is nullable for exactly this case.
