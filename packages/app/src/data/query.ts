@@ -57,6 +57,20 @@ export function useFetchQueries<TData>(
   return useQueries({ queries: inputs.map((input) => fetchQueryOptions(input)) });
 }
 
+/**
+ * The same replica per host, for a screen that shows several at once.
+ *
+ * Each entry keeps its own key, so these are the very queries the per-host hooks
+ * already read and the push router already writes to — one cache entry per host
+ * however many callers there are, and a push from any host lands in the list
+ * without a fetch.
+ */
+export function useReplicaQueries<TData>(
+  inputs: ReplicaQueryInput<TData, Error, TData, QueryKey>[],
+): UseQueryResult<TData, Error>[] {
+  return useQueries({ queries: inputs.map((input) => replicaQueryOptions(input)) });
+}
+
 function replicaQueryOptions<
   TQueryFnData,
   TError = Error,
