@@ -294,7 +294,7 @@ function readPreSendMeasurements(
  * aside that made the composer wait for a round trip would be a slow send rather
  * than a side question.
  */
-function runPreSendRedirect(input: {
+async function runPreSendRedirect(input: {
   finding: PreSendFinding | undefined;
   serverId: string;
   agentId: string;
@@ -302,7 +302,7 @@ function runPreSendRedirect(input: {
   t: TFunction;
   toast: ReturnType<typeof useToast>;
   toastError: (message: string) => void;
-}): "allow" | "block" {
+}): Promise<"allow" | "block" | "redirected"> {
   const action = input.finding?.action;
   const client = getHostRuntimeStore().getSnapshot(input.serverId)?.client;
   // Nothing to route with, or nowhere to route it: send normally rather than
@@ -311,40 +311,41 @@ function runPreSendRedirect(input: {
     return "allow";
   }
 
-  void client
-    .preSendChecksRunAction({
+  try {
+    const result = await client.preSendChecksRunAction({
       agentId: input.agentId,
       message: input.message,
       action: action as { kind: string } & Record<string, unknown>,
-    })
-    .then((result) => {
-      if (result.status === "started") {
-        input.toast.show(input.t("composer.preSendChecks.asideStarted"), {
-          variant: "success",
-          durationMs: 4000,
-        });
-        return undefined;
-      }
-      if (result.status === "needs_confirmation") {
-        input.toast.show(
-          input.t("composer.preSendChecks.asideExpensive", {
-            tokens: result.estimatedTokens ?? 0,
-          }),
-          { variant: "warning", durationMs: 8000 },
-        );
-        return undefined;
-      }
-      return input.toastError(
-        input.t("composer.preSendChecks.asideUnavailable", {
-          reason: result.reason ?? "",
-        }),
-      );
-    })
-    .catch((error: unknown) => {
-      input.toastError(error instanceof Error ? error.message : String(error));
     });
 
-  return "block";
+    if (result.status === "started") {
+      input.toast.show(input.t("composer.preSendChecks.asideStarted"), {
+        variant: "success",
+        durationMs: 4000,
+      });
+      return "redirected";
+    }
+
+    // Everything else keeps the words. A confirmation is a question, and a
+    // decline means the daemon did not take the message - in both cases the
+    // text has to still be there to send or to send again.
+    if (result.status === "needs_confirmation") {
+      input.toast.show(
+        input.t("composer.preSendChecks.asideExpensive", {
+          tokens: result.estimatedTokens ?? 0,
+        }),
+        { variant: "warning", durationMs: 8000 },
+      );
+      return "block";
+    }
+    input.toastError(
+      input.t("composer.preSendChecks.asideUnavailable", { reason: result.reason ?? "" }),
+    );
+    return "block";
+  } catch (error) {
+    input.toastError(error instanceof Error ? error.message : String(error));
+    return "block";
+  }
 }
 
 function buildAgentStateSelector(serverId: string, agentId: string) {
@@ -1506,7 +1507,7 @@ export function Composer({
    * reconnect would be worse than one that occasionally misses.
    */
   const runPreSendChecks = useCallback(
-    ({ message }: { message: string }): "allow" | "block" => {
+    async ({ message }: { message: string }): Promise<"allow" | "block" | "redirected"> => {
       // A parent-managed submit has no agent behind it. Draft tabs and the
       // new-workspace screen both pass an `agentId` that is a tab id, and one of
       // them launches a terminal rather than an agent, so there is no cache to
@@ -1553,7 +1554,7 @@ export function Composer({
       // outranks the others, so it is answered before them: the reasons to hold
       // a send back have nothing to act on once the send is not happening.
       if (evaluation.disposition === "redirect") {
-        return runPreSendRedirect({
+        return await runPreSendRedirect({
           finding: evaluation.findings.find((candidate) => candidate.disposition === "redirect"),
           serverId,
           agentId: targetAgentId,

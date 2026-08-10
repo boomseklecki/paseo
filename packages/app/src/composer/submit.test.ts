@@ -42,6 +42,10 @@ describe("submitAgentInput", () => {
       setIsProcessing,
     });
 
+    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // call rather than inside it. This yields once so the assertions below are
+    // about the in-flight state rather than about scheduling.
+    await Promise.resolve();
     expect(queueMessage).not.toHaveBeenCalled();
     expect(submitMessage).toHaveBeenCalledWith({
       message: "hello world",
@@ -87,6 +91,10 @@ describe("submitAgentInput", () => {
       setIsProcessing,
     });
 
+    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // call rather than inside it. This yields once so the assertions below are
+    // about the in-flight state rather than about scheduling.
+    await Promise.resolve();
     expect(queueMessage).not.toHaveBeenCalled();
     expect(submitMessage).toHaveBeenCalledWith({
       message: "keep me",
@@ -195,7 +203,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(() => "block" as const);
+    const runPreSendChecks = vi.fn(async () => "block" as const);
     const attachments = [{ id: "img-1" }];
 
     await expect(
@@ -233,7 +241,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(() => "allow" as const);
+    const runPreSendChecks = vi.fn(async () => "allow" as const);
 
     await expect(
       submitAgentInput({
@@ -260,6 +268,41 @@ describe("submitAgentInput", () => {
     expect(clearDraft).toHaveBeenCalledWith("sent");
   });
 
+  // A redirect took the message somewhere other than the agent. Nothing is sent,
+  // but the box clears as a successful send would: leaving the text there invites
+  // sending it a second time to the agent it was deliberately kept away from.
+  it("clears the composer when a rule redirected the message", async () => {
+    const queueMessage = vi.fn();
+    const submitMessage = vi.fn();
+    const clearDraft = vi.fn();
+    const setUserInput = vi.fn();
+    const setAttachments = vi.fn();
+    const setSendError = vi.fn();
+    const setIsProcessing = vi.fn();
+    const runPreSendChecks = vi.fn(async () => "redirected" as const);
+
+    await expect(
+      submitAgentInput({
+        message: "/btw what was that flag",
+        attachments: [],
+        isAgentRunning: false,
+        canSubmit: true,
+        queueMessage,
+        submitMessage,
+        clearDraft,
+        setUserInput,
+        setAttachments,
+        setSendError,
+        setIsProcessing,
+        runPreSendChecks,
+      }),
+    ).resolves.toBe("redirected");
+
+    expect(submitMessage).not.toHaveBeenCalled();
+    expect(setUserInput).toHaveBeenCalledWith("");
+    expect(setAttachments).toHaveBeenCalledWith([]);
+  });
+
   // A running agent has a warm cache, so gating a queued message would be noise.
   // This pins the ordering rather than the outcome.
   it("does not consult pre-send checks for a queued message", async () => {
@@ -270,7 +313,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(() => "block" as const);
+    const runPreSendChecks = vi.fn(async () => "block" as const);
 
     await expect(
       submitAgentInput({
@@ -294,7 +337,7 @@ describe("submitAgentInput", () => {
   });
 
   it("does not consult pre-send checks for a send that was going to be a noop", async () => {
-    const runPreSendChecks = vi.fn(() => "block" as const);
+    const runPreSendChecks = vi.fn(async () => "block" as const);
 
     await expect(
       submitAgentInput({
@@ -342,6 +385,10 @@ describe("submitAgentInput", () => {
       }),
     ).resolves.toBe("submitted");
 
+    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // call rather than inside it. This yields once so the assertions below are
+    // about the in-flight state rather than about scheduling.
+    await Promise.resolve();
     expect(queueMessage).not.toHaveBeenCalled();
     expect(submitMessage).toHaveBeenCalledWith({
       message: "",

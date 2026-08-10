@@ -1,6 +1,12 @@
 import { i18n } from "@/i18n/i18next";
 
-export type AgentInputSubmitResult = "noop" | "queued" | "submitted" | "blocked" | "failed";
+export type AgentInputSubmitResult =
+  | "noop"
+  | "queued"
+  | "submitted"
+  | "blocked"
+  | "redirected"
+  | "failed";
 
 export interface AgentInputSubmitActionInput<TAttachment> {
   message: string;
@@ -20,7 +26,7 @@ export interface AgentInputSubmitActionInput<TAttachment> {
    * Synchronous by contract: an `await` between this decision and the clear
    * below would leave a window for another send to interleave.
    */
-  runPreSendChecks?: (input: { message: string }) => "allow" | "block";
+  runPreSendChecks?: (input: { message: string }) => Promise<"allow" | "block" | "redirected">;
   submitMessage: (input: { message: string; attachments: TAttachment[] }) => Promise<void>;
   clearDraft: (lifecycle: "sent" | "abandoned") => void;
   setUserInput: (text: string) => void;
@@ -64,8 +70,20 @@ export async function submitAgentInput<TAttachment>(
   // cache is warm by definition, so gating a queued message would be pure noise.
   // Deliberately before the clear: returning here has to leave the composer
   // untouched, and the only way to guarantee that is to have touched nothing yet.
-  if (input.runPreSendChecks?.({ message: trimmedMessage }) === "block") {
+  const gate = (await input.runPreSendChecks?.({ message: trimmedMessage })) ?? "allow";
+  if (gate === "block") {
     return "blocked";
+  }
+  // A redirect consumed the message: it went somewhere other than the agent, so
+  // nothing is sent, but the box is cleared exactly as a successful send clears
+  // it. Leaving the text would invite sending it a second time to the agent it
+  // was deliberately kept away from.
+  if (gate === "redirected") {
+    if (shouldClearOnSubmit) {
+      input.setUserInput("");
+      input.setAttachments([]);
+    }
+    return "redirected";
   }
 
   // Clear immediately so the submitted timeline row and composer state stay in sync.
