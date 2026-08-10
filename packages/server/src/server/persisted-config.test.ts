@@ -46,64 +46,24 @@ describe("PersistedConfigSchema daemon append system prompt config", () => {
   });
 });
 
-// Hand-editing config.json is the only way to author these until a settings
-// screen lands, and the daemon schema is `.strict()` with `loadPersistedConfig`
-// throwing rather than warning — so a rule shape that fails to parse does not
-// disable one check, it stops the daemon starting.
-describe("PersistedConfigSchema daemon pre-send checks", () => {
-  test("accepts a hand-written rule list", () => {
+// The daemon block is `.strict()`, so an unrecognised key there is fatal at boot.
+// Inside a profile it is the opposite: the element schema passes unknown keys
+// through on purpose, so a config written by a newer daemon survives an older one
+// rather than being rejected outright. Nothing else covers that.
+describe("PersistedConfigSchema daemon terminal profiles", () => {
+  test("keeps a profile field it does not recognise", () => {
     const parsed = PersistedConfigSchema.parse({
       daemon: {
-        preSendChecks: [
-          {
-            id: "cold-prompt-cache",
-            measurement: "agent.idleSeconds",
-            operator: "gte",
-            threshold: 3600,
-            disposition: "block",
-          },
-          {
-            id: "pricey-session",
-            measurement: "agent.sessionCostUsd",
-            operator: "gt",
-            threshold: 10,
-            disposition: "warn",
-            message: "This session has cost {{value}}.",
-          },
+        terminalProfiles: [
+          { id: "zsh", name: "zsh", command: "/bin/zsh", startupBehaviour: "restore" },
         ],
       },
     });
 
-    expect(parsed.daemon?.preSendChecks).toHaveLength(2);
-    expect(parsed.daemon?.preSendChecks?.[1]?.message).toBe("This session has cost {{value}}.");
-  });
-
-  // Distinct from absent, which hands back the shipped defaults.
-  test("accepts an empty list as an explicit opt-out", () => {
-    const parsed = PersistedConfigSchema.parse({ daemon: { preSendChecks: [] } });
-
-    expect(parsed.daemon?.preSendChecks).toEqual([]);
-  });
-
-  // The rule schema passes unknown keys through so a newer daemon's rule
-  // survives an older one, rather than being rejected outright.
-  test("keeps a field it does not recognise", () => {
-    const parsed = PersistedConfigSchema.parse({
-      daemon: {
-        preSendChecks: [
-          {
-            id: "from-a-newer-daemon",
-            measurement: "agent.idleSeconds",
-            operator: "gte",
-            threshold: 3600,
-            disposition: "block",
-            severity: "high",
-          },
-        ],
-      },
+    expect(parsed.daemon?.terminalProfiles?.[0]).toMatchObject({
+      id: "zsh",
+      startupBehaviour: "restore",
     });
-
-    expect(parsed.daemon?.preSendChecks?.[0]).toMatchObject({ severity: "high" });
   });
 });
 

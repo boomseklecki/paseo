@@ -180,7 +180,6 @@ export const MutableDaemonConfigSchema = z
     enableTerminalAgentHooks: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
-    preSendChecks: z.array(PreSendCheckRuleSchema).optional(),
   })
   .passthrough();
 
@@ -198,7 +197,6 @@ export const MutableDaemonConfigPatchSchema = z
     enableTerminalAgentHooks: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
-    preSendChecks: z.array(PreSendCheckRuleSchema).optional(),
   })
   .partial()
   .passthrough();
