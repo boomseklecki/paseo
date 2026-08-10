@@ -14,8 +14,9 @@ import {
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { settingsStyles } from "@/styles/settings";
 import {
+  gatePreSendCheckSave,
+  preSendCheckChoosesHosts,
   preSendCheckOptions,
-  validatePreSendCheckDraft,
   PRE_SEND_DISPOSITION_OPTIONS,
   PRE_SEND_MEASUREMENT_OPTIONS,
   PRE_SEND_OPERATOR_OPTIONS,
@@ -400,14 +401,12 @@ export function PreSendCheckEditModal({
       return;
     }
     setSubmitError(null);
-    const errors = validatePreSendCheckDraft(draft);
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+    const gate = gatePreSendCheckSave({ draft, hostCount: hosts.length, serverIds });
+    if (gate.kind === "fieldErrors") {
+      setFieldErrors(gate.errors);
       return;
     }
-    // A rule on no host is a delete wearing a save's clothes. Refused here rather
-    // than performed, because nothing about the screen says that is what it means.
-    if (hosts.length > 1 && serverIds.length === 0) {
+    if (gate.kind === "hostsRequired") {
       setSubmitError(t("settings.preSendChecks.hostsRequired"));
       return;
     }
@@ -576,7 +575,7 @@ export function PreSendCheckEditModal({
           </>
         ) : null}
 
-        {hosts.length > 1 ? (
+        {preSendCheckChoosesHosts(hosts.length) ? (
           <Field
             label={t("settings.preSendChecks.hostsLabel")}
             hint={t("settings.preSendChecks.hostsHint")}

@@ -168,6 +168,51 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
 }
 
 /**
+ * Whether the editor asks which hosts a rule goes to.
+ *
+ * One host means there is exactly one place a rule can go, so the modal shows no
+ * field and the save has nothing to check. Both the field and the check read
+ * this, because a screen that enforces a choice it never offered is a dead end
+ * with no way out of it.
+ */
+export function preSendCheckChoosesHosts(hostCount: number): boolean {
+  return hostCount > 1;
+}
+
+export type PreSendCheckSaveGate =
+  | { kind: "fieldErrors"; errors: PreSendCheckFieldErrors }
+  | { kind: "hostsRequired" }
+  | { kind: "save" };
+
+/**
+ * What pressing save should do.
+ *
+ * Out here rather than inside the modal's handler so the decision can be read
+ * and tested without mounting anything — the component is left with setting
+ * state and awaiting the caller, which is all a component should be doing.
+ *
+ * Order matters: field errors sit under their fields and the host complaint
+ * appears once at the bottom, so reporting both at once would put the eye in
+ * the wrong place. Fields first, and the host check only once they pass.
+ */
+export function gatePreSendCheckSave(input: {
+  draft: PreSendCheckDraft;
+  hostCount: number;
+  serverIds: readonly string[];
+}): PreSendCheckSaveGate {
+  const errors = validatePreSendCheckDraft(input.draft);
+  if (Object.keys(errors).length > 0) {
+    return { kind: "fieldErrors", errors };
+  }
+  // A rule on no host is a delete wearing a save's clothes. Refused rather than
+  // performed, because nothing about the screen says that is what it means.
+  if (preSendCheckChoosesHosts(input.hostCount) && input.serverIds.length === 0) {
+    return { kind: "hostsRequired" };
+  }
+  return { kind: "save" };
+}
+
+/**
  * The options a picker offers.
  *
  * When the rule's current value is not one this build knows, it is added to the

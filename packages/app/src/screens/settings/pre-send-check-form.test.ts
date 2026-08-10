@@ -3,6 +3,8 @@ import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types"
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
+  gatePreSendCheckSave,
+  preSendCheckChoosesHosts,
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckOptions,
@@ -276,5 +278,57 @@ describe("describePreSendCheck", () => {
       t,
     );
     expect(described).toBe("agent.somethingNew approaches 3600");
+  });
+});
+
+describe("preSendCheckChoosesHosts", () => {
+  it("offers no choice when there is nowhere else for a rule to go", () => {
+    expect(preSendCheckChoosesHosts(0)).toBe(false);
+    expect(preSendCheckChoosesHosts(1)).toBe(false);
+    expect(preSendCheckChoosesHosts(2)).toBe(true);
+  });
+});
+
+describe("gatePreSendCheckSave", () => {
+  it("saves a complete draft with a host chosen", () => {
+    expect(gatePreSendCheckSave({ draft: draft(), hostCount: 2, serverIds: ["a"] })).toEqual({
+      kind: "save",
+    });
+  });
+
+  it("reports field errors and says which fields", () => {
+    const gate = gatePreSendCheckSave({
+      draft: draft({ threshold: "soon" }),
+      hostCount: 2,
+      serverIds: ["a"],
+    });
+
+    expect(gate).toEqual({
+      kind: "fieldErrors",
+      errors: { threshold: "settings.preSendChecks.thresholdInvalid" },
+    });
+  });
+
+  // Both at once would put a complaint under a field and another at the bottom
+  // of the sheet, and the eye goes to the wrong one.
+  it("holds the host complaint back until the fields pass", () => {
+    expect(
+      gatePreSendCheckSave({ draft: draft({ threshold: "" }), hostCount: 2, serverIds: [] }),
+    ).toMatchObject({ kind: "fieldErrors" });
+  });
+
+  // A rule on no host is a delete wearing a save's clothes.
+  it("refuses a save that would leave the rule on no host", () => {
+    expect(gatePreSendCheckSave({ draft: draft(), hostCount: 2, serverIds: [] })).toEqual({
+      kind: "hostsRequired",
+    });
+  });
+
+  // The single-host setup never showed a host field, so it must not be held to
+  // one: the modal would refuse a save with nothing on screen to fix.
+  it("does not ask for a host the editor never offered", () => {
+    expect(gatePreSendCheckSave({ draft: draft(), hostCount: 1, serverIds: [] })).toEqual({
+      kind: "save",
+    });
   });
 });
