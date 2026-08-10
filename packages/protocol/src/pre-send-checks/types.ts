@@ -193,3 +193,45 @@ export interface PreSendEvaluation {
   /** Every rule that tripped, in rule order. */
   findings: readonly PreSendFinding[];
 }
+
+/**
+ * A parameter an action takes, in the shape the app already renders.
+ *
+ * Deliberately the same vocabulary as `AgentFeature`, which providers use to
+ * describe their own controls and which the composer already draws by switching
+ * on `type`. Inventing a second form language when the app can draw this one
+ * would be a choice to justify rather than a default.
+ *
+ * Labels come from the daemon, so they arrive in one language. That is already
+ * true of provider feature labels; it is new for the settings screen, and it is
+ * the price of an editor that needs no change to offer an action it has never
+ * heard of.
+ */
+export const PreSendActionParameterSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("text"),
+    id: z.string(),
+    label: z.string(),
+    description: z.string().optional(),
+    placeholder: z.string().optional(),
+    multiline: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("toggle"),
+    id: z.string(),
+    label: z.string(),
+    description: z.string().optional(),
+  }),
+]);
+
+export type PreSendActionParameter = z.infer<typeof PreSendActionParameterSchema>;
+
+/** What one action is and what it takes, as the daemon describes itself. */
+export const PreSendActionDescriptorSchema = z.object({
+  kind: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  parameters: z.array(PreSendActionParameterSchema),
+});
+
+export type PreSendActionDescriptor = z.infer<typeof PreSendActionDescriptorSchema>;

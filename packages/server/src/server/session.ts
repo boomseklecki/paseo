@@ -62,6 +62,7 @@ import {
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
 import { AsideAction } from "./pre-send-checks/actions/aside.js";
+import { PRE_SEND_ACTION_DESCRIPTORS } from "./pre-send-checks/actions/descriptors.js";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
@@ -2196,6 +2197,7 @@ export class Session {
         payload: {
           requestId: msg.requestId,
           checks: await this.preSendChecksService.list(),
+          actions: [...PRE_SEND_ACTION_DESCRIPTORS],
           error: null,
         },
       });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PreSendCheckRuleSchema } from "./types.js";
+import { PreSendActionDescriptorSchema, PreSendCheckRuleSchema } from "./types.js";
 
 /**
  * Upsert rather than create-plus-update, for three reasons. The store's `write`
@@ -27,6 +27,15 @@ export const PreSendChecksListResponseSchema = z.object({
     // rule off, and the client relies on being able to tell that apart from not
     // having loaded yet.
     checks: z.array(PreSendCheckRuleSchema),
+    /**
+     * The actions this daemon can carry out, so the editor can offer them
+     * without being taught each one.
+     *
+     * Optional because a daemon that predates it sends none, and an editor
+     * seeing none falls back to what it knows rather than showing an empty
+     * picker.
+     */
+    actions: z.array(PreSendActionDescriptorSchema).optional(),
     error: z.string().nullable(),
   }),
 });
