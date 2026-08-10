@@ -131,34 +131,6 @@
             "additionalProperties": {}
           }
         },
-        "preSendChecks": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "measurement": {
-                "type": "string"
-              },
-              "operator": {
-                "type": "string"
-              },
-              "threshold": {
-                "type": "number"
-              },
-              "disposition": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "required": ["id", "measurement", "operator", "threshold", "disposition"],
-            "additionalProperties": {}
-          }
-        },
         "cors": {
           "type": "object",
           "properties": {
