@@ -54,6 +54,9 @@ $PASEO_HOME/
 │       └── {agentId}.json               # One file per agent
 ├── schedules/
 │   └── {scheduleId}.json                # One file per schedule
+├── pre-send-checks/
+│   ├── README.md                        # Seeded once; only *.json is read as a rule
+│   └── {ruleId}.json                    # One file per rule; the filename is the id
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   ├── workspaces.json                  # Workspace registry
@@ -447,6 +450,33 @@ These small files are not validated as full Zod schemas but are persisted under 
 | `daemon-keypair.json` | `{ v: 2, publicKeyB64, secretKeyB64 }` (libsodium box keypair) | E2EE relay identity. Written with mode `0600`. Regenerated if file is unreadable. |
 | `paseo.pid`           | JSON `{ pid, startedAt, ... }`                                 | PID lock; prevents two daemons sharing one `$PASEO_HOME`.                         |
 | `daemon.log`          | Pino log output                                                | Default location; path/rotation configurable via `log.file` in `config.json`.     |
+
+---
+
+## 8. Pre-send check rule
+
+**Path:** `$PASEO_HOME/pre-send-checks/{ruleId}.json`
+
+One file per rule. The filename **is** the id — a rule file needs no `id` field, and one that carries a different value is read under its filename anyway, which is what keeps two files from claiming a single primary key. Ids are restricted to `[A-Za-z0-9._-]{1,120}` because they become filenames.
+
+Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `pre_send_checks/upsert` is the only write verb for that reason.
+
+| Field         | Type       | Description                                                                     |
+| ------------- | ---------- | ------------------------------------------------------------------------------- |
+| `id`          | `string`   | Filename without `.json`; supplied by the store on read                         |
+| `measurement` | `string`   | What is looked at, e.g. `agent.idleSeconds`, `message`                          |
+| `operator`    | `string`   | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text |
+| `threshold`   | `number?`  | Right-hand side for a numeric measurement                                       |
+| `text`        | `string?`  | Right-hand side for a text measurement                                          |
+| `disposition` | `string`   | `warn` \| `block` \| `redirect`                                                 |
+| `message`     | `string?`  | Shown instead of the app's translated default                                   |
+| `action`      | `object?`  | Required by `redirect`; `{ kind, ... }` matching a daemon action descriptor     |
+| `order`       | `number?`  | Display position; unordered rules sort after ordered ones                       |
+| `enabled`     | `boolean?` | Absent means enabled                                                            |
+
+The schema is `.passthrough()`, so a rule written by a newer daemon survives a read by an older one rather than being dropped.
+
+The directory is read fresh on every access and re-listed every 30 seconds, with a broadcast only when the content differs. Both properties exist so a person can hand-edit the files while the daemon runs — there is no in-memory copy to go stale, and no `fs.watch`, which establishes successfully and then never fires on a Docker bind mount from macOS. A malformed file costs that one rule and nothing else: rules gate sends, so failing the whole list would turn the gate off silently.
 
 ---
 
