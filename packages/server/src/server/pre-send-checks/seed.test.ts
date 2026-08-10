@@ -22,14 +22,23 @@ afterEach(async () => {
 });
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
-  return { idleSeconds: null, contextUsedPercent: null, sessionCostUsd: null, ...overrides };
+  return {
+    idleSeconds: null,
+    contextUsedPercent: null,
+    sessionCostUsd: null,
+    message: "",
+    ...overrides,
+  };
 }
 
 describe("ensureSeeded", () => {
   test("writes the shipped rules and a README when the directory is absent", async () => {
     await ensureSeeded(dir, createTestLogger());
 
-    expect((await readdir(dir)).sort()).toEqual(["README.md", "cold-prompt-cache.json"]);
+    expect((await readdir(dir)).sort()).toEqual([
+      "README.md",
+      ...DEFAULT_PRE_SEND_CHECKS.map((rule) => `${rule.id}.json`).sort(),
+    ]);
     expect(await new PreSendCheckStore(dir, createTestLogger()).list()).toEqual([
       ...DEFAULT_PRE_SEND_CHECKS,
     ]);
@@ -57,7 +66,7 @@ describe("ensureSeeded", () => {
     await ensureSeeded(dir, createTestLogger());
 
     const rules = await new PreSendCheckStore(dir, createTestLogger()).list();
-    expect(rules[0]?.threshold).toBe(60);
+    expect(rules.find((rule) => rule.id === "cold-prompt-cache")?.threshold).toBe(60);
   });
 
   test("does not create the directory it declined to seed", async () => {
