@@ -123,7 +123,7 @@ export function isKnownPreSendCheckValue(known: readonly string[], value: string
  * the same logic inline and it is the one part of that screen no test covers.
  */
 export function movePreSendCheck(
-  rules: readonly PreSendCheckRule[],
+  rules: readonly { id: string }[],
   id: string,
   direction: "up" | "down",
 ): string[] {
