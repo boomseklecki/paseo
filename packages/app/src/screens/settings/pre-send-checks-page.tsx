@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, Plus, Pencil, Trash2 } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { Button } from "@/components/ui/button";
-import { SelectField } from "@/components/ui/select-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { settingsStyles } from "@/styles/settings";
 import { ICON_SIZE } from "@/styles/theme";
 import type { Theme } from "@/styles/theme";
 import { SettingsSection } from "@/screens/settings/settings-section";
-import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
-import { usePreSendCheckMutations } from "@/hooks/use-pre-send-check-mutations";
+import {
+  useAggregatedPreSendChecks,
+  type PreSendCheckHostState,
+} from "@/hooks/use-aggregated-pre-send-checks";
+import { usePreSendCheckHostMutations } from "@/hooks/use-pre-send-check-host-mutations";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostFeature } from "@/runtime/host-features";
-import { useHosts, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { confirmDialog } from "@/utils/confirm-dialog";
-import { PreSendCheckEditModal } from "./pre-send-check-edit-modal";
+import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
+import type { PreSendCheckGroup } from "./pre-send-check-groups";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
@@ -66,11 +66,14 @@ export type PreSendChecksListState =
  * unavailable reasons are kept apart deliberately — waiting for a reconnect is a
  * matter of time, an old daemon is a matter of upgrading, and one message for
  * both would leave someone waiting for a state that will not arrive.
+ *
+ * Across several hosts each input is "any host": one machine being offline is not
+ * a reason to hide rules the others answered with.
  */
 export function resolvePreSendChecksListState(input: {
   isConnected: boolean;
   isSupported: boolean;
-  rules: readonly PreSendCheckRule[] | null;
+  rules: readonly { id: string }[] | null;
 }): PreSendChecksListState {
   if (!input.isConnected) {
     return { kind: "unavailable", messageKey: "settings.preSendChecks.unavailableDisconnected" };
@@ -96,20 +99,22 @@ function listStateMessageKey(state: PreSendChecksListState): string {
 }
 
 interface PreSendCheckRowProps {
-  rule: PreSendCheckRule;
+  group: PreSendCheckGroup;
   isFirst: boolean;
   isLast: boolean;
+  showHosts: boolean;
   disabled: boolean;
-  onEdit: (rule: PreSendCheckRule) => void;
-  onRemove: (rule: PreSendCheckRule) => void;
-  onMove: (rule: PreSendCheckRule, direction: "up" | "down") => void;
-  onToggle: (rule: PreSendCheckRule, enabled: boolean) => void;
+  onEdit: (group: PreSendCheckGroup) => void;
+  onRemove: (group: PreSendCheckGroup) => void;
+  onMove: (group: PreSendCheckGroup, direction: "up" | "down") => void;
+  onToggle: (group: PreSendCheckGroup, enabled: boolean) => void;
 }
 
 function PreSendCheckRow({
-  rule,
+  group,
   isFirst,
   isLast,
+  showHosts,
   disabled,
   onEdit,
   onRemove,
@@ -117,23 +122,24 @@ function PreSendCheckRow({
   onToggle,
 }: PreSendCheckRowProps) {
   const { t } = useTranslation();
+  const rule = group.rule;
   const handleEdit = useCallback(() => {
-    onEdit(rule);
-  }, [onEdit, rule]);
+    onEdit(group);
+  }, [onEdit, group]);
   const handleRemove = useCallback(() => {
-    onRemove(rule);
-  }, [onRemove, rule]);
+    onRemove(group);
+  }, [onRemove, group]);
   const handleMoveUp = useCallback(() => {
-    onMove(rule, "up");
-  }, [onMove, rule]);
+    onMove(group, "up");
+  }, [onMove, group]);
   const handleMoveDown = useCallback(() => {
-    onMove(rule, "down");
-  }, [onMove, rule]);
+    onMove(group, "down");
+  }, [onMove, group]);
   const handleToggle = useCallback(
     (next: boolean) => {
-      onToggle(rule, next);
+      onToggle(group, next);
     },
-    [onToggle, rule],
+    [onToggle, group],
   );
 
   // Absent means on, matching the evaluator, so a hand-written rule needs no
@@ -149,7 +155,7 @@ function PreSendCheckRow({
   const isBlocking = rule.disposition === "block";
 
   return (
-    <View style={rowStyle} testID={`pre-send-check-row-${rule.id}`}>
+    <View style={rowStyle} testID={`pre-send-check-row-${group.id}`}>
       <View style={styles.rowText}>
         <View style={[styles.textBlock, !isEnabled && styles.textBlockOff]}>
           <Text style={settingsStyles.rowTitle} numberOfLines={2}>
@@ -158,15 +164,25 @@ function PreSendCheckRow({
           <Text style={settingsStyles.rowHint} numberOfLines={2}>
             {previewPreSendCheckMessage(rule, t) ?? t("settings.preSendChecks.defaultMessageHint")}
           </Text>
+          {showHosts ? (
+            <Text style={styles.hostLine} numberOfLines={2}>
+              {group.serverNames.join(", ")}
+            </Text>
+          ) : null}
         </View>
-        <StatusBadge
-          label={
-            isBlocking
-              ? t("settings.preSendChecks.dispositions.block")
-              : t("settings.preSendChecks.dispositions.warn")
-          }
-          variant={isBlocking ? "error" : "muted"}
-        />
+        <View style={styles.badges}>
+          <StatusBadge
+            label={
+              isBlocking
+                ? t("settings.preSendChecks.dispositions.block")
+                : t("settings.preSendChecks.dispositions.warn")
+            }
+            variant={isBlocking ? "error" : "muted"}
+          />
+          {group.differs ? (
+            <StatusBadge label={t("settings.preSendChecks.differs")} variant="error" />
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.rowControls}>
@@ -175,7 +191,7 @@ function PreSendCheckRow({
           onValueChange={handleToggle}
           disabled={disabled}
           accessibilityLabel={t("settings.preSendChecks.toggleRule")}
-          testID={`pre-send-check-toggle-${rule.id}`}
+          testID={`pre-send-check-toggle-${group.id}`}
         />
         <Button
           variant="ghost"
@@ -184,7 +200,7 @@ function PreSendCheckRow({
           onPress={handleMoveUp}
           disabled={disabled || isFirst}
           accessibilityLabel={t("settings.preSendChecks.moveUp")}
-          testID={`pre-send-check-move-up-${rule.id}`}
+          testID={`pre-send-check-move-up-${group.id}`}
         />
         <Button
           variant="ghost"
@@ -193,7 +209,7 @@ function PreSendCheckRow({
           onPress={handleMoveDown}
           disabled={disabled || isLast}
           accessibilityLabel={t("settings.preSendChecks.moveDown")}
-          testID={`pre-send-check-move-down-${rule.id}`}
+          testID={`pre-send-check-move-down-${group.id}`}
         />
         <Button
           variant="ghost"
@@ -202,7 +218,7 @@ function PreSendCheckRow({
           onPress={handleEdit}
           disabled={disabled}
           accessibilityLabel={t("settings.preSendChecks.editRule")}
-          testID={`pre-send-check-edit-${rule.id}`}
+          testID={`pre-send-check-edit-${group.id}`}
         />
         <Button
           variant="ghost"
@@ -211,153 +227,34 @@ function PreSendCheckRow({
           onPress={handleRemove}
           disabled={disabled}
           accessibilityLabel={t("settings.preSendChecks.remove")}
-          testID={`pre-send-check-remove-${rule.id}`}
+          testID={`pre-send-check-remove-${group.id}`}
         />
       </View>
     </View>
   );
 }
 
-type FormState = { kind: "closed" } | { kind: "create" } | { kind: "edit"; rule: PreSendCheckRule };
+interface PreSendChecksFeatureRowProps {
+  host: PreSendCheckHostState;
+  /** True when this is the only host, which is when it carries the section hint. */
+  isOnlyHost: boolean;
+  withBorder: boolean;
+}
 
 /**
- * Rules for one host at a time.
+ * The per-host on switch for the whole gate.
  *
- * The host picker is a seam, not a convenience: rules live one directory per
- * daemon, so "this rule on three hosts" means writing it to three stores. When
- * that lands the picker becomes a multi-select and everything below it stays.
+ * A component per host rather than a loop in the page, because the switch reads
+ * `preSendChecksEnabled` out of that host's daemon config and `useDaemonConfig`
+ * is a hook — one host, one component, one hook, however many hosts there are.
  */
-export function PreSendChecksPage() {
+function PreSendChecksFeatureRow({ host, isOnlyHost, withBorder }: PreSendChecksFeatureRowProps) {
   const { t } = useTranslation();
-  const hosts = useHosts();
-  const [serverId, setServerId] = useState<string | null>(hosts[0]?.serverId ?? null);
-
-  // Hosts arrive asynchronously, and one can go away while the screen is open.
-  useEffect(() => {
-    if (hosts.length === 0) {
-      return;
-    }
-    if (!serverId || !hosts.some((host) => host.serverId === serverId)) {
-      setServerId(hosts[0]?.serverId ?? null);
-    }
-  }, [hosts, serverId]);
-
-  const isConnected = useHostRuntimeIsConnected(serverId ?? "");
-  const isSupported = useHostFeature(serverId, "preSendChecks");
-  const { rules } = usePreSendChecks(serverId);
-  const { upsertCheck, deleteCheck, reorderChecks } = usePreSendCheckMutations(serverId);
-  const { config: daemonConfig, patchConfig } = useDaemonConfig(serverId);
+  const { config, patchConfig } = useDaemonConfig(host.serverId);
   // Absent means on, so a host that has never seen the switch is checking.
-  const isFeatureEnabled = daemonConfig?.preSendChecksEnabled !== false;
-  const [form, setForm] = useState<FormState>({ kind: "closed" });
-  const [isBusy, setIsBusy] = useState(false);
+  const isEnabled = config?.preSendChecksEnabled !== false;
 
-  const hostOptions = useMemo(
-    () => hosts.map((host) => ({ id: host.serverId, value: host.serverId, label: host.label })),
-    [hosts],
-  );
-  const selectedHostDisplay = useMemo(() => {
-    const host = hosts.find((candidate) => candidate.serverId === serverId);
-    return host ? { label: host.label } : null;
-  }, [hosts, serverId]);
-
-  const handleOpenCreate = useCallback(() => {
-    setForm({ kind: "create" });
-  }, []);
-  const handleOpenEdit = useCallback((rule: PreSendCheckRule) => {
-    setForm({ kind: "edit", rule });
-  }, []);
-  const handleCloseForm = useCallback(() => {
-    setForm({ kind: "closed" });
-  }, []);
-
-  const handleSave = useCallback(
-    async (draft: PreSendCheckDraft) => {
-      const existing = form.kind === "edit" ? form.rule : null;
-      await upsertCheck(
-        applyPreSendCheckDraft({
-          existing,
-          draft,
-          id: existing?.id ?? generateRuleId(),
-        }),
-      );
-    },
-    [form, upsertCheck],
-  );
-
-  const handleRemove = useCallback(
-    async (rule: PreSendCheckRule) => {
-      const confirmed = await confirmDialog({
-        title: t("settings.preSendChecks.removeConfirmTitle"),
-        message: t("settings.preSendChecks.removeConfirmMessage", {
-          rule: describePreSendCheck(rule, t),
-        }),
-        confirmLabel: t("settings.preSendChecks.remove"),
-        destructive: true,
-      });
-      if (!confirmed) {
-        return;
-      }
-      setIsBusy(true);
-      try {
-        await deleteCheck(rule.id);
-      } catch (error) {
-        // The row has nowhere inline to put this, unlike the modal.
-        Alert.alert(
-          t("common.errors.unableToSave"),
-          error instanceof Error ? error.message : String(error),
-        );
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [deleteCheck, t],
-  );
-
-  const handleMove = useCallback(
-    async (rule: PreSendCheckRule, direction: "up" | "down") => {
-      if (!rules) {
-        return;
-      }
-      const nextOrder = movePreSendCheck(rules, rule.id, direction);
-      // Unchanged when the rule is already at the end it was moved towards, and
-      // sending that would be a write and a broadcast that changed nothing.
-      if (nextOrder.length === rules.length && nextOrder.every((id, i) => id === rules[i]?.id)) {
-        return;
-      }
-      setIsBusy(true);
-      try {
-        await reorderChecks(nextOrder);
-      } catch (error) {
-        Alert.alert(
-          t("common.errors.unableToSave"),
-          error instanceof Error ? error.message : String(error),
-        );
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [reorderChecks, rules, t],
-  );
-
-  const handleToggleRule = useCallback(
-    async (rule: PreSendCheckRule, enabled: boolean) => {
-      setIsBusy(true);
-      try {
-        await upsertCheck({ ...rule, enabled });
-      } catch (error) {
-        Alert.alert(
-          t("common.errors.unableToSave"),
-          error instanceof Error ? error.message : String(error),
-        );
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [t, upsertCheck],
-  );
-
-  const handleToggleFeature = useCallback(
+  const handleToggle = useCallback(
     (enabled: boolean) => {
       void patchConfig({ preSendChecksEnabled: enabled }).catch((error: unknown) => {
         Alert.alert(
@@ -369,8 +266,180 @@ export function PreSendChecksPage() {
     [patchConfig, t],
   );
 
+  const rowStyle = useMemo(
+    () => [settingsStyles.row, withBorder && settingsStyles.rowBorder],
+    [withBorder],
+  );
+
+  return (
+    <View style={rowStyle}>
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>
+          {isOnlyHost ? t("settings.preSendChecks.featureToggleTitle") : host.serverName}
+        </Text>
+        {isOnlyHost ? (
+          <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+        ) : null}
+      </View>
+      <Switch
+        value={isEnabled}
+        onValueChange={handleToggle}
+        disabled={!host.isConnected || !host.isSupported}
+        accessibilityLabel={
+          isOnlyHost
+            ? t("settings.preSendChecks.featureToggleTitle")
+            : t("settings.preSendChecks.featureToggleHost", { host: host.serverName })
+        }
+        testID={`pre-send-checks-enabled-switch-${host.serverId}`}
+      />
+    </View>
+  );
+}
+
+type FormState =
+  | { kind: "closed" }
+  | { kind: "create" }
+  | { kind: "edit"; group: PreSendCheckGroup };
+
+/**
+ * Rules across every connected host.
+ *
+ * A rule lives one directory per daemon, so a rule "on three hosts" is three
+ * files. The list groups them back by id, and the row says where each one lives.
+ * Any write made from a row goes to every host in its group — which is also how a
+ * group whose hosts have drifted apart gets put back in step: saving is the
+ * reconcile, so there is no separate action for it.
+ */
+export function PreSendChecksPage() {
+  const { t } = useTranslation();
+  const { hosts, groups, isLoading, hasUsableHost, hasConnectedHost } =
+    useAggregatedPreSendChecks();
+  const { saveRule, deleteRule, reorderRules } = usePreSendCheckHostMutations();
+  const [form, setForm] = useState<FormState>({ kind: "closed" });
+  const [isBusy, setIsBusy] = useState(false);
+
+  const usableServerIds = useMemo(
+    () => hosts.filter((host) => host.isConnected && host.isSupported).map((host) => host.serverId),
+    [hosts],
+  );
+  const modalHosts = useMemo<PreSendCheckModalHost[]>(
+    () =>
+      hosts.map((host) => ({
+        serverId: host.serverId,
+        serverName: host.serverName,
+        isUsable: host.isConnected && host.isSupported,
+      })),
+    [hosts],
+  );
+  const showHosts = hosts.length > 1;
+
+  const handleOpenCreate = useCallback(() => {
+    setForm({ kind: "create" });
+  }, []);
+  const handleOpenEdit = useCallback((group: PreSendCheckGroup) => {
+    setForm({ kind: "edit", group });
+  }, []);
+  const handleCloseForm = useCallback(() => {
+    setForm({ kind: "closed" });
+  }, []);
+
+  const handleSave = useCallback(
+    async (draft: PreSendCheckDraft, serverIds: readonly string[]) => {
+      const existing = form.kind === "edit" ? form.group : null;
+      const rule = applyPreSendCheckDraft({
+        existing: existing?.rule ?? null,
+        draft,
+        id: existing?.id ?? generateRuleId(),
+      });
+      await saveRule({
+        rule,
+        currentServerIds: existing?.serverIds ?? [],
+        // Empty only reaches here from a single-host setup, where the modal shows
+        // no host field and there is exactly one place a rule can go.
+        targetServerIds: serverIds.length > 0 ? serverIds : usableServerIds,
+      });
+    },
+    [form, saveRule, usableServerIds],
+  );
+
+  const handleRemove = useCallback(
+    async (group: PreSendCheckGroup) => {
+      const confirmed = await confirmDialog({
+        title: t("settings.preSendChecks.removeConfirmTitle"),
+        message: t("settings.preSendChecks.removeConfirmMessage", {
+          rule: describePreSendCheck(group.rule, t),
+        }),
+        confirmLabel: t("settings.preSendChecks.remove"),
+        destructive: true,
+      });
+      if (!confirmed) {
+        return;
+      }
+      setIsBusy(true);
+      try {
+        await deleteRule({ ruleId: group.id, serverIds: group.serverIds });
+      } catch (error) {
+        // The row has nowhere inline to put this, unlike the modal.
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [deleteRule, t],
+  );
+
+  const handleMove = useCallback(
+    async (group: PreSendCheckGroup, direction: "up" | "down") => {
+      const nextOrder = movePreSendCheck(groups, group.id, direction);
+      // Unchanged when the rule is already at the end it was moved towards, and
+      // sending that would be a write and a broadcast that changed nothing.
+      if (nextOrder.length === groups.length && nextOrder.every((id, i) => id === groups[i]?.id)) {
+        return;
+      }
+      setIsBusy(true);
+      try {
+        await reorderRules({ ruleIds: nextOrder, serverIds: usableServerIds });
+      } catch (error) {
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [groups, reorderRules, t, usableServerIds],
+  );
+
+  const handleToggleRule = useCallback(
+    async (group: PreSendCheckGroup, enabled: boolean) => {
+      setIsBusy(true);
+      try {
+        await saveRule({
+          rule: { ...group.rule, enabled },
+          currentServerIds: group.serverIds,
+          targetServerIds: group.serverIds,
+        });
+      } catch (error) {
+        Alert.alert(
+          t("common.errors.unableToSave"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [saveRule, t],
+  );
+
   const initialDraft =
-    form.kind === "edit" ? toPreSendCheckDraft(form.rule) : EMPTY_PRE_SEND_CHECK_DRAFT;
+    form.kind === "edit" ? toPreSendCheckDraft(form.group.rule) : EMPTY_PRE_SEND_CHECK_DRAFT;
+  // A new rule starts on every host that can hold one, which is what someone with
+  // three machines almost always means; unticking is one tap and re-ticking three.
+  const initialServerIds = form.kind === "edit" ? form.group.serverIds : usableServerIds;
 
   const addButton = useMemo(
     () => (
@@ -379,18 +448,24 @@ export function PreSendChecksPage() {
         size="sm"
         leftIcon={addIcon}
         onPress={handleOpenCreate}
-        disabled={!isConnected || !isSupported || isBusy}
+        disabled={!hasUsableHost || isBusy}
         accessibilityLabel={t("settings.preSendChecks.addRule")}
         testID="pre-send-check-add"
       />
     ),
-    [handleOpenCreate, isBusy, isConnected, isSupported, t],
+    [handleOpenCreate, hasUsableHost, isBusy, t],
   );
 
   // Whatever the state, the section header stays — unlike terminal profiles, which
   // returns before it and makes the screen look like it lost a setting rather than
   // like the setting is temporarily out of reach.
-  const listState = resolvePreSendChecksListState({ isConnected, isSupported, rules });
+  const listState = resolvePreSendChecksListState({
+    isConnected: hasConnectedHost,
+    isSupported: hasUsableHost,
+    // Loading only while nothing has arrived: once one host has answered its rules
+    // are shown rather than held back for a slower machine.
+    rules: isLoading && groups.length === 0 ? null : groups,
+  });
 
   return (
     <SettingsSection
@@ -398,45 +473,36 @@ export function PreSendChecksPage() {
       trailing={addButton}
       testID="pre-send-checks-section"
     >
-      {hosts.length > 1 ? (
-        <SelectField
-          label={t("settings.preSendChecks.hostLabel")}
-          value={serverId ?? ""}
-          selectedDisplay={selectedHostDisplay}
-          options={hostOptions}
-          onChange={setServerId}
-          placeholder={t("settings.preSendChecks.hostLabel")}
-          emptyText={t("settings.preSendChecks.noHosts")}
-          testID="pre-send-check-host"
-        />
-      ) : null}
-
       <View style={settingsStyles.card} testID="pre-send-checks-enabled-card">
-        <View style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>
-              {t("settings.preSendChecks.featureToggleTitle")}
-            </Text>
-            <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+        {showHosts ? (
+          <View style={settingsStyles.row}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>
+                {t("settings.preSendChecks.featureToggleTitle")}
+              </Text>
+              <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+            </View>
           </View>
-          <Switch
-            value={isFeatureEnabled}
-            onValueChange={handleToggleFeature}
-            disabled={!isConnected || !isSupported}
-            accessibilityLabel={t("settings.preSendChecks.featureToggleTitle")}
-            testID="pre-send-checks-enabled-switch"
+        ) : null}
+        {hosts.map((host, index) => (
+          <PreSendChecksFeatureRow
+            key={host.serverId}
+            host={host}
+            isOnlyHost={!showHosts}
+            withBorder={showHosts || index > 0}
           />
-        </View>
+        ))}
       </View>
 
       <View style={settingsStyles.card} testID="pre-send-checks-card">
         {listState.kind === "rules" ? (
-          (rules ?? []).map((rule, index) => (
+          groups.map((group, index) => (
             <PreSendCheckRow
-              key={rule.id}
-              rule={rule}
+              key={group.id}
+              group={group}
               isFirst={index === 0}
-              isLast={index === (rules?.length ?? 0) - 1}
+              isLast={index === groups.length - 1}
+              showHosts={showHosts}
               disabled={isBusy}
               onEdit={handleOpenEdit}
               onRemove={handleRemove}
@@ -459,6 +525,8 @@ export function PreSendChecksPage() {
             : t("settings.preSendChecks.addTitle")
         }
         initialDraft={initialDraft}
+        hosts={modalHosts}
+        initialServerIds={initialServerIds}
         onClose={handleCloseForm}
         onSave={handleSave}
         testID="pre-send-check-modal"
@@ -476,8 +544,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[4],
     gap: theme.spacing[3],
   },
-  // Text on the left, badge in the top right corner beside it. The badge stays on
-  // the first line whatever the sentence wraps to, because it is a sibling of the
+  // Text on the left, badges in the top right corner beside it. They stay on the
+  // first line whatever the sentence wraps to, because they are a sibling of the
   // text block rather than part of it.
   rowText: {
     flexDirection: "row",
@@ -491,6 +559,17 @@ const styles = StyleSheet.create((theme) => ({
   // its position still matters for when it comes back.
   textBlockOff: {
     opacity: 0.5,
+  },
+  badges: {
+    alignItems: "flex-end",
+    gap: theme.spacing[1],
+  },
+  // Which machines carry this rule. A line of text rather than a badge each,
+  // because three host names in badges is most of a phone's width.
+  hostLine: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    marginTop: theme.spacing[1],
   },
   // Every control on one centred line under the text. The buttons carry their own
   // padding, so no gap between them is what reads as evenly spaced - the same

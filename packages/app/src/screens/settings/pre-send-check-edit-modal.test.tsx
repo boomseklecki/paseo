@@ -2,7 +2,7 @@ import { JSDOM } from "jsdom";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PreSendCheckEditModal } from "./pre-send-check-edit-modal";
+import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckDraft } from "./pre-send-check-form";
 
 const { theme } = vi.hoisted(() => ({
@@ -30,6 +30,10 @@ vi.mock("react-native-unistyles", () => ({
     create: (factory: unknown) => (typeof factory === "function" ? factory(theme) : factory),
   },
   useUnistyles: () => ({ theme }),
+  // Reached through the host switches, which pull in `Switch`. The real one
+  // injects themed props; here the component is enough, since nothing in this
+  // file asserts on a colour.
+  withUnistyles: (component: unknown) => component,
 }));
 
 vi.mock("@/constants/platform", () => ({ isWeb: true, isNative: false }));
@@ -141,6 +145,32 @@ vi.mock("@/components/ui/select-field", async () => {
   };
 });
 
+// The real switch animates its track colour through reanimated, which needs a
+// theme this file does not stand up. A checkbox reports the same two things.
+vi.mock("@/components/ui/switch", async () => {
+  const ReactModule = await import("react");
+  return {
+    Switch: ({
+      value,
+      onValueChange,
+      disabled,
+      testID,
+    }: {
+      value: boolean;
+      onValueChange: (next: boolean) => void;
+      disabled?: boolean;
+      testID?: string;
+    }) =>
+      ReactModule.createElement("input", {
+        type: "checkbox",
+        checked: value,
+        disabled,
+        "data-testid": testID,
+        onChange: () => onValueChange(!value),
+      }),
+  };
+});
+
 vi.mock("@/components/ui/button", async () => {
   const ReactModule = await import("react");
   return {
@@ -210,17 +240,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const ONE_HOST: PreSendCheckModalHost[] = [{ serverId: "a", serverName: "Alpha", isUsable: true }];
+
+const TWO_HOSTS: PreSendCheckModalHost[] = [
+  ...ONE_HOST,
+  { serverId: "b", serverName: "Bravo", isUsable: true },
+];
+
 interface RenderOptions {
   visible?: boolean;
   initialDraft?: PreSendCheckDraft;
+  hosts?: PreSendCheckModalHost[];
+  initialServerIds?: string[];
   onClose?: () => void;
-  onSave?: (draft: PreSendCheckDraft) => Promise<void>;
+  onSave?: (draft: PreSendCheckDraft, serverIds: readonly string[]) => Promise<void>;
 }
 
 function renderModal(options: RenderOptions = {}) {
   const {
     visible = true,
     initialDraft = DRAFT,
+    hosts = ONE_HOST,
+    initialServerIds = hosts.map((host) => host.serverId),
     onClose = vi.fn(),
     onSave = vi.fn().mockResolvedValue(undefined),
   } = options;
@@ -230,6 +271,8 @@ function renderModal(options: RenderOptions = {}) {
         visible={visible}
         title="Edit rule"
         initialDraft={initialDraft}
+        hosts={hosts}
+        initialServerIds={initialServerIds}
         onClose={onClose}
         onSave={onSave}
         testID="psc"
@@ -287,12 +330,15 @@ describe("PreSendCheckEditModal", () => {
     click(query("pre-send-check-save"));
     await flush();
 
-    expect(onSave).toHaveBeenCalledWith({
-      ...DRAFT,
-      threshold: "60",
-      disposition: "warn",
-      message: "cold cache",
-    });
+    expect(onSave).toHaveBeenCalledWith(
+      {
+        ...DRAFT,
+        threshold: "60",
+        disposition: "warn",
+        message: "cold cache",
+      },
+      ["a"],
+    );
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -378,7 +424,10 @@ describe("PreSendCheckEditModal", () => {
     click(query("pre-send-check-save"));
     await flush();
 
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ operator: "approaches" }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ operator: "approaches" }),
+      expect.anything(),
+    );
   });
 
   it("swaps the threshold hint when the measurement changes", () => {
@@ -388,5 +437,50 @@ describe("PreSendCheckEditModal", () => {
     choose("psc-measurement-select", "agent.sessionCostUsd");
 
     expect(query("psc-threshold-hint")?.textContent).toContain("thresholdUnits.sessionCostUsd");
+  });
+
+  // A single-daemon setup must not be shown a choice it does not have, and there
+  // is exactly one place its rule can go.
+  it("hides the host field when there is only one host", () => {
+    renderModal();
+    expect(query("psc-hosts")).toBeNull();
+  });
+
+  it("offers a switch per host when there are several", () => {
+    renderModal({ hosts: TWO_HOSTS });
+    expect(query("psc-hosts")).not.toBeNull();
+    expect(query("pre-send-check-host-a")).not.toBeNull();
+    expect(query("pre-send-check-host-b")).not.toBeNull();
+  });
+
+  // Saving with nothing selected would delete the rule from every host it was on,
+  // which is not what a save button says it does.
+  it("refuses to save a rule assigned to no host", async () => {
+    const { onSave } = renderModal({ hosts: TWO_HOSTS, initialServerIds: [] });
+
+    click(query("pre-send-check-save"));
+    await flush();
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(query("pre-send-check-submit-error")?.textContent).toContain("hostsRequired");
+  });
+
+  it("saves to the hosts left switched on", async () => {
+    const { onSave } = renderModal({ hosts: TWO_HOSTS });
+
+    click(query("pre-send-check-host-a"));
+    click(query("pre-send-check-save"));
+    await flush();
+
+    expect(onSave).toHaveBeenCalledWith(expect.anything(), ["b"]);
+  });
+
+  it("passes the assigned hosts to the save", async () => {
+    const { onSave } = renderModal({ hosts: TWO_HOSTS, initialServerIds: ["b"] });
+
+    click(query("pre-send-check-save"));
+    await flush();
+
+    expect(onSave).toHaveBeenCalledWith(expect.anything(), ["b"]);
   });
 });
