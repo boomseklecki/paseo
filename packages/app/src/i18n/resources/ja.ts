@@ -1856,7 +1856,7 @@ export const ja: TranslationResources = {
       save: "保存",
       saving: "保存中...",
       triggerLabel: "トリガー",
-      operatorLabel: "が",
+      operatorLabel: "演算子",
       textLabel: "値",
       textHint: "大文字と小文字を区別せずにメッセージと比較します。",
       thresholdLabel: "値",
@@ -1913,7 +1913,30 @@ export const ja: TranslationResources = {
       outcomeKinds: {
         notify: "通知",
         warn: "警告",
-        block: "ブロック",
+        block: "メッセージをブロック",
+        asideAtSend: "メッセージを転送",
+        aside: "別途たずねる",
+        fork: "チャットを分岐",
+        start: "新しいチャット",
+        schedule: "メッセージを予約",
+      },
+      outcomeParams: {
+        aside: {
+          title: "サブエージェントのタイトル",
+          prompt: "プロンプト",
+        },
+        fork: {
+          title: "新しいチャットの名前",
+        },
+        start: {
+          title: "新しいチャットの名前",
+          prompt: "最初のメッセージ",
+        },
+        schedule: {
+          delay: "待つ時間",
+          prompt: "送る内容",
+          repeat: "繰り返す",
+        },
       },
       thresholdUnits: {
         idleSeconds: "秒単位。3600 で 1 時間です。",

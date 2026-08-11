@@ -1846,7 +1846,7 @@ export const ko: TranslationResources = {
       save: "저장",
       saving: "저장 중...",
       triggerLabel: "트리거",
-      operatorLabel: "이(가)",
+      operatorLabel: "연산자",
       textLabel: "값",
       textHint: "대소문자를 구분하지 않고 메시지와 비교합니다.",
       thresholdLabel: "값",
@@ -1902,7 +1902,30 @@ export const ko: TranslationResources = {
       outcomeKinds: {
         notify: "알림",
         warn: "경고",
-        block: "차단",
+        block: "메시지 차단",
+        asideAtSend: "메시지 전환",
+        aside: "따로 묻기",
+        fork: "채팅 분기",
+        start: "새 채팅",
+        schedule: "메시지 예약",
+      },
+      outcomeParams: {
+        aside: {
+          title: "서브에이전트 제목",
+          prompt: "프롬프트",
+        },
+        fork: {
+          title: "새 채팅 이름",
+        },
+        start: {
+          title: "새 채팅 이름",
+          prompt: "첫 메시지",
+        },
+        schedule: {
+          delay: "대기 시간",
+          prompt: "보낼 내용",
+          repeat: "반복",
+        },
       },
       thresholdUnits: {
         idleSeconds: "초 단위. 3600은 한 시간입니다.",

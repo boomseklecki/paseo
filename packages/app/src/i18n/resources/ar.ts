@@ -1835,7 +1835,7 @@ export const ar: TranslationResources = {
       save: "حفظ",
       saving: "جارٍ الحفظ...",
       triggerLabel: "المشغّل",
-      operatorLabel: "هو",
+      operatorLabel: "المُعامِل",
       textLabel: "القيمة",
       textHint: "تتم مقارنة الرسالة بهذا دون اعتبار لحالة الأحرف.",
       thresholdLabel: "القيمة",
@@ -1892,7 +1892,30 @@ export const ar: TranslationResources = {
       outcomeKinds: {
         notify: "إشعار",
         warn: "تحذير",
-        block: "حظر",
+        block: "حظر الرسالة",
+        asideAtSend: "إعادة توجيه الرسالة",
+        aside: "اسأل جانبًا",
+        fork: "تفريع المحادثة",
+        start: "بدء محادثة",
+        schedule: "جدولة رسالة",
+      },
+      outcomeParams: {
+        aside: {
+          title: "عنوان الوكيل الفرعي",
+          prompt: "الموجّه",
+        },
+        fork: {
+          title: "اسم المحادثة الجديدة",
+        },
+        start: {
+          title: "اسم المحادثة الجديدة",
+          prompt: "الرسالة الافتتاحية",
+        },
+        schedule: {
+          delay: "الانتظار لمدة",
+          prompt: "ما الذي يُرسل",
+          repeat: "التكرار",
+        },
       },
       thresholdUnits: {
         idleSeconds: "بالثواني. 3600 تعني ساعة واحدة.",

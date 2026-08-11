@@ -84,6 +84,52 @@ export interface PreSendCheckDraft {
 export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes";
 
 /**
+ * What an outcome is called, in this app's words.
+ *
+ * The daemon describes every outcome it can run, and those descriptions are
+ * English by design so a newer daemon can offer something this build has never
+ * heard of. That is right for the unknown ones and wrong for the four we ship:
+ * half the picker read in translated app strings and half in daemon English.
+ * So the app names what it knows and falls back to the daemon for the rest.
+ *
+ * `aside` is the one kind whose name depends on the seam. At the composer it
+ * takes the message you typed and answers it elsewhere, which is a redirect; at
+ * a daemon seam nobody typed anything, so there is no message to redirect and it
+ * is simply a question asked on the side. One kind, two honest names.
+ */
+export function preSendOutcomeLabel(input: {
+  kind: string;
+  event: string;
+  descriptors: readonly PreSendOutcomeDescriptor[];
+  t: PreSendTranslate;
+}): string {
+  const { kind, event, descriptors, t } = input;
+  if (kind === "aside" && event === DEFAULT_PRE_SEND_EVENT) {
+    return t("settings.preSendChecks.outcomeKinds.asideAtSend");
+  }
+  const described = descriptors.find((descriptor) => descriptor.kind === kind);
+  return t(`settings.preSendChecks.outcomeKinds.${kind}`, {
+    defaultValue: described?.label ?? kind,
+  });
+}
+
+/**
+ * What one of an outcome's parameters is called.
+ *
+ * Same split for the same reason. A parameter this build has not shipped a name
+ * for keeps the daemon's, which is what lets a newer outcome arrive complete.
+ */
+export function preSendOutcomeParamLabel(
+  kind: string,
+  parameter: { id: string; label: string },
+  t: PreSendTranslate,
+): string {
+  return t(`settings.preSendChecks.outcomeParams.${kind}.${parameter.id}`, {
+    defaultValue: parameter.label,
+  });
+}
+
+/**
  * The parameter a plain outcome's sentence lives under.
  *
  * `warn`, `block` and `notify` are a closed set in the protocol rather than a
@@ -742,12 +788,17 @@ export function describePreSendCheckOutcome(
   t: PreSendTranslate,
   descriptors: readonly PreSendOutcomeDescriptor[] = [],
 ): { label: string; isBlocking: boolean } {
-  const outcomes = normalizePreSendCheckRule(rule).outcomes;
+  const normalized = normalizePreSendCheckRule(rule);
+  const outcomes = normalized.outcomes;
   const principal = mostSeverePreSendOutcome(outcomes);
-  const described = descriptors.find((descriptor) => descriptor.kind === principal.kind);
-  const name = isPlainOutcomeKind(principal.kind)
-    ? t(`settings.preSendChecks.outcomeKinds.${principal.kind}`)
-    : (described?.label ?? principal.kind);
+  // Through the same lookup the picker uses, so a row and the editor that opens
+  // from it cannot call one outcome two different things.
+  const name = preSendOutcomeLabel({
+    kind: principal.kind,
+    event: normalized.event,
+    descriptors,
+    t,
+  });
   const extra = outcomes.length - 1;
   return {
     label: extra > 0 ? `${name} +${extra}` : name,

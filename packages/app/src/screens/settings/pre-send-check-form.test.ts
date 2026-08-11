@@ -592,7 +592,15 @@ describe("preSendOutcomeKindOptions", () => {
 });
 
 describe("describePreSendCheckOutcome", () => {
-  const t2 = (key: string) => (key.endsWith(".block") ? "Block" : key);
+  // Honours `defaultValue`, which real i18next does and the bare key-echo stub
+  // above does not — and the daemon-label fallback is expressed entirely through
+  // it, so a stub that ignored it would assert a behaviour the app never has.
+  const t2 = (key: string, options?: Record<string, unknown>) => {
+    if (key.endsWith(".block")) {
+      return "Block";
+    }
+    return typeof options?.defaultValue === "string" ? options.defaultValue : key;
+  };
 
   it("translates a plain kind", () => {
     expect(describePreSendCheckOutcome(RULE, t2).label).toBe("Block");
@@ -602,16 +610,30 @@ describe("describePreSendCheckOutcome", () => {
   // Caught by a screenshot rather than a test: the badge read a lowercase
   // `aside` beside `Block` and `Warn`, because the page had the descriptors and
   // did not hand them over.
-  it("uses the daemon's label for a kind it described", () => {
+  it("names a known kind in the app's own words, not the daemon's", () => {
     const aside = { ...RULE, disposition: "redirect", action: { kind: "aside" } };
 
-    expect(describePreSendCheckOutcome(aside, t2, ASIDE_DESCRIPTORS).label).toBe("Ask on the side");
+    expect(describePreSendCheckOutcome(aside, t2, ASIDE_DESCRIPTORS).label).toBe(
+      "settings.preSendChecks.outcomeKinds.asideAtSend",
+    );
   });
 
-  it("falls back to the raw kind when nothing described it", () => {
-    const aside = { ...RULE, disposition: "redirect", action: { kind: "aside" } };
+  // The point of the daemon sending descriptors at all: an outcome this build
+  // has never heard of still arrives with a name.
+  it("falls back to the daemon's label for a kind it does not know", () => {
+    const teleport = { ...RULE, disposition: "redirect", action: { kind: "teleport" } };
 
-    expect(describePreSendCheckOutcome(aside, t2, []).label).toBe("aside");
+    expect(
+      describePreSendCheckOutcome(teleport, t2, [
+        { kind: "teleport", label: "Teleport", parameters: [] },
+      ]).label,
+    ).toBe("Teleport");
+  });
+
+  it("falls back to the raw kind when nothing described it either", () => {
+    const teleport = { ...RULE, disposition: "redirect", action: { kind: "teleport" } };
+
+    expect(describePreSendCheckOutcome(teleport, t2, []).label).toBe("teleport");
   });
 
   // The badge names the outcome that decides, and counts the rest - a row also
@@ -620,7 +642,29 @@ describe("describePreSendCheckOutcome", () => {
     const both = { ...RULE, outcomes: [{ kind: "block" }, { kind: "aside" }] };
 
     expect(describePreSendCheckOutcome(both, t2, ASIDE_DESCRIPTORS).label).toBe(
-      "Ask on the side +1",
+      "settings.preSendChecks.outcomeKinds.asideAtSend +1",
+    );
+  });
+
+  // One kind, two honest names: at the composer it takes the message you typed,
+  // and at a daemon seam there is no message to take.
+  it("names an aside differently at a seam where nobody typed anything", () => {
+    const atFailure = {
+      ...RULE,
+      event: "turn.failed",
+      outcomes: [{ kind: "aside" }],
+    };
+
+    const atSend = { ...RULE, outcomes: [{ kind: "aside" }] };
+
+    // Different keys, so different names. The stub has no app translations, so
+    // the daemon-seam one resolves through its `defaultValue` to the descriptor
+    // — what matters here is that the two seams do not answer the same.
+    expect(describePreSendCheckOutcome(atFailure, t2, ASIDE_DESCRIPTORS).label).toBe(
+      "Ask on the side",
+    );
+    expect(describePreSendCheckOutcome(atSend, t2, ASIDE_DESCRIPTORS).label).toBe(
+      "settings.preSendChecks.outcomeKinds.asideAtSend",
     );
   });
 });

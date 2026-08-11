@@ -1894,7 +1894,7 @@ export const fr: TranslationResources = {
       save: "Enregistrer",
       saving: "Enregistrement...",
       triggerLabel: "Déclencheur",
-      operatorLabel: "Est",
+      operatorLabel: "Opérateur",
       textLabel: "Valeur",
       textHint: "Le message est comparé à ceci, sans tenir compte de la casse.",
       thresholdLabel: "Valeur",
@@ -1951,7 +1951,30 @@ export const fr: TranslationResources = {
       outcomeKinds: {
         notify: "Notifier",
         warn: "Avertir",
-        block: "Bloquer",
+        block: "Bloquer le message",
+        asideAtSend: "Rediriger le message",
+        aside: "Demander à côté",
+        fork: "Bifurquer le chat",
+        start: "Nouveau chat",
+        schedule: "Planifier un message",
+      },
+      outcomeParams: {
+        aside: {
+          title: "Titre du sous-agent",
+          prompt: "Invite",
+        },
+        fork: {
+          title: "Nom du nouveau chat",
+        },
+        start: {
+          title: "Nom du nouveau chat",
+          prompt: "Message d'ouverture",
+        },
+        schedule: {
+          delay: "Attendre",
+          prompt: "Quoi envoyer",
+          repeat: "Répéter",
+        },
       },
       thresholdUnits: {
         idleSeconds: "En secondes. 3600 correspond à une heure.",

@@ -1811,7 +1811,7 @@ export const zhCN: TranslationResources = {
       save: "保存",
       saving: "正在保存...",
       triggerLabel: "触发条件",
-      operatorLabel: "为",
+      operatorLabel: "运算符",
       textLabel: "值",
       textHint: "比较消息时忽略大小写。",
       thresholdLabel: "值",
@@ -1867,7 +1867,30 @@ export const zhCN: TranslationResources = {
       outcomeKinds: {
         notify: "通知",
         warn: "警告",
-        block: "阻止",
+        block: "拦截消息",
+        asideAtSend: "转发消息",
+        aside: "在旁边询问",
+        fork: "分支聊天",
+        start: "新建聊天",
+        schedule: "安排消息",
+      },
+      outcomeParams: {
+        aside: {
+          title: "子代理标题",
+          prompt: "提示词",
+        },
+        fork: {
+          title: "新聊天的名称",
+        },
+        start: {
+          title: "新聊天的名称",
+          prompt: "开场消息",
+        },
+        schedule: {
+          delay: "等待",
+          prompt: "发送内容",
+          repeat: "重复",
+        },
       },
       thresholdUnits: {
         idleSeconds: "以秒为单位，3600 即一小时。",

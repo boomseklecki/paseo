@@ -1853,7 +1853,7 @@ export const en = {
       save: "Save",
       saving: "Saving...",
       triggerLabel: "Trigger",
-      operatorLabel: "Is",
+      operatorLabel: "Operator",
       textLabel: "Value",
       textHint: "The message is compared with this, ignoring case.",
       thresholdLabel: "Value",
@@ -1910,7 +1910,30 @@ export const en = {
       outcomeKinds: {
         notify: "Notify",
         warn: "Warn",
-        block: "Block",
+        block: "Block message",
+        asideAtSend: "Redirect message",
+        aside: "Ask on the side",
+        fork: "Fork chat",
+        start: "Start chat",
+        schedule: "Schedule message",
+      },
+      outcomeParams: {
+        aside: {
+          title: "Subagent title",
+          prompt: "Prompt",
+        },
+        fork: {
+          title: "New chat's name",
+        },
+        start: {
+          title: "New chat's name",
+          prompt: "Opening message",
+        },
+        schedule: {
+          delay: "Wait for",
+          prompt: "What to send",
+          repeat: "Keep repeating",
+        },
       },
       thresholdUnits: {
         idleSeconds: "In seconds. 3600 is one hour.",

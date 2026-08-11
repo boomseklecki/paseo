@@ -1886,7 +1886,7 @@ export const es: TranslationResources = {
       save: "Guardar",
       saving: "Guardando...",
       triggerLabel: "Activador",
-      operatorLabel: "Es",
+      operatorLabel: "Operador",
       textLabel: "Valor",
       textHint: "El mensaje se compara con esto, sin distinguir mayúsculas.",
       thresholdLabel: "Valor",
@@ -1943,7 +1943,30 @@ export const es: TranslationResources = {
       outcomeKinds: {
         notify: "Notificar",
         warn: "Advertir",
-        block: "Bloquear",
+        block: "Bloquear mensaje",
+        asideAtSend: "Redirigir mensaje",
+        aside: "Preguntar aparte",
+        fork: "Bifurcar chat",
+        start: "Iniciar chat",
+        schedule: "Programar mensaje",
+      },
+      outcomeParams: {
+        aside: {
+          title: "Título del subagente",
+          prompt: "Prompt",
+        },
+        fork: {
+          title: "Nombre del chat nuevo",
+        },
+        start: {
+          title: "Nombre del chat nuevo",
+          prompt: "Mensaje inicial",
+        },
+        schedule: {
+          delay: "Esperar",
+          prompt: "Qué enviar",
+          repeat: "Repetir",
+        },
       },
       thresholdUnits: {
         idleSeconds: "En segundos. 3600 es una hora.",

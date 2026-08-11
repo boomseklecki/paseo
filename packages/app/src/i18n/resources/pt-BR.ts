@@ -1871,7 +1871,7 @@ export const ptBR: TranslationResources = {
       save: "Salvar",
       saving: "Salvando...",
       triggerLabel: "Gatilho",
-      operatorLabel: "É",
+      operatorLabel: "Operador",
       textLabel: "Valor",
       textHint: "A mensagem é comparada com isto, sem diferenciar maiúsculas.",
       thresholdLabel: "Valor",
@@ -1928,7 +1928,30 @@ export const ptBR: TranslationResources = {
       outcomeKinds: {
         notify: "Notificar",
         warn: "Avisar",
-        block: "Bloquear",
+        block: "Bloquear mensagem",
+        asideAtSend: "Redirecionar mensagem",
+        aside: "Perguntar à parte",
+        fork: "Bifurcar chat",
+        start: "Iniciar chat",
+        schedule: "Agendar mensagem",
+      },
+      outcomeParams: {
+        aside: {
+          title: "Título do subagente",
+          prompt: "Prompt",
+        },
+        fork: {
+          title: "Nome do novo chat",
+        },
+        start: {
+          title: "Nome do novo chat",
+          prompt: "Mensagem inicial",
+        },
+        schedule: {
+          delay: "Esperar",
+          prompt: "O que enviar",
+          repeat: "Repetir",
+        },
       },
       thresholdUnits: {
         idleSeconds: "Em segundos. 3600 é uma hora.",

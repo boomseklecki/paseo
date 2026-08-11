@@ -1878,7 +1878,7 @@ export const ru: TranslationResources = {
       save: "Сохранить",
       saving: "Сохранение...",
       triggerLabel: "Триггер",
-      operatorLabel: "—",
+      operatorLabel: "Оператор",
       textLabel: "Значение",
       textHint: "Сообщение сравнивается с этим без учёта регистра.",
       thresholdLabel: "Значение",
@@ -1935,7 +1935,30 @@ export const ru: TranslationResources = {
       outcomeKinds: {
         notify: "Уведомить",
         warn: "Предупредить",
-        block: "Заблокировать",
+        block: "Заблокировать сообщение",
+        asideAtSend: "Перенаправить сообщение",
+        aside: "Спросить отдельно",
+        fork: "Ответвить чат",
+        start: "Новый чат",
+        schedule: "Запланировать сообщение",
+      },
+      outcomeParams: {
+        aside: {
+          title: "Заголовок субагента",
+          prompt: "Промпт",
+        },
+        fork: {
+          title: "Имя нового чата",
+        },
+        start: {
+          title: "Имя нового чата",
+          prompt: "Первое сообщение",
+        },
+        schedule: {
+          delay: "Подождать",
+          prompt: "Что отправить",
+          repeat: "Повторять",
+        },
       },
       thresholdUnits: {
         idleSeconds: "В секундах. 3600 — это один час.",

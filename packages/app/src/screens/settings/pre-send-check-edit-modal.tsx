@@ -24,6 +24,8 @@ import {
   preSendCheckChoosesHosts,
   addPreSendOutcome,
   applyPreSendCheckDraft,
+  preSendOutcomeLabel,
+  preSendOutcomeParamLabel,
   withDefaultPreSendWording,
   PRE_SEND_WORDING_PARAM,
   applyPreSendEventChange,
@@ -457,8 +459,15 @@ interface PreSendOutcomeRowProps {
   outcome: PreSendCheckOutcomeDraft;
   /** Every kind this seam accepts and this daemon can perform. */
   kinds: readonly string[];
-  /** What the chosen kind takes, when the daemon described it. */
-  descriptor: PreSendOutcomeDescriptor | undefined;
+  /**
+   * Every outcome the daemon described, not just this row's.
+   *
+   * The whole list, because the picker has to label *options* and not only the
+   * selection. Holding one descriptor meant every kind but the chosen one was
+   * offered under its raw wire value — a menu reading `fork`, `start`,
+   * `schedule` next to a properly named selection.
+   */
+  descriptors: readonly PreSendOutcomeDescriptor[];
   /** False on the last remaining row: a rule with no outcome does nothing. */
   canRemove: boolean;
   disabled: boolean;
@@ -489,7 +498,7 @@ function PreSendOutcomeRow({
   trigger,
   outcome,
   kinds,
-  descriptor,
+  descriptors,
   canRemove,
   disabled,
   resetKey,
@@ -501,12 +510,12 @@ function PreSendOutcomeRow({
   const { t } = useTranslation();
 
   const labelFor = useCallback(
-    (kind: string) =>
-      isPlainOutcomeKind(kind)
-        ? t(`settings.preSendChecks.outcomeKinds.${kind}`)
-        : ((descriptor?.kind === kind ? descriptor.label : undefined) ?? kind),
-    [descriptor, t],
+    (kind: string) => preSendOutcomeLabel({ kind, event, descriptors, t }),
+    [descriptors, event, t],
   );
+
+  // This row's own, for the parameters below the picker.
+  const descriptor = descriptors.find((candidate) => candidate.kind === outcome.kind);
 
   const options = useMemo(
     () =>
@@ -573,16 +582,21 @@ function PreSendOutcomeRow({
     const tokens = tokenHelp(preSendTokensForPrompt(event), t);
     const rewritten: PreSendOutcomeParameter[] = [];
     for (const parameter of descriptor?.parameters ?? []) {
-      if (parameter.description?.includes("{{") !== true) {
-        rewritten.push(parameter);
-        continue;
+      // A copy either way: the labels are rewritten in place below, and mutating
+      // the descriptor's own objects would rename the daemon's catalogue.
+      const copied = { ...parameter };
+      if (copied.description?.includes("{{") === true) {
+        copied.description = `${stripTokenSentence(copied.description)} ${tokens}`.trim();
       }
-      const described = { ...parameter };
-      described.description = `${stripTokenSentence(parameter.description)} ${tokens}`.trim();
-      rewritten.push(described);
+      rewritten.push(copied);
+    }
+    // Named by the app where it knows the outcome, and by the daemon where it
+    // does not, so a picker does not read half in one voice and half in another.
+    for (const parameter of rewritten) {
+      parameter.label = preSendOutcomeParamLabel(outcome.kind, parameter, t);
     }
     return rewritten;
-  }, [descriptor, event, t]);
+  }, [descriptor, event, outcome.kind, t]);
 
   return (
     <View style={styles.outcomeRow}>
@@ -689,7 +703,7 @@ function PreSendOutcomeList({
             trigger={draft.trigger}
             outcome={outcome}
             kinds={preSendOutcomeKindsForRow(draft, index, descriptors)}
-            descriptor={descriptors.find((candidate) => candidate.kind === outcome.kind)}
+            descriptors={descriptors}
             canRemove={draft.outcomes.length > 1}
             disabled={disabled}
             resetKey={resetKey}
