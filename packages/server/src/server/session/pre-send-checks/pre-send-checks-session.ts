@@ -154,6 +154,7 @@ export class PreSendChecksSession {
         requestId,
         status: outcome.status,
         subagentId: outcome.status === "started" ? outcome.subagentId : null,
+        agentId: outcome.status === "started" ? (outcome.agentId ?? null) : null,
         reason: "reason" in outcome ? outcome.reason : null,
         estimatedTokens:
           outcome.status === "needs_confirmation" ? (outcome.estimatedTokens ?? null) : null,

@@ -129,6 +129,14 @@ export const PreSendChecksRunActionResponseSchema = z.object({
     requestId: z.string(),
     status: z.enum(["started", "needs_confirmation", "declined", "failed"]),
     subagentId: z.string().nullable(),
+    /**
+     * COMPAT(preSendActionAgentId): added in v0.3.2, remove after 2027-02-10
+     * once the client floor is >= v0.3.2. Set when what started is a real agent
+     * rather than a hidden subagent, so the caller can go and look at it. An
+     * aside leaves it absent on purpose: there is nowhere to navigate to, which
+     * is the point of an aside.
+     */
+    agentId: z.string().nullable().optional(),
     reason: z.string().nullable(),
     estimatedTokens: z.number().nullable(),
   }),

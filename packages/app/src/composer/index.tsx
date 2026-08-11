@@ -97,7 +97,9 @@ import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
 import { evaluatePreSendChecks } from "@getpaseo/protocol/pre-send-checks/evaluate";
 import type { PreSendFinding } from "@getpaseo/protocol/pre-send-checks/types";
+import { useRouter } from "expo-router";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import type { PreSendMeasurementContext } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   buildPreSendMeasurementContext,
@@ -298,6 +300,8 @@ async function runPreSendRedirect(input: {
   finding: PreSendFinding | undefined;
   serverId: string;
   agentId: string;
+  /** Where to go when the action made somewhere to go. See below. */
+  onStartedAgent: (agentId: string) => void;
   message: string;
   t: TFunction;
   toast: ReturnType<typeof useToast>;
@@ -319,6 +323,14 @@ async function runPreSendRedirect(input: {
     });
 
     if (result.status === "started") {
+      // A fork or a start made a real conversation, and leaving you in the one
+      // you were typing into would be a gesture half made: you asked to go
+      // there. An aside sets no agentId, because its whole point is that there
+      // is nowhere to go — it attaches to the conversation you are already in.
+      if (result.agentId) {
+        input.onStartedAgent(result.agentId);
+        return "redirected";
+      }
       input.toast.show(input.t("composer.preSendChecks.asideStarted"), {
         variant: "success",
         durationMs: 4000,
@@ -1195,7 +1207,22 @@ export function Composer({
   const isConnected = useHostRuntimeIsConnected(serverId);
   const agentDirectoryStatus = useHostRuntimeAgentDirectoryStatus(serverId);
   const toast = useToast();
+  const router = useRouter();
   const toastErrorRef = useRef(toast.error);
+
+  /**
+   * Where a fork or a start lands you.
+   *
+   * The daemon has already made the conversation by the time this runs, so this
+   * is a plain navigation rather than a creation flow — unlike the fork button,
+   * which builds the context itself and hands it to a draft.
+   */
+  const goToStartedAgent = useCallback(
+    (startedAgentId: string) => {
+      router.push(buildHostAgentDetailRoute(serverId, startedAgentId));
+    },
+    [router, serverId],
+  );
   toastErrorRef.current = toast.error;
   const voice = useVoiceOptional();
   const voiceToggleKeys = useShortcutKeys("voice-toggle");
@@ -1562,6 +1589,7 @@ export function Composer({
           t,
           toast,
           toastError: toastErrorRef.current,
+          onStartedAgent: goToStartedAgent,
         });
       }
 
@@ -1590,7 +1618,7 @@ export function Composer({
       toastErrorRef.current(formatPreSendFindings(evaluation.findings, t));
       return "block";
     },
-    [readRules, serverId, t, toast],
+    [goToStartedAgent, readRules, serverId, t, toast],
   );
 
   const sendMessageWithContent = useCallback(
