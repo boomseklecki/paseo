@@ -1807,6 +1807,11 @@ export const ja: TranslationResources = {
           description:
             "隠しエージェントが自分で書くはずだった要約を作り、必要になった日にはもう存在しています。",
         },
+        "fork-on-slash-fork": {
+          label: "/fork で会話を分岐する",
+          description:
+            "分岐ボタンをショートカットに。/fork と打つと送信せず会話を新しい方へ引き継ぎます。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",

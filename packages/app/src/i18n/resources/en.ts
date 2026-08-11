@@ -1802,6 +1802,11 @@ export const en = {
           description:
             "A hidden agent writes the summary you would have written yourself, so it already exists on the day you need it.",
         },
+        "fork-on-slash-fork": {
+          label: "Fork the conversation on /fork",
+          description:
+            "The fork button as a shortcut you chose: typing /fork carries the conversation into a new one instead of sending.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

@@ -1766,6 +1766,10 @@ export const zhCN: TranslationResources = {
           label: "在对话压缩前写好交接",
           description: "隐藏代理写下你本来要写的摘要，等你需要时它已经存在。",
         },
+        "fork-on-slash-fork": {
+          label: "用 /fork 分叉对话",
+          description: "把分叉按钮变成快捷方式：输入 /fork 不发送，而是把对话带进一个新的。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

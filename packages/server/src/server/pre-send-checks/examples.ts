@@ -51,6 +51,18 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "fork-on-slash-fork",
+    label: "Fork the conversation on /fork",
+    description:
+      "Paseo has a fork button; this is the same thing as a shortcut you chose. Typing /fork carries the conversation into a new one instead of sending, and you land in the copy with everything up to that point.",
+    rule: {
+      trigger: "message",
+      operator: "startsWith",
+      value: "/fork",
+      outcome: { kind: "fork" },
+    },
+  },
+  {
     id: "notify-context-pressure",
     label: "Tell me when a conversation is nearly full",
     description:

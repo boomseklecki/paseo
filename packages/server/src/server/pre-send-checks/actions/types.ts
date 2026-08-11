@@ -9,9 +9,9 @@ import type { PreSendAction } from "@getpaseo/protocol/pre-send-checks/types";
  * declining an action it cannot perform is the difference between a message
  * sending normally and a message disappearing.
  *
- * `action.kind` is where a registry goes when a second action turns up, and the
- * outcome union below is already the vocabulary it would speak. Neither is built
- * yet, because one handler behind a lookup table is a table with one row.
+ * `action.kind` is the registry key, and `./registry.js` is the lookup a second
+ * action turned it into. It stayed a single `if` for exactly as long as there
+ * was one row.
  */
 
 /**
@@ -27,7 +27,16 @@ import type { PreSendAction } from "@getpaseo/protocol/pre-send-checks/types";
  * the agent as an instruction.
  */
 export type PreSendActionOutcome =
-  | { status: "started"; subagentId: string }
+  | {
+      status: "started";
+      subagentId: string;
+      /**
+       * Set when what started is a real agent rather than a hidden subagent, so
+       * a caller can go and look at it. An aside leaves this absent on purpose:
+       * there is nowhere to navigate to, which is the whole point of an aside.
+       */
+      agentId?: string;
+    }
   | { status: "needs_confirmation"; reason: string; estimatedTokens?: number }
   | { status: "declined"; reason: string }
   | { status: "failed"; reason: string };

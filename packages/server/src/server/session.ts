@@ -60,7 +60,7 @@ import {
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
-import { AsideAction } from "./pre-send-checks/actions/aside.js";
+import { createPreSendActionRegistry } from "./pre-send-checks/actions/registry.js";
 import { PreSendChecksSession } from "./session/pre-send-checks/pre-send-checks-session.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
@@ -843,7 +843,10 @@ export class Session {
       // Passed as the port rather than the class, so the subsystem never sees
       // AgentManager. Built here and not on demand: the manager is assigned
       // well before this line, and an action is a logger and a reference.
-      actionRunner: new AsideAction({ manager: agentManager, logger: this.sessionLogger }),
+      actionRunner: createPreSendActionRegistry({
+        manager: agentManager,
+        logger: this.sessionLogger,
+      }),
       logger: this.sessionLogger,
     });
     this.providerCatalogSession = new ProviderCatalogSession({

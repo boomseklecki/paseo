@@ -1836,6 +1836,11 @@ export const es: TranslationResources = {
           description:
             "Un agente oculto escribe el resumen que usted habría escrito, para que ya exista el día que lo necesite.",
         },
+        "fork-on-slash-fork": {
+          label: "Bifurcar la conversación con /fork",
+          description:
+            "El botón de bifurcar como atajo: /fork lleva la conversación a una nueva en vez de enviarla.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar cuando el contexto esté casi lleno",
           description:

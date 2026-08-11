@@ -19,7 +19,7 @@ import {
   PreSendRuleEventTracker,
 } from "./pre-send-checks/rule-events.js";
 import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
-import { AsideAction } from "./pre-send-checks/actions/aside.js";
+import { createPreSendActionRegistry } from "./pre-send-checks/actions/registry.js";
 import type { PreSendActionRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
 import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
@@ -770,7 +770,7 @@ export class VoiceAssistantWebSocketServer {
       }
     });
 
-    this.ruleActionRunner = new AsideAction({
+    this.ruleActionRunner = createPreSendActionRegistry({
       manager: this.agentManager,
       logger: this.logger,
     });

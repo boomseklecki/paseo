@@ -125,18 +125,11 @@ export class PreSendChecksSession {
   async handlePreSendChecksRunActionRequest(
     msg: Extract<SessionInboundMessage, { type: "pre_send_checks/run_action" }>,
   ): Promise<void> {
-    // A newer client can name a kind this daemon has never heard of, and a
-    // redirect consumes what was typed — so declining an action we cannot
-    // perform is the difference between a message sending normally and a
-    // message disappearing.
-    if (msg.action.kind !== "aside") {
-      this.respondToRunAction(msg.requestId, {
-        status: "declined",
-        reason: `Unknown action '${msg.action.kind}'`,
-      });
-      return;
-    }
-
+    // Which kinds exist is the runner's business now that there is more than
+    // one, and it declines anything it does not have. A newer client can name a
+    // kind this daemon has never heard of, and a redirect consumes what was
+    // typed — so declining is the difference between a message sending normally
+    // and a message disappearing.
     try {
       const outcome = await this.actionRunner.run({
         agentId: msg.agentId,

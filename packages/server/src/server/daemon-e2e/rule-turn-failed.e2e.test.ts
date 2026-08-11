@@ -247,4 +247,60 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 60_000);
+
+  // Fork exists in Paseo as a button on a conversation you are looking at. As an
+  // outcome it becomes something a rule can ask for - which is what makes it a
+  // shortcut rather than a click.
+  test("forks a conversation into a real agent that carries it", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-fork-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "fork-on-failure",
+      event: "turn.failed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "fork", title: "Second attempt" },
+    });
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-fork-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Original",
+      });
+
+      await client.sendMessage(agent.id, "Please emit a turn failure");
+
+      // `entries`, and each wraps its agent - the shape a probe got wrong once
+      // already by reading entry.id.
+      let forked: Array<{ id: string; title?: string; workspaceId?: string; cwd: string }> = [];
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && forked.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const entries = (await client.fetchAgents({})).entries;
+        forked = entries.map((entry) => entry.agent).filter((found) => found.id !== agent.id);
+      }
+
+      // A real agent, visible in the list beside its parent - not a hidden
+      // subagent. That is the whole difference between fork and aside.
+      expect(forked).toHaveLength(1);
+      expect(forked[0]?.title).toBe("Second attempt");
+      expect(forked[0]?.workspaceId).toBe(agent.workspaceId);
+      expect(forked[0]?.cwd).toBe(agent.cwd);
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
 });

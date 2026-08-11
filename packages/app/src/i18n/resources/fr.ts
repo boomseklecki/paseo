@@ -1844,6 +1844,11 @@ export const fr: TranslationResources = {
           description:
             "Un agent masqué écrit le résumé que vous auriez dû écrire, pour qu'il existe déjà le jour où il vous faut.",
         },
+        "fork-on-slash-fork": {
+          label: "Bifurquer la conversation sur /fork",
+          description:
+            "Le bouton de bifurcation en raccourci : /fork emmène la conversation dans une nouvelle au lieu d'envoyer.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

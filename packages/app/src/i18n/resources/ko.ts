@@ -1799,6 +1799,11 @@ export const ko: TranslationResources = {
           description:
             "숨은 에이전트가 직접 썼을 요약을 대신 써 두어, 필요한 날에 이미 존재합니다.",
         },
+        "fork-on-slash-fork": {
+          label: "/fork로 대화 분기하기",
+          description:
+            "분기 버튼을 단축키로. /fork를 입력하면 전송 대신 대화를 새 대화로 옮깁니다.",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",

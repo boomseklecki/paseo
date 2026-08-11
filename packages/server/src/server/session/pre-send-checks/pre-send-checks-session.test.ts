@@ -226,13 +226,15 @@ describe("PreSendChecksSession", () => {
 
   // A redirect consumes what was typed, so a kind this daemon cannot perform has
   // to come back as declined - which the caller reads as "send it yourself".
-  it("declines an action kind it does not know without consulting the runner", async () => {
-    let called = false;
+  // Which kinds exist moved into the runner when a second one turned up, so the
+  // subsystem asks and reports what it hears rather than knowing the list.
+  it("reports the runner's decline of a kind it does not have", async () => {
+    const seen: string[] = [];
     const { session, emitted } = makeSession(
       {},
-      runner(async () => {
-        called = true;
-        return { status: "started", subagentId: "sub-1" };
+      runner(async (request) => {
+        seen.push(request.action.kind);
+        return { status: "declined", reason: `Unknown action '${request.action.kind}'` };
       }),
     );
 
@@ -244,7 +246,7 @@ describe("PreSendChecksSession", () => {
       action: { kind: "teleport" },
     });
 
-    expect(called).toBe(false);
+    expect(seen).toEqual(["teleport"]);
     const response = findByType(emitted, "pre_send_checks/run_action/response");
     expect(response?.payload.status).toBe("declined");
     expect(response?.payload.reason).toBe("Unknown action 'teleport'");

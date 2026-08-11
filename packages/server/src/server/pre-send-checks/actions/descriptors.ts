@@ -37,4 +37,18 @@ export const PRE_SEND_ACTION_DESCRIPTORS: readonly PreSendActionDescriptor[] = [
       },
     ],
   },
+  {
+    kind: "fork",
+    label: "Fork the conversation",
+    description:
+      "Carries this conversation into a new one, up to where it had got to. The new agent is a real one in the same workspace, not hidden - Paseo has a button for this, and a rule is how you make it a shortcut.",
+    parameters: [
+      {
+        type: "text",
+        id: "title",
+        label: "New conversation's name",
+        description: "Defaults to the original's name with (fork) after it.",
+      },
+    ],
+  },
 ];

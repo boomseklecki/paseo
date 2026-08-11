@@ -1823,6 +1823,11 @@ export const ptBR: TranslationResources = {
           description:
             "Um agente oculto escreve o resumo que você teria escrito, para que ele já exista no dia em que precisar.",
         },
+        "fork-on-slash-fork": {
+          label: "Bifurcar a conversa com /fork",
+          description:
+            "O botão de bifurcar como atalho: /fork leva a conversa para uma nova em vez de enviar.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

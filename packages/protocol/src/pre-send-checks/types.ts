@@ -202,7 +202,7 @@ export type PreSendTextOperator = (typeof PRE_SEND_TEXT_OPERATORS)[number];
 export type PreSendOperator = (typeof PRE_SEND_OPERATORS)[number];
 
 /** Action kinds the daemon can carry out. Unknown kinds are declined, not run. */
-export const PRE_SEND_ACTION_KINDS = ["aside"] as const;
+export const PRE_SEND_ACTION_KINDS = ["aside", "fork"] as const;
 
 export type PreSendActionKind = (typeof PRE_SEND_ACTION_KINDS)[number];
 
