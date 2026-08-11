@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import { AsideAction } from "./aside.js";
 import { ForkAction } from "./fork.js";
+import { StartAction } from "./start.js";
 import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
 
 /**
@@ -22,6 +23,7 @@ export function createPreSendActionRegistry(options: { manager: AgentManager; lo
   > = {
     aside: new AsideAction(options),
     fork: new ForkAction(options),
+    start: new StartAction(options),
   };
 
   return {

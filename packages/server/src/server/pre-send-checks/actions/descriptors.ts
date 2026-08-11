@@ -51,4 +51,26 @@ export const PRE_SEND_ACTION_DESCRIPTORS: readonly PreSendActionDescriptor[] = [
       },
     ],
   },
+  {
+    kind: "start",
+    label: "Start a fresh conversation",
+    description:
+      "Opens a new conversation beside this one, in the same workspace, carrying none of it. The right one when the rule fired because this conversation is full - a fork would carry in the very thing that triggered it.",
+    parameters: [
+      {
+        type: "text",
+        id: "title",
+        label: "New conversation's name",
+        description: "Defaults to the original's name with (continued) after it.",
+      },
+      {
+        type: "text",
+        id: "prompt",
+        label: "Opening message",
+        description:
+          "Optional. Sent to the new conversation as its first message. {{message}} is replaced with what you typed. Leave empty to open it and leave it waiting.",
+        multiline: true,
+      },
+    ],
+  },
 ];

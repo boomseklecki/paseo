@@ -1804,6 +1804,11 @@ export const ko: TranslationResources = {
           description:
             "분기 버튼을 단축키로. /fork를 입력하면 전송 대신 대화를 새 대화로 옮깁니다.",
         },
+        "start-fresh-when-full": {
+          label: "이 대화가 가득 차면 새 대화 열기",
+          description:
+            "아무것도 가져오지 않는 새 대화가 옆에 열립니다. 인수인계 규칙과 함께 쓰세요.",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",

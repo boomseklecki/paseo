@@ -1807,6 +1807,11 @@ export const en = {
           description:
             "The fork button as a shortcut you chose: typing /fork carries the conversation into a new one instead of sending.",
         },
+        "start-fresh-when-full": {
+          label: "Open a fresh conversation when this one fills up",
+          description:
+            "A new conversation opens beside this one carrying none of it — pair it with the handoff rule.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

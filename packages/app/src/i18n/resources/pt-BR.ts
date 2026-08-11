@@ -1828,6 +1828,11 @@ export const ptBR: TranslationResources = {
           description:
             "O botão de bifurcar como atalho: /fork leva a conversa para uma nova em vez de enviar.",
         },
+        "start-fresh-when-full": {
+          label: "Abrir uma conversa nova quando esta encher",
+          description:
+            "Uma conversa nova abre ao lado sem carregar nada — combine com a regra de passagem.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

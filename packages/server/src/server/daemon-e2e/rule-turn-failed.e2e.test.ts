@@ -303,4 +303,61 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 60_000);
+
+  // start is fork without the transcript, and the missing transcript is the
+  // point: the rule fires because the conversation is full, so carrying it in
+  // would carry the very thing that triggered it.
+  test("starts a fresh agent carrying none of the conversation", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-start-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "start-fresh",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "start", title: "Continued" },
+    });
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-start-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Original",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+
+      let started: Array<{ id: string; title?: string; workspaceId?: string }> = [];
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && started.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        started = (await client.fetchAgents({})).entries
+          .map((entry) => entry.agent)
+          .filter((found) => found.id !== agent.id);
+      }
+
+      expect(started).toHaveLength(1);
+      expect(started[0]?.title).toBe("Continued");
+      expect(started[0]?.workspaceId).toBe(agent.workspaceId);
+
+      // The difference from fork, and the reason this outcome exists: its
+      // timeline is empty rather than carrying the parent's.
+      const timeline = await client.fetchAgentTimeline(started[0]!.id);
+      expect(JSON.stringify(timeline)).not.toContain("Hello world");
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
 });

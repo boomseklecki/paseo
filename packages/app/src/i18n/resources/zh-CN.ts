@@ -1770,6 +1770,10 @@ export const zhCN: TranslationResources = {
           label: "用 /fork 分叉对话",
           description: "把分叉按钮变成快捷方式：输入 /fork 不发送，而是把对话带进一个新的。",
         },
+        "start-fresh-when-full": {
+          label: "这个对话满了就开一个新的",
+          description: "旁边开一个不带任何内容的新对话——和交接规则搭配使用。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

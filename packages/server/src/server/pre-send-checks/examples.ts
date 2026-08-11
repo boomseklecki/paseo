@@ -63,6 +63,24 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "start-fresh-when-full",
+    label: "Open a fresh conversation when this one fills up",
+    description:
+      "At 85% a new conversation opens beside this one, in the same workspace, carrying none of the old one. Pair it with the handoff rule: one writes the summary, this one opens the place to take it. Forking here would carry in the very thing that triggered the rule.",
+    rule: {
+      event: "turn.completed",
+      trigger: "agent.contextUsedPercent",
+      operator: "gte",
+      value: 85,
+      outcome: {
+        kind: "start",
+        title: "Continued",
+        prompt:
+          "You are continuing work that filled its context. The previous conversation's handoff is in its subagent panel - ask for it if you need it. Start by saying what you understand the task to be.",
+      },
+    },
+  },
+  {
     id: "notify-context-pressure",
     label: "Tell me when a conversation is nearly full",
     description:

@@ -1849,6 +1849,11 @@ export const fr: TranslationResources = {
           description:
             "Le bouton de bifurcation en raccourci : /fork emmène la conversation dans une nouvelle au lieu d'envoyer.",
         },
+        "start-fresh-when-full": {
+          label: "Ouvrir une nouvelle conversation quand celle-ci est pleine",
+          description:
+            "Une nouvelle conversation s'ouvre à côté sans rien reprendre — à associer à la règle de passation.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

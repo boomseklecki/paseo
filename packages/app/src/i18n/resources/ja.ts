@@ -1812,6 +1812,11 @@ export const ja: TranslationResources = {
           description:
             "分岐ボタンをショートカットに。/fork と打つと送信せず会話を新しい方へ引き継ぎます。",
         },
+        "start-fresh-when-full": {
+          label: "会話が一杯になったら新しい会話を開く",
+          description:
+            "何も引き継がない新しい会話が隣に開きます。引き継ぎルールと組み合わせてください。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",
