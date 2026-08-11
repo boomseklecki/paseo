@@ -229,16 +229,23 @@ export function evaluatePreSendChecks(
   rules: readonly PreSendCheckRule[],
   context: PreSendMeasurementContext,
 ): PreSendEvaluation {
-  const findings: PreSendFinding[] = [];
+  const unordered: PreSendFinding[] = [];
 
   // Only the seam this function is named after. A `turn.failed` rule evaluated
   // here would hold a send over a condition about a turn that already failed.
   for (const rule of rulesForPreSendEvent(rules, DEFAULT_PRE_SEND_EVENT)) {
     const finding = evaluateRule(normalizePreSendCheckRule(rule), context);
     if (finding) {
-      findings.push(finding);
+      unordered.push(finding);
     }
   }
+
+  // A redirect consumes the message, so two of them matching is one message and
+  // two destinations. The list is already in the order someone arranged, and
+  // ordering has meant nothing but tidiness until now — this is where it earns
+  // its keep, because "the first one you put in the list" is an answer a person
+  // can predict and act on, where "whichever the loop reached first" is not.
+  const findings = evaluatePreSendEventOrder(unordered, rules);
 
   const disposition = findings.reduce<PreSendDisposition>(
     (worst, finding) =>
@@ -302,4 +309,33 @@ export function evaluatePreSendEvent(
   }
 
   return findings;
+}
+
+/**
+ * Puts findings in the arrangement someone chose.
+ *
+ * Only the winner of a tie needs this, and only one outcome can win: a redirect
+ * takes the message somewhere, and a message goes one place. Ordering a rule
+ * list has been tidiness up to now; this is the moment it decides something, so
+ * a person who wants one redirect to beat another moves it up.
+ *
+ * A rule with no `order` sorts after every ordered one, matching how the store
+ * lists them, so adding the field to some rules and not others stays
+ * predictable.
+ */
+function evaluatePreSendEventOrder(
+  findings: readonly PreSendFinding[],
+  rules: readonly PreSendCheckRule[],
+): PreSendFinding[] {
+  const orderById = new Map(
+    rules.map((rule) => [rule.id, rule.order ?? Number.POSITIVE_INFINITY] as const),
+  );
+  return [...findings].sort((left, right) => {
+    const leftOrder = orderById.get(left.ruleId) ?? Number.POSITIVE_INFINITY;
+    const rightOrder = orderById.get(right.ruleId) ?? Number.POSITIVE_INFINITY;
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+    return left.ruleId.localeCompare(right.ruleId);
+  });
 }

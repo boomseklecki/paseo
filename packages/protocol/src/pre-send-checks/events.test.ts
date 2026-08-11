@@ -201,3 +201,48 @@ describe("the agent.idle seam", () => {
     ]);
   });
 });
+
+describe("two redirects matching", () => {
+  const redirect = (id: string, order: number | undefined, kind: string): PreSendCheckRule => ({
+    id,
+    measurement: "always",
+    trigger: "always",
+    operator: "gte",
+    disposition: "redirect",
+    outcome: { kind },
+    ...(order === undefined ? {} : { order }),
+  });
+
+  // A redirect consumes the message and a message goes one place, so a tie has
+  // to be broken by something a person can predict. Ordering the list was
+  // tidiness until now; here it decides.
+  it("puts the rule arranged first at the front", () => {
+    const evaluation = evaluatePreSendChecks(
+      [redirect("second", 1, "fork"), redirect("first", 0, "aside")],
+      context(),
+    );
+
+    expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["first", "second"]);
+    expect(evaluation.findings[0]?.outcome).toEqual({ kind: "aside" });
+  });
+
+  // Matching how the store lists them, so adding order to some rules and not
+  // others stays predictable.
+  it("sorts an unordered rule after every ordered one", () => {
+    const evaluation = evaluatePreSendChecks(
+      [redirect("none", undefined, "fork"), redirect("ordered", 3, "aside")],
+      context(),
+    );
+
+    expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["ordered", "none"]);
+  });
+
+  it("breaks a dead heat on id rather than on argument order", () => {
+    const evaluation = evaluatePreSendChecks(
+      [redirect("b", 0, "fork"), redirect("a", 0, "aside")],
+      context(),
+    );
+
+    expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["a", "b"]);
+  });
+});
