@@ -1905,6 +1905,7 @@ export const ru: TranslationResources = {
       unrecognisedOption: "{{value}} (не распознано)",
       eventHint: "Момент, когда правило проверяется.",
       triggerHint: "И что ещё должно быть верно в этот момент.",
+      triggerHintAlways: "Больше ничего не требуется — само событие и есть условие.",
       eventLabel: "Событие",
       events: {
         send: "Перед отправкой сообщения",

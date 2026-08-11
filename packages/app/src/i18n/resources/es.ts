@@ -1913,6 +1913,7 @@ export const es: TranslationResources = {
       unrecognisedOption: "{{value}} (no reconocido)",
       eventHint: "El momento en que se comprueba la regla.",
       triggerHint: "Y lo que además debe cumplirse en ese momento.",
+      triggerHintAlways: "No hace falta nada más: el evento mismo es la condición.",
       eventLabel: "Evento",
       events: {
         send: "Antes de enviar un mensaje",

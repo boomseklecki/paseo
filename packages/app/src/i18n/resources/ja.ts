@@ -1883,6 +1883,7 @@ export const ja: TranslationResources = {
       unrecognisedOption: "{{value}}（未対応）",
       eventHint: "ルールを確認するタイミング。",
       triggerHint: "そのときに併せて満たされる必要がある条件。",
+      triggerHintAlways: "ほかに条件はありません — イベントそのものが条件です。",
       eventLabel: "イベント",
       events: {
         send: "メッセージ送信前",

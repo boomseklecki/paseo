@@ -136,6 +136,13 @@ function labelKeyFor(kind: PickerKind, value: string): string {
 interface PreSendCheckPickerProps {
   kind: PickerKind;
   known: readonly string[];
+  /**
+   * Replaces the hint the picker would look up for itself.
+   *
+   * Only the trigger needs it, and only for `always`, where the sentence about
+   * what must *also* be true is describing a comparison that is not there.
+   */
+  hintKey?: string;
   value: string;
   error: string | undefined;
   disabled: boolean;
@@ -153,6 +160,7 @@ interface PreSendCheckPickerProps {
 function PreSendCheckPicker({
   kind,
   known,
+  hintKey,
   value,
   error,
   disabled,
@@ -192,7 +200,8 @@ function PreSendCheckPicker({
   // Event and trigger carry a line of prose apiece, because the two stack and
   // nothing else on the form says so: the event is when we look, the trigger is
   // what must also hold when we do. Operator and outcome need no such help.
-  const hint = t(`settings.preSendChecks.${kind}Hint`, { defaultValue: "" }) || undefined;
+  const hint =
+    t(hintKey ?? `settings.preSendChecks.${kind}Hint`, { defaultValue: "" }) || undefined;
 
   return (
     <Field label={label} hint={hint} error={error} testID={testID}>
@@ -971,6 +980,10 @@ export function PreSendCheckEditModal({
         <PreSendCheckPicker
           kind="trigger"
           known={triggerOptions}
+          // `always` is the trigger with no comparison in it: the event is the
+          // condition, so there is nothing that must *also* be true, and the
+          // operator and value below are hidden for the same reason.
+          hintKey={isAlwaysTrigger ? "settings.preSendChecks.triggerHintAlways" : undefined}
           value={draft.trigger}
           error={fieldErrors.trigger ? t(fieldErrors.trigger) : undefined}
           disabled={isPending}

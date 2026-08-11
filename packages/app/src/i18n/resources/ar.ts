@@ -1862,6 +1862,7 @@ export const ar: TranslationResources = {
       unrecognisedOption: "{{value}} (غير معروف)",
       eventHint: "اللحظة التي تُفحص فيها القاعدة.",
       triggerHint: "وما يجب أن يتحقق أيضًا في تلك اللحظة.",
+      triggerHintAlways: "لا يلزم شيء آخر — الحدث نفسه هو الشرط.",
       eventLabel: "الحدث",
       events: {
         send: "قبل إرسال رسالة",

@@ -1880,6 +1880,7 @@ export const en = {
       unrecognisedOption: "{{value}} (not recognised)",
       eventHint: "The moment the rule is checked.",
       triggerHint: "And what must also be true at that moment.",
+      triggerHintAlways: "Nothing else has to be true — the event itself is the condition.",
       eventLabel: "Event",
       events: {
         send: "Before a message is sent",

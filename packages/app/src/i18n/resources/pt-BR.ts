@@ -1898,6 +1898,7 @@ export const ptBR: TranslationResources = {
       unrecognisedOption: "{{value}} (não reconhecido)",
       eventHint: "O momento em que a regra é verificada.",
       triggerHint: "E o que também precisa ser verdade nesse momento.",
+      triggerHintAlways: "Nada mais precisa ser verdade — o próprio evento é a condição.",
       eventLabel: "Evento",
       events: {
         send: "Antes de enviar uma mensagem",

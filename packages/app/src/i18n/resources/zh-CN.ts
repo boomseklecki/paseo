@@ -1837,6 +1837,7 @@ export const zhCN: TranslationResources = {
       unrecognisedOption: "{{value}}（无法识别）",
       eventHint: "检查规则的时机。",
       triggerHint: "以及那一刻还必须成立的条件。",
+      triggerHintAlways: "不需要其他条件——事件本身就是条件。",
       eventLabel: "事件",
       events: {
         send: "发送消息前",

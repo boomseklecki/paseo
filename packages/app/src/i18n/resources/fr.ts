@@ -1921,6 +1921,7 @@ export const fr: TranslationResources = {
       unrecognisedOption: "{{value}} (non reconnu)",
       eventHint: "Le moment où la règle est vérifiée.",
       triggerHint: "Et ce qui doit aussi être vrai à ce moment.",
+      triggerHintAlways: "Rien d'autre n'est requis — l'événement lui-même est la condition.",
       eventLabel: "Événement",
       events: {
         send: "Avant l'envoi d'un message",

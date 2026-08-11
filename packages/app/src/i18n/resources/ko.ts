@@ -1872,6 +1872,7 @@ export const ko: TranslationResources = {
       unrecognisedOption: "{{value}}(알 수 없음)",
       eventHint: "규칙을 확인하는 시점.",
       triggerHint: "그리고 그 시점에 함께 참이어야 하는 조건.",
+      triggerHintAlways: "다른 조건은 없습니다 — 이벤트 자체가 조건입니다.",
       eventLabel: "이벤트",
       events: {
         send: "메시지를 보내기 전",
