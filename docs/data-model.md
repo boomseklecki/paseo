@@ -461,18 +461,19 @@ One file per rule. The filename **is** the id — a rule file needs no `id` fiel
 
 Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `pre_send_checks/upsert` is the only write verb for that reason.
 
-| Field         | Type       | Description                                                                     |
-| ------------- | ---------- | ------------------------------------------------------------------------------- |
-| `id`          | `string`   | Filename without `.json`; supplied by the store on read                         |
-| `measurement` | `string`   | What is looked at, e.g. `agent.idleSeconds`, `message`                          |
-| `operator`    | `string`   | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text |
-| `threshold`   | `number?`  | Right-hand side for a numeric measurement                                       |
-| `text`        | `string?`  | Right-hand side for a text measurement                                          |
-| `disposition` | `string`   | `warn` \| `block` \| `redirect`                                                 |
-| `message`     | `string?`  | Shown instead of the app's translated default                                   |
-| `action`      | `object?`  | Required by `redirect`; `{ kind, ... }` matching a daemon action descriptor     |
-| `order`       | `number?`  | Display position; unordered rules sort after ordered ones                       |
-| `enabled`     | `boolean?` | Absent means enabled                                                            |
+| Field      | Type                | Description                                                                     |
+| ---------- | ------------------- | ------------------------------------------------------------------------------- |
+| `id`       | `string`            | Filename without `.json`; supplied by the store on read                         |
+| `event`    | `string?`           | Which seam. Absent means `message.send`, the only seam that existed at first    |
+| `trigger`  | `string`            | What is looked at, e.g. `agent.idleSeconds`, `message`                          |
+| `operator` | `string`            | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text |
+| `value`    | `string \| number?` | What the trigger is compared against; the type says which kind of trigger       |
+| `outcome`  | `object`            | `{ kind, ... }`. `warn` and `block` are plain; any other kind names an action   |
+| `message`  | `string?`           | Shown instead of the app's translated default                                   |
+| `order`    | `number?`           | Display position; unordered rules sort after ordered ones                       |
+| `enabled`  | `boolean?`          | Absent means enabled                                                            |
+
+**Five older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition` and `action` are what `trigger`, `value`, `value`, `outcome.kind` and `outcome` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both. `packages/protocol/src/pre-send-checks/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(preSendCheckVocabulary)` tag carries the removal date.
 
 The schema is `.passthrough()`, so a rule written by a newer daemon survives a read by an older one rather than being dropped.
 

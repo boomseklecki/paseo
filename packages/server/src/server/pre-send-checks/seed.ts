@@ -3,6 +3,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  DEFAULT_PRE_SEND_EVENT,
+  projectPreSendCheckRule,
+} from "@getpaseo/protocol/pre-send-checks/vocabulary";
 import { writeJsonFileAtomic } from "../atomic-file.js";
 
 /**
@@ -26,13 +30,20 @@ import { writeJsonFileAtomic } from "../atomic-file.js";
  * hand-written rule keeps its author's own wording.
  */
 export const DEFAULT_PRE_SEND_CHECKS: readonly PreSendCheckRule[] = [
-  {
+  // Through the projector, so the file on disk carries both vocabularies: this
+  // is the one rule a fresh install has, and a client older than the rename
+  // still has to be able to read it.
+  projectPreSendCheckRule({
     id: "cold-prompt-cache",
-    measurement: "agent.idleSeconds",
+    event: DEFAULT_PRE_SEND_EVENT,
+    trigger: "agent.idleSeconds",
     operator: "gte",
-    threshold: 3600,
-    disposition: "block",
-  },
+    value: 3600,
+    outcome: { kind: "block" },
+    message: undefined,
+    order: undefined,
+    enabled: true,
+  }),
 ];
 
 const README = `# Pre-send checks
@@ -49,35 +60,46 @@ This file is not a rule. Only \`*.json\` is read.
 \`\`\`json
 {
   "id": "cold-prompt-cache",
-  "measurement": "agent.idleSeconds",
+  "trigger": "agent.idleSeconds",
   "operator": "gte",
-  "threshold": 3600,
-  "disposition": "block",
+  "value": 3600,
+  "outcome": { "kind": "block" },
   "message": "Optional. Overrides the built-in wording."
 }
 \`\`\`
 
-\`id\` must match the filename. \`message\` may use \`{{value}}\`, \`{{threshold}}\`
-and — for a duration measurement — \`{{duration}}\`.
+The filename is the id — a rule needs no \`id\` field, and one that disagrees is
+read under its filename anyway. \`message\` may use \`{{value}}\` and, for a
+duration trigger, \`{{duration}}\`.
 
-## Measurements
+The seeded files also carry \`measurement\`, \`threshold\` and \`disposition\`,
+which are the older names for \`trigger\`, \`value\` and \`outcome.kind\`. They are
+written so a Paseo older than 0.3.2 can still read these rules, and either name
+works if you write one by hand. The newer name wins where both appear.
+
+## Triggers
 
 | name | unit |
 | --- | --- |
 | \`agent.idleSeconds\` | seconds since the end of the agent's last turn |
 | \`agent.contextUsedPercent\` | 0-100 |
 | \`agent.sessionCostUsd\` | US dollars |
+| \`message\` | the text about to be sent, compared as a string |
 
 ## Operators
 
-\`gt\`, \`gte\`, \`lt\`, \`lte\`. There is no \`eq\`: exact equality on a duration or a
-dollar amount never fires.
+\`gt\`, \`gte\`, \`lt\`, \`lte\` for numbers. There is no \`eq\`: exact equality on a
+duration or a dollar amount never fires. \`startsWith\` and \`contains\` for
+\`message\`, both ignoring case.
 
-## Dispositions
+## Outcomes
 
-\`warn\` shows a toast and sends anyway. \`block\` shows a toast and holds the send
-with your typed text still in the box; pressing send again within a minute goes
-through.
+\`{"kind": "warn"}\` shows a toast and sends anyway. \`{"kind": "block"}\` shows a
+toast and holds the send with your typed text still in the box; pressing send
+again within a minute goes through. Any other kind names an action that takes
+the message instead of sending it — \`{"kind": "aside"}\` answers it in a hidden
+agent and shows the reply under subagents. A kind this Paseo cannot perform is
+skipped, and the message sends normally.
 
 ## Turning them off
 

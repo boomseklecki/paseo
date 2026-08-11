@@ -15,6 +15,8 @@ import {
   type PreSendCheckDraft,
 } from "./pre-send-check-form";
 
+// Deliberately written the old way: `measurement` is still required on the wire,
+// and a rule stored before the rename has to read back the same.
 const RULE: PreSendCheckRule = {
   id: "cold-prompt-cache",
   measurement: "agent.idleSeconds",
@@ -32,9 +34,9 @@ const t = (key: string) => key;
 describe("toPreSendCheckDraft", () => {
   it("renders the threshold as a string and a missing message as empty", () => {
     expect(toPreSendCheckDraft(RULE)).toEqual({
-      measurement: "agent.idleSeconds",
+      trigger: "agent.idleSeconds",
       operator: "gte",
-      threshold: "3600",
+      value: "3600",
       disposition: "block",
       message: "",
       actionKind: "",
@@ -56,7 +58,7 @@ describe("toPreSendCheckDraft", () => {
         action: { kind: "aside", title: "Aside" },
       }),
     ).toMatchObject({
-      threshold: "/btw",
+      value: "/btw",
       actionKind: "aside",
       actionParams: { title: "Aside" },
     });
@@ -67,10 +69,10 @@ describe("applyPreSendCheckDraft", () => {
   it("parses the threshold back to a number", () => {
     const saved = applyPreSendCheckDraft({
       existing: RULE,
-      draft: draft({ threshold: " 60 " }),
+      draft: draft({ value: " 60 " }),
       id: RULE.id,
     });
-    expect(saved.threshold).toBe(60);
+    expect(saved.value).toBe(60);
   });
 
   it("drops an emptied message rather than storing a blank one", () => {
@@ -88,10 +90,10 @@ describe("applyPreSendCheckDraft", () => {
   it("keeps a field it does not recognise", () => {
     const saved = applyPreSendCheckDraft({
       existing: { ...RULE, severity: "high" } as PreSendCheckRule,
-      draft: draft({ threshold: "60" }),
+      draft: draft({ value: "60" }),
       id: RULE.id,
     });
-    expect(saved).toMatchObject({ severity: "high", threshold: 60 });
+    expect(saved).toMatchObject({ severity: "high", value: 60 });
   });
 
   // The regression pin for the note on the wire schema: an editor that only knows
@@ -111,7 +113,7 @@ describe("applyPreSendCheckDraft", () => {
   it("writes text for a trigger and clears any threshold it had", () => {
     const saved = applyPreSendCheckDraft({
       existing: RULE,
-      draft: draft({ measurement: "message", operator: "startsWith", threshold: "/btw" }),
+      draft: draft({ trigger: "message", operator: "startsWith", value: "/btw" }),
       id: RULE.id,
     });
     expect(saved.text).toBe("/btw");
@@ -121,10 +123,10 @@ describe("applyPreSendCheckDraft", () => {
   it("writes threshold for a numeric rule and clears any text it had", () => {
     const saved = applyPreSendCheckDraft({
       existing: { ...RULE, text: "/btw" },
-      draft: draft({ threshold: "60" }),
+      draft: draft({ value: "60" }),
       id: RULE.id,
     });
-    expect(saved.threshold).toBe(60);
+    expect(saved.value).toBe(60);
     expect(saved).not.toHaveProperty("text");
   });
 
@@ -153,9 +155,18 @@ describe("applyPreSendCheckDraft", () => {
     expect(saved).not.toHaveProperty("action");
   });
 
-  it("builds a rule with no existing record", () => {
+  // Both vocabularies, so a daemon that predates the rename reads the same rule.
+  it("builds a rule with no existing record, written in both vocabularies", () => {
     const saved = applyPreSendCheckDraft({ existing: null, draft: draft(), id: "new-one" });
-    expect(saved).toEqual({ ...RULE, id: "new-one" });
+
+    expect(saved).toEqual({
+      ...RULE,
+      id: "new-one",
+      event: "message.send",
+      trigger: "agent.idleSeconds",
+      value: 3600,
+      outcome: { kind: "block" },
+    });
   });
 });
 
@@ -165,17 +176,17 @@ describe("validatePreSendCheckDraft", () => {
   });
 
   it("rejects a threshold that is empty or not a number", () => {
-    expect(validatePreSendCheckDraft(draft({ threshold: "" })).threshold).toBeDefined();
-    expect(validatePreSendCheckDraft(draft({ threshold: "soon" })).threshold).toBeDefined();
+    expect(validatePreSendCheckDraft(draft({ value: "" })).value).toBeDefined();
+    expect(validatePreSendCheckDraft(draft({ value: "soon" })).value).toBeDefined();
   });
 
   it("accepts a negative or fractional threshold", () => {
-    expect(validatePreSendCheckDraft(draft({ threshold: "0.5" }))).toEqual({});
-    expect(validatePreSendCheckDraft(draft({ threshold: "-1" }))).toEqual({});
+    expect(validatePreSendCheckDraft(draft({ value: "0.5" }))).toEqual({});
+    expect(validatePreSendCheckDraft(draft({ value: "-1" }))).toEqual({});
   });
 
   it("rejects an empty picker value", () => {
-    expect(validatePreSendCheckDraft(draft({ measurement: "" })).measurement).toBeDefined();
+    expect(validatePreSendCheckDraft(draft({ trigger: "" })).trigger).toBeDefined();
     expect(validatePreSendCheckDraft(draft({ disposition: "" })).disposition).toBeDefined();
   });
 });
@@ -233,7 +244,7 @@ describe("applyPreSendCheckDraft ordering", () => {
   it("keeps the rule's position through an edit", () => {
     const saved = applyPreSendCheckDraft({
       existing: { ...RULE, order: 2 },
-      draft: draft({ threshold: "60" }),
+      draft: draft({ value: "60" }),
       id: RULE.id,
     });
     expect(saved.order).toBe(2);
@@ -246,7 +257,7 @@ describe("previewPreSendCheckMessage", () => {
   it("fills the tokens with the threshold in the measurement's units", () => {
     expect(
       previewPreSendCheckMessage(
-        { ...RULE, measurement: "agent.sessionCostUsd", threshold: 25, message: "Cost {{value}}." },
+        { ...RULE, trigger: "agent.sessionCostUsd", value: 25, message: "Cost {{value}}." },
         (_key, options) => `Cost ${String(options?.value)}.`,
       ),
     ).toBe("Cost $25.00.");
@@ -259,23 +270,21 @@ describe("previewPreSendCheckMessage", () => {
 
 describe("describePreSendCheck", () => {
   it("reads as a sentence in the same units the toast uses", () => {
-    expect(describePreSendCheck(RULE, t)).toBe(
-      "settings.preSendChecks.measurements.idleSeconds ≥ 1h",
-    );
+    expect(describePreSendCheck(RULE, t)).toBe("settings.preSendChecks.triggers.idleSeconds ≥ 1h");
   });
 
   it("formats a percentage and a cost", () => {
     expect(
-      describePreSendCheck({ ...RULE, measurement: "agent.contextUsedPercent", threshold: 80 }, t),
+      describePreSendCheck({ ...RULE, trigger: "agent.contextUsedPercent", value: 80 }, t),
     ).toContain("80%");
     expect(
-      describePreSendCheck({ ...RULE, measurement: "agent.sessionCostUsd", threshold: 10 }, t),
+      describePreSendCheck({ ...RULE, trigger: "agent.sessionCostUsd", value: 10 }, t),
     ).toContain("$10.00");
   });
 
   it("falls back to the raw values for anything unrecognised", () => {
     const described = describePreSendCheck(
-      { ...RULE, measurement: "agent.somethingNew", operator: "approaches" },
+      { ...RULE, trigger: "agent.somethingNew", operator: "approaches" },
       t,
     );
     expect(described).toBe("agent.somethingNew approaches 3600");
@@ -299,14 +308,14 @@ describe("gatePreSendCheckSave", () => {
 
   it("reports field errors and says which fields", () => {
     const gate = gatePreSendCheckSave({
-      draft: draft({ threshold: "soon" }),
+      draft: draft({ value: "soon" }),
       hostCount: 2,
       serverIds: ["a"],
     });
 
     expect(gate).toEqual({
       kind: "fieldErrors",
-      errors: { threshold: "settings.preSendChecks.thresholdInvalid" },
+      errors: { value: "settings.preSendChecks.thresholdInvalid" },
     });
   });
 
@@ -314,7 +323,7 @@ describe("gatePreSendCheckSave", () => {
   // of the sheet, and the eye goes to the wrong one.
   it("holds the host complaint back until the fields pass", () => {
     expect(
-      gatePreSendCheckSave({ draft: draft({ threshold: "" }), hostCount: 2, serverIds: [] }),
+      gatePreSendCheckSave({ draft: draft({ value: "" }), hostCount: 2, serverIds: [] }),
     ).toMatchObject({ kind: "fieldErrors" });
   });
 
@@ -340,20 +349,19 @@ describe("preSendCheckExampleToDraft", () => {
       id: "aside-on-btw",
       label: "Answer /btw on the side",
       rule: {
-        measurement: "message",
+        trigger: "message",
         operator: "startsWith",
-        text: "/btw",
-        disposition: "redirect",
-        action: { kind: "aside", title: "Aside", prompt: "Answer this.\n\n{{message}}" },
+        value: "/btw",
+        outcome: { kind: "aside", title: "Aside", prompt: "Answer this.\n\n{{message}}" },
       },
     });
 
     expect(built).toEqual({
-      measurement: "message",
+      trigger: "message",
       operator: "startsWith",
       // The one input holds whichever operand applies, and a text trigger's is
       // `text` rather than `threshold`.
-      threshold: "/btw",
+      value: "/btw",
       disposition: "redirect",
       message: "",
       actionKind: "aside",
@@ -366,15 +374,15 @@ describe("preSendCheckExampleToDraft", () => {
       id: "warn-context-nearly-full",
       label: "Warn when the context is nearly full",
       rule: {
-        measurement: "agent.contextUsedPercent",
+        trigger: "agent.contextUsedPercent",
         operator: "gte",
-        threshold: 80,
-        disposition: "warn",
+        value: 80,
+        outcome: { kind: "warn" },
         message: "Nearly full.",
       },
     });
 
-    expect(built.threshold).toBe("80");
+    expect(built.value).toBe("80");
     expect(built.message).toBe("Nearly full.");
     expect(built.actionKind).toBe("");
   });
@@ -386,10 +394,10 @@ describe("preSendCheckExampleToDraft", () => {
       id: "block-cold-prompt-cache",
       label: "Block when the prompt cache has gone cold",
       rule: {
-        measurement: "agent.idleSeconds",
+        trigger: "agent.idleSeconds",
         operator: "gte",
-        threshold: 3600,
-        disposition: "block",
+        value: 3600,
+        outcome: { kind: "block" },
       },
     });
 

@@ -1804,7 +1804,7 @@ export const ko: TranslationResources = {
       removeConfirmMessage: "{{rule}} 규칙은 더 이상 검사하지 않습니다.",
       save: "저장",
       saving: "저장 중...",
-      measurementLabel: "측정 항목",
+      triggerLabel: "트리거",
       operatorLabel: "다음 조건일 때",
       textLabel: "비교할 텍스트",
       textHint: "대소문자를 구분하지 않고 메시지와 비교합니다.",
@@ -1814,7 +1814,7 @@ export const ko: TranslationResources = {
       messageHint: "선택 사항. 이 규칙이 걸렸을 때 기본 문구를 대신합니다.",
       messagePlaceholder: "비워 두면 기본 문구를 사용합니다",
       defaultMessageHint: "기본 문구를 사용합니다",
-      measurementRequired: "측정할 항목을 고르세요",
+      triggerRequired: "트리거를 고르세요",
       operatorRequired: "비교 방식을 고르세요",
       dispositionRequired: "어떻게 할지 고르세요",
       actionLabel: "동작",
@@ -1823,7 +1823,7 @@ export const ko: TranslationResources = {
       textRequired: "비교할 텍스트를 입력하세요",
       thresholdInvalid: "숫자를 입력하세요",
       unrecognisedOption: "{{value}}(알 수 없음)",
-      measurements: {
+      triggers: {
         message: "입력한 내용",
         idleSeconds: "유휴 시간",
         contextUsedPercent: "컨텍스트 사용량",

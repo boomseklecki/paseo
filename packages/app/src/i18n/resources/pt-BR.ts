@@ -1827,7 +1827,7 @@ export const ptBR: TranslationResources = {
       removeConfirmMessage: "{{rule}} não será mais verificada.",
       save: "Salvar",
       saving: "Salvando...",
-      measurementLabel: "Medir",
+      triggerLabel: "Gatilho",
       operatorLabel: "Quando estiver",
       textLabel: "Texto a comparar",
       textHint: "A mensagem é comparada com isto, sem diferenciar maiúsculas.",
@@ -1837,7 +1837,7 @@ export const ptBR: TranslationResources = {
       messageHint: "Opcional. Substitui o texto padrão quando esta regra é acionada.",
       messagePlaceholder: "Deixe vazio para usar o texto padrão",
       defaultMessageHint: "Usa o texto padrão",
-      measurementRequired: "Escolha o que medir",
+      triggerRequired: "Escolha um gatilho",
       operatorRequired: "Escolha uma comparação",
       dispositionRequired: "Escolha o que deve acontecer",
       actionLabel: "Ação",
@@ -1846,7 +1846,7 @@ export const ptBR: TranslationResources = {
       textRequired: "Digite o texto a comparar",
       thresholdInvalid: "Digite um número",
       unrecognisedOption: "{{value}} (não reconhecido)",
-      measurements: {
+      triggers: {
         message: "O que você digitou",
         idleSeconds: "Tempo ocioso",
         contextUsedPercent: "Contexto usado",

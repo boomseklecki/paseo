@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { PreSendCheckExampleSchema } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  isPlainOutcomeKind,
+  PreSendCheckExampleSchema,
+} from "@getpaseo/protocol/pre-send-checks/types";
 import { PRE_SEND_CHECK_EXAMPLES, listPreSendCheckExamples } from "./examples.js";
 import { PRE_SEND_ACTION_DESCRIPTORS } from "./actions/descriptors.js";
 
@@ -31,7 +34,7 @@ describe("pre-send check examples", () => {
     expect(offered.map((example) => example.id)).toEqual(
       PRE_SEND_CHECK_EXAMPLES.map((example) => example.id),
     );
-    expect(offered.some((example) => example.rule.action?.kind === "aside")).toBe(true);
+    expect(offered.some((example) => example.rule.outcome.kind === "aside")).toBe(true);
   });
 
   // Installing an example whose action the daemon declines would redirect a
@@ -40,15 +43,15 @@ describe("pre-send check examples", () => {
   test("drops an example naming an action this daemon cannot perform", () => {
     const offered = listPreSendCheckExamples(PRE_SEND_CHECK_EXAMPLES, []);
 
-    expect(offered.every((example) => example.rule.action === undefined)).toBe(true);
+    expect(offered.every((example) => isPlainOutcomeKind(example.rule.outcome.kind))).toBe(true);
     expect(offered.length).toBeGreaterThan(0);
   });
 
   // A warn or a block asks nothing of the daemon beyond evaluating it, so it is
   // offered whatever actions the daemon has.
   test("keeps every actionless example whatever the daemon can do", () => {
-    const actionless = PRE_SEND_CHECK_EXAMPLES.filter(
-      (example) => example.rule.action === undefined,
+    const actionless = PRE_SEND_CHECK_EXAMPLES.filter((example) =>
+      isPlainOutcomeKind(example.rule.outcome.kind),
     );
 
     expect(listPreSendCheckExamples(PRE_SEND_CHECK_EXAMPLES, [])).toEqual(actionless);
@@ -58,8 +61,8 @@ describe("pre-send check examples", () => {
     const kinds = PRE_SEND_ACTION_DESCRIPTORS.map((descriptor) => descriptor.kind);
 
     for (const example of PRE_SEND_CHECK_EXAMPLES) {
-      const kind = example.rule.action?.kind;
-      if (kind !== undefined) {
+      const kind = example.rule.outcome.kind;
+      if (!isPlainOutcomeKind(kind)) {
         expect(kinds).toContain(kind);
       }
     }

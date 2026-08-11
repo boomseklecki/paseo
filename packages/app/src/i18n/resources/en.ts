@@ -1808,7 +1808,7 @@ export const en = {
       removeConfirmMessage: "{{rule}} will no longer be checked.",
       save: "Save",
       saving: "Saving...",
-      measurementLabel: "Measure",
+      triggerLabel: "Trigger",
       operatorLabel: "When it is",
       textLabel: "Text to match",
       textHint: "The message is compared with this, ignoring case.",
@@ -1818,7 +1818,7 @@ export const en = {
       messageHint: "Optional. Replaces the built-in wording when this rule fires.",
       messagePlaceholder: "Leave empty for the default wording",
       defaultMessageHint: "Uses the built-in wording",
-      measurementRequired: "Pick something to measure",
+      triggerRequired: "Pick a trigger",
       operatorRequired: "Pick a comparison",
       dispositionRequired: "Pick what should happen",
       actionLabel: "Action",
@@ -1827,7 +1827,7 @@ export const en = {
       textRequired: "Enter the text to match",
       thresholdInvalid: "Enter a number",
       unrecognisedOption: "{{value}} (not recognised)",
-      measurements: {
+      triggers: {
         message: "What you typed",
         idleSeconds: "Idle time",
         contextUsedPercent: "Context used",

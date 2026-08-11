@@ -1832,7 +1832,7 @@ export const ru: TranslationResources = {
       removeConfirmMessage: "{{rule}} больше не будет проверяться.",
       save: "Сохранить",
       saving: "Сохранение...",
-      measurementLabel: "Измерять",
+      triggerLabel: "Триггер",
       operatorLabel: "Когда значение",
       textLabel: "Текст для сравнения",
       textHint: "Сообщение сравнивается с этим без учёта регистра.",
@@ -1842,7 +1842,7 @@ export const ru: TranslationResources = {
       messageHint: "Необязательно. Заменяет встроенный текст при срабатывании этого правила.",
       messagePlaceholder: "Оставьте пустым, чтобы использовать текст по умолчанию",
       defaultMessageHint: "Используется встроенный текст",
-      measurementRequired: "Выберите, что измерять",
+      triggerRequired: "Выберите триггер",
       operatorRequired: "Выберите сравнение",
       dispositionRequired: "Выберите, что должно произойти",
       actionLabel: "Действие",
@@ -1851,7 +1851,7 @@ export const ru: TranslationResources = {
       textRequired: "Введите текст для сравнения",
       thresholdInvalid: "Введите число",
       unrecognisedOption: "{{value}} (не распознано)",
-      measurements: {
+      triggers: {
         message: "Что вы ввели",
         idleSeconds: "Время простоя",
         contextUsedPercent: "Использовано контекста",

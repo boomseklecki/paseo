@@ -1848,7 +1848,7 @@ export const fr: TranslationResources = {
       removeConfirmMessage: "{{rule}} ne sera plus vérifiée.",
       save: "Enregistrer",
       saving: "Enregistrement...",
-      measurementLabel: "Mesurer",
+      triggerLabel: "Déclencheur",
       operatorLabel: "Quand la valeur est",
       textLabel: "Texte à comparer",
       textHint: "Le message est comparé à ceci, sans tenir compte de la casse.",
@@ -1858,7 +1858,7 @@ export const fr: TranslationResources = {
       messageHint: "Facultatif. Remplace le texte par défaut quand cette règle se déclenche.",
       messagePlaceholder: "Laissez vide pour le texte par défaut",
       defaultMessageHint: "Utilise le texte par défaut",
-      measurementRequired: "Choisissez ce qu'il faut mesurer",
+      triggerRequired: "Choisissez un déclencheur",
       operatorRequired: "Choisissez une comparaison",
       dispositionRequired: "Choisissez ce qui doit se passer",
       actionLabel: "Action",
@@ -1867,7 +1867,7 @@ export const fr: TranslationResources = {
       textRequired: "Saisissez le texte à comparer",
       thresholdInvalid: "Saisissez un nombre",
       unrecognisedOption: "{{value}} (non reconnu)",
-      measurements: {
+      triggers: {
         message: "Ce que vous avez tapé",
         idleSeconds: "Temps d'inactivité",
         contextUsedPercent: "Contexte utilisé",

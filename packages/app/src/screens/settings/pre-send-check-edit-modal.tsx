@@ -8,7 +8,7 @@ import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField } from "@/components/ui/select-field";
 import { Switch } from "@/components/ui/switch";
 import {
-  isTextMeasurement,
+  isTextTrigger,
   type PreSendActionDescriptor,
   type PreSendActionParameter,
 } from "@getpaseo/protocol/pre-send-checks/types";
@@ -18,7 +18,7 @@ import {
   preSendCheckChoosesHosts,
   preSendCheckOptions,
   PRE_SEND_DISPOSITION_OPTIONS,
-  PRE_SEND_MEASUREMENT_OPTIONS,
+  PRE_SEND_TRIGGER_OPTIONS,
   PRE_SEND_OPERATOR_OPTIONS,
   type PreSendCheckDraft,
   type PreSendCheckField,
@@ -53,7 +53,7 @@ interface PreSendCheckEditModalProps {
   testID?: string;
 }
 
-type PickerKind = "measurement" | "operator" | "disposition";
+type PickerKind = "trigger" | "operator" | "disposition";
 
 // Separates server ids inside the memo key below, chosen because it cannot
 // occur in one. Written as an escape and not as the character itself: a raw
@@ -62,7 +62,7 @@ type PickerKind = "measurement" | "operator" | "disposition";
 const SERVER_ID_KEY_SEPARATOR = "\u0000";
 
 const OPTION_LABEL_PREFIX: Record<PickerKind, string> = {
-  measurement: "settings.preSendChecks.measurements.",
+  trigger: "settings.preSendChecks.triggers.",
   operator: "settings.preSendChecks.operators.",
   disposition: "settings.preSendChecks.dispositions.",
 };
@@ -301,9 +301,9 @@ export function PreSendCheckEditModal({
   initialDraftRef.current = initialDraft;
 
   const {
-    measurement: initialMeasurement,
+    trigger: initialTrigger,
     operator: initialOperator,
-    threshold: initialThreshold,
+    value: initialValue,
     disposition: initialDisposition,
     message: initialMessage,
   } = initialDraft;
@@ -326,9 +326,9 @@ export function PreSendCheckEditModal({
     setSubmitError(null);
   }, [
     visible,
-    initialMeasurement,
+    initialTrigger,
     initialOperator,
-    initialThreshold,
+    initialValue,
     initialDisposition,
     initialMessage,
     initialServerIdKey,
@@ -384,7 +384,7 @@ export function PreSendCheckEditModal({
 
   const handleThresholdChange = useCallback(
     (next: string) => {
-      setField("threshold", next);
+      setField("value", next);
     },
     [setField],
   );
@@ -452,8 +452,8 @@ export function PreSendCheckEditModal({
   // One input holds either the number a numeric rule compares against or the
   // text a trigger matches, so it has to say which it currently is. Calling a
   // string "Threshold" reads as a mistake in the rule rather than in the label.
-  const isTextRule = isTextMeasurement(draft.measurement);
-  const thresholdUnitKey = isTextRule ? undefined : THRESHOLD_UNIT_KEYS[draft.measurement];
+  const isTextRule = isTextTrigger(draft.trigger);
+  const thresholdUnitKey = isTextRule ? undefined : THRESHOLD_UNIT_KEYS[draft.trigger];
   const thresholdLabel = t(
     isTextRule ? "settings.preSendChecks.textLabel" : "settings.preSendChecks.thresholdLabel",
   );
@@ -470,10 +470,10 @@ export function PreSendCheckEditModal({
     >
       <View style={styles.body}>
         <PreSendCheckPicker
-          kind="measurement"
-          known={PRE_SEND_MEASUREMENT_OPTIONS}
-          value={draft.measurement}
-          error={fieldErrors.measurement ? t(fieldErrors.measurement) : undefined}
+          kind="trigger"
+          known={PRE_SEND_TRIGGER_OPTIONS}
+          value={draft.trigger}
+          error={fieldErrors.trigger ? t(fieldErrors.trigger) : undefined}
           disabled={isPending}
           onChange={handlePickerChange}
           testID={`${prefix}-measurement`}
@@ -491,12 +491,12 @@ export function PreSendCheckEditModal({
         <Field
           label={thresholdLabel}
           hint={thresholdUnitKey ? t(thresholdUnitKey) : thresholdHint}
-          error={fieldErrors.threshold ? t(fieldErrors.threshold) : undefined}
+          error={fieldErrors.value ? t(fieldErrors.value) : undefined}
           testID={`${prefix}-threshold`}
         >
           <FormTextInput
-            initialValue={draft.threshold}
-            value={draft.threshold}
+            initialValue={draft.value}
+            value={draft.value}
             resetKey={resetKey}
             onChangeText={handleThresholdChange}
             keyboardType={isTextRule ? "default" : "number-pad"}

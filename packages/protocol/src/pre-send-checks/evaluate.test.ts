@@ -85,15 +85,17 @@ describe("evaluatePreSendChecks findings", () => {
       context({ idleSeconds: 250 }),
     );
 
+    // A rule written in the old vocabulary reports a finding in the new one,
+    // which is the whole of what the normaliser buys the evaluator.
     expect(evaluation.findings).toEqual([
       {
         ruleId: "cold",
-        measurement: "agent.idleSeconds",
+        trigger: "agent.idleSeconds",
         disposition: "warn",
         value: 250,
-        threshold: 100,
+        operand: 100,
         message: "Idle for {{duration}}.",
-        action: null,
+        outcome: null,
       },
     ]);
   });
@@ -208,7 +210,7 @@ describe("text triggers", () => {
       context({ message: "/btw what is this" }),
     );
     expect(evaluation.disposition).toBe("redirect");
-    expect(evaluation.findings[0]?.action).toEqual({ kind: "aside" });
+    expect(evaluation.findings[0]?.outcome).toEqual({ kind: "aside" });
     expect(evaluation.findings[0]?.value).toBe("/btw what is this");
   });
 

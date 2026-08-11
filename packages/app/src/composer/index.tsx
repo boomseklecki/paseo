@@ -303,7 +303,7 @@ async function runPreSendRedirect(input: {
   toast: ReturnType<typeof useToast>;
   toastError: (message: string) => void;
 }): Promise<"allow" | "block" | "redirected"> {
-  const action = input.finding?.action;
+  const action = input.finding?.outcome;
   const client = getHostRuntimeStore().getSnapshot(input.serverId)?.client;
   // Nothing to route with, or nowhere to route it: send normally rather than
   // swallowing the message.

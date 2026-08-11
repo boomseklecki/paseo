@@ -1,13 +1,19 @@
 import {
-  PRE_SEND_MEASUREMENTS,
   PRE_SEND_OPERATORS,
-  PRE_SEND_RULE_DISPOSITIONS,
-  isTextMeasurement,
+  PRE_SEND_PLAIN_OUTCOME_KINDS,
+  PRE_SEND_TRIGGERS,
+  isTextTrigger,
   type PreSendActionDescriptor,
   type PreSendCheckRule,
   type PreSendCheckExample,
+  type PreSendOutcome,
 } from "@getpaseo/protocol/pre-send-checks/types";
-import { formatMeasurementValue, type PreSendTranslate } from "@/composer/pre-send-checks";
+import {
+  DEFAULT_PRE_SEND_EVENT,
+  normalizePreSendCheckRule,
+  projectPreSendCheckRule,
+} from "@getpaseo/protocol/pre-send-checks/vocabulary";
+import { formatTriggerValue, type PreSendTranslate } from "@/composer/pre-send-checks";
 import { formatDuration } from "@/utils/time";
 
 /**
@@ -19,12 +25,21 @@ import { formatDuration } from "@/utils/time";
  * that does not need a DOM to run.
  */
 
-/** All strings, because that is what a text input holds. Parsed on the way out. */
+/**
+ * All strings, because that is what a text input holds. Parsed on the way out.
+ *
+ * `disposition` survives here where the wire retired it, and that is deliberate
+ * rather than missed. The editor asks two questions - what should happen, and if
+ * that is a redirect then where to - because two small pickers read better than
+ * one long list mixing `Warn` with `Ask on the side`. The rule that comes out
+ * carries a single `outcome`; this is the shape of the questions, not of the
+ * record.
+ */
 export interface PreSendCheckDraft {
-  measurement: string;
+  trigger: string;
   operator: string;
-  /** The number for a numeric measurement, or the text a trigger matches. */
-  threshold: string;
+  /** The number for a numeric trigger, or the text a message trigger matches. */
+  value: string;
   disposition: string;
   message: string;
   /** Which action a redirect performs. Empty for any other disposition. */
@@ -32,21 +47,21 @@ export interface PreSendCheckDraft {
   /**
    * The action parameters, keyed by the descriptor's parameter id.
    *
-   * Kept as strings for the same reason the threshold is: this is what an input
+   * Kept as strings for the same reason the value is: this is what an input
    * holds. Parameters the current kind does not declare are kept rather than
    * dropped, so switching kind and switching back does not lose what was typed.
    */
   actionParams: Record<string, string>;
 }
 
-export type PreSendCheckField = "measurement" | "operator" | "threshold" | "disposition" | "action";
+export type PreSendCheckField = "trigger" | "operator" | "value" | "disposition" | "action";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
 export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
-  measurement: PRE_SEND_MEASUREMENTS[0],
+  trigger: PRE_SEND_TRIGGERS[0],
   operator: "gte",
-  threshold: "",
+  value: "",
   disposition: "block",
   message: "",
   actionKind: "",
@@ -54,32 +69,69 @@ export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
 };
 
 export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
-  const { kind, ...params } = rule.action ?? {};
+  const normalized = normalizePreSendCheckRule(rule);
+  const { kind, ...params } = normalized.outcome;
+  const isAction = !isPlainDisposition(kind);
   return {
-    measurement: rule.measurement,
-    operator: rule.operator,
-    // A text rule compares against `text`; a numeric one against `threshold`.
-    // One input holds whichever applies, so the editor has one field rather
-    // than two that are never both meaningful.
-    threshold: isTextMeasurement(rule.measurement)
-      ? (rule.text ?? "")
-      : String(rule.threshold ?? ""),
-    disposition: rule.disposition,
-    message: rule.message ?? "",
-    actionKind: typeof kind === "string" ? kind : "",
+    trigger: normalized.trigger,
+    operator: normalized.operator,
+    value: normalized.value === undefined ? "" : String(normalized.value),
+    // The two questions the editor asks, read back off the one field that
+    // answers both: an action kind means the disposition was a redirect.
+    disposition: isAction ? "redirect" : kind,
+    message: normalized.message ?? "",
+    actionKind: isAction ? kind : "",
     actionParams: Object.fromEntries(
       Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
     ),
   };
 }
 
+function isPlainDisposition(kind: string): boolean {
+  return (PRE_SEND_PLAIN_OUTCOME_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * Fields this build has never heard of, carried through an edit untouched.
+ *
+ * A rule written by a newer daemon must come back out the way it went in. This
+ * replaces spreading the whole existing rule, which would also have carried the
+ * *known* fields back - and a stale `text` beside a fresh `threshold` is a rule
+ * whose meaning depends on which one the reader happens to prefer.
+ */
+const KNOWN_RULE_FIELDS: ReadonlySet<string> = new Set([
+  "id",
+  "event",
+  "measurement",
+  "trigger",
+  "operator",
+  "value",
+  "threshold",
+  "text",
+  "disposition",
+  "outcome",
+  "action",
+  "message",
+  "order",
+  "enabled",
+]);
+
+function carryUnknownFields(existing: PreSendCheckRule | null): Record<string, unknown> {
+  if (!existing) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(existing).filter(([key]) => !KNOWN_RULE_FIELDS.has(key)),
+  );
+}
+
 /**
  * Builds the rule to save.
  *
- * Spreads `existing` first so fields this build of the app has never heard of
- * survive an edit — a rule written by a newer daemon must come back out the way
- * it went in. `message` is dropped rather than stored empty, so a cleared message
- * falls back to the translated default instead of rendering as a blank toast.
+ * Goes out through `projectPreSendCheckRule`, so what is written carries both
+ * vocabularies and an older daemon reads it. `message` is dropped rather than
+ * stored empty, so a cleared message falls back to the translated default
+ * instead of rendering as a blank toast.
  */
 export function applyPreSendCheckDraft(input: {
   existing: PreSendCheckRule | null;
@@ -88,60 +140,65 @@ export function applyPreSendCheckDraft(input: {
   /** What the daemon says each action takes. Absent keeps every parameter. */
   descriptors?: readonly PreSendActionDescriptor[];
 }): PreSendCheckRule {
+  const previous = input.existing ? normalizePreSendCheckRule(input.existing) : null;
   const message = input.draft.message.trim();
-  const isText = isTextMeasurement(input.draft.measurement);
-  const next: PreSendCheckRule = {
-    ...input.existing,
-    id: input.id,
-    measurement: input.draft.measurement,
-    operator: input.draft.operator,
-    disposition: input.draft.disposition,
+  const operand = input.draft.value.trim();
+  return {
+    ...carryUnknownFields(input.existing),
+    ...projectPreSendCheckRule({
+      id: input.id,
+      // The editor only edits sends, so an existing rule keeps whatever seam it
+      // was written for rather than being moved to this one.
+      event: previous?.event ?? DEFAULT_PRE_SEND_EVENT,
+      trigger: input.draft.trigger,
+      operator: input.draft.operator,
+      // The type is the answer to which operand this is, so a text trigger's
+      // stays a string and a numeric one is parsed. Nothing has to write both
+      // and nothing has to delete the other.
+      value: isTextTrigger(input.draft.trigger) ? operand : Number(operand),
+      outcome: buildOutcome(input.draft, input.descriptors),
+      message: message || undefined,
+      order: previous?.order,
+      enabled: previous?.enabled ?? true,
+    }),
   };
+}
 
-  // Only the one that applies is written, and the other is removed. A rule
-  // carrying both would compare against whichever the evaluator happened to
-  // read, which is a rule whose meaning depends on its measurement twice.
-  if (isText) {
-    next.text = input.draft.threshold.trim();
-    delete next.threshold;
-  } else {
-    next.threshold = Number(input.draft.threshold.trim());
-    delete next.text;
+/**
+ * The two pickers, resolved into the one field that records them.
+ *
+ * A redirect naming no action produces `{ kind: "redirect" }`, which no build
+ * can perform and the evaluator therefore skips. That is the same refusal the
+ * old two-field shape made, and validation catches it before a save anyway.
+ */
+function buildOutcome(
+  draft: PreSendCheckDraft,
+  descriptors?: readonly PreSendActionDescriptor[],
+): PreSendOutcome {
+  if (draft.disposition !== "redirect" || !draft.actionKind) {
+    return { kind: draft.disposition };
   }
-
-  if (message) {
-    next.message = message;
-  } else {
-    delete next.message;
-  }
-
-  if (input.draft.disposition === "redirect" && input.draft.actionKind) {
-    // Only the parameters the chosen kind declares are written. The draft keeps
-    // the rest so switching kind and back does not lose them, but a rule should
-    // not carry settings for an action it does not perform.
-    const declared = new Set(
-      (input.descriptors ?? [])
-        .find((descriptor) => descriptor.kind === input.draft.actionKind)
-        ?.parameters.map((parameter) => parameter.id) ?? Object.keys(input.draft.actionParams),
-    );
-    const params: Record<string, string> = {};
-    for (const [key, value] of Object.entries(input.draft.actionParams)) {
-      if (declared.has(key) && value.trim()) {
-        params[key] = value;
-      }
+  // Only the parameters the chosen kind declares are written. The draft keeps
+  // the rest so switching kind and back does not lose them, but a rule should
+  // not carry settings for an action it does not perform.
+  const declared = new Set(
+    (descriptors ?? [])
+      .find((descriptor) => descriptor.kind === draft.actionKind)
+      ?.parameters.map((parameter) => parameter.id) ?? Object.keys(draft.actionParams),
+  );
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(draft.actionParams)) {
+    if (declared.has(key) && value.trim()) {
+      params[key] = value;
     }
-    next.action = { ...params, kind: input.draft.actionKind };
-  } else {
-    delete next.action;
   }
-
-  return next;
+  return { ...params, kind: draft.actionKind };
 }
 
 export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendCheckFieldErrors {
   const errors: PreSendCheckFieldErrors = {};
-  if (!draft.measurement.trim()) {
-    errors.measurement = "settings.preSendChecks.measurementRequired";
+  if (!draft.trigger.trim()) {
+    errors.trigger = "settings.preSendChecks.triggerRequired";
   }
   if (!draft.operator.trim()) {
     errors.operator = "settings.preSendChecks.operatorRequired";
@@ -151,14 +208,14 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
   }
   // A text rule compares against a string, so any non-empty value is usable and
   // only a numeric one has to parse.
-  if (isTextMeasurement(draft.measurement)) {
-    if (!draft.threshold.trim()) {
-      errors.threshold = "settings.preSendChecks.textRequired";
+  if (isTextTrigger(draft.trigger)) {
+    if (!draft.value.trim()) {
+      errors.value = "settings.preSendChecks.textRequired";
     }
   } else {
-    const threshold = Number(draft.threshold.trim());
-    if (!draft.threshold.trim() || !Number.isFinite(threshold)) {
-      errors.threshold = "settings.preSendChecks.thresholdInvalid";
+    const operand = Number(draft.value.trim());
+    if (!draft.value.trim() || !Number.isFinite(operand)) {
+      errors.value = "settings.preSendChecks.thresholdInvalid";
     }
   }
   // A redirect with no action would consume the message and take it nowhere.
@@ -176,12 +233,27 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
  * they can change before it exists. An example that installed itself would put
  * a rule that intercepts what you type on a host without you reading it.
  *
- * The id is supplied here only because `toPreSendCheckDraft` takes a whole rule,
- * and is thrown away: a template has no id, and the one the rule gets is minted
- * at save.
+ * The id is supplied here only because a rule needs one to be projected, and is
+ * thrown away: a template has no id, and the one the rule gets is minted at
+ * save.
  */
 export function preSendCheckExampleToDraft(example: PreSendCheckExample): PreSendCheckDraft {
-  return toPreSendCheckDraft({ ...example.rule, id: example.id });
+  // An example's rule is a normalized rule missing exactly the three fields a
+  // template has no business carrying, so projecting it and reading it back is
+  // the whole conversion.
+  return toPreSendCheckDraft(
+    projectPreSendCheckRule({
+      id: example.id,
+      event: example.rule.event ?? DEFAULT_PRE_SEND_EVENT,
+      trigger: example.rule.trigger,
+      operator: example.rule.operator,
+      value: example.rule.value,
+      outcome: example.rule.outcome,
+      message: example.rule.message,
+      order: undefined,
+      enabled: true,
+    }),
+  );
 }
 
 /**
@@ -273,9 +345,9 @@ export function movePreSendCheck(
   return next;
 }
 
-export const PRE_SEND_MEASUREMENT_OPTIONS = PRE_SEND_MEASUREMENTS;
+export const PRE_SEND_TRIGGER_OPTIONS = PRE_SEND_TRIGGERS;
 export const PRE_SEND_OPERATOR_OPTIONS = PRE_SEND_OPERATORS;
-export const PRE_SEND_DISPOSITION_OPTIONS = PRE_SEND_RULE_DISPOSITIONS;
+export const PRE_SEND_DISPOSITION_OPTIONS = ["warn", "block", "redirect"] as const;
 
 // Symbols rather than words, so they need no translation and the sentence stays
 // short enough to sit on one line in a row.
@@ -286,10 +358,10 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
   lte: "≤",
 };
 
-const MEASUREMENT_LABEL_KEYS: Record<string, string> = {
-  "agent.idleSeconds": "settings.preSendChecks.measurements.idleSeconds",
-  "agent.contextUsedPercent": "settings.preSendChecks.measurements.contextUsedPercent",
-  "agent.sessionCostUsd": "settings.preSendChecks.measurements.sessionCostUsd",
+const TRIGGER_LABEL_KEYS: Record<string, string> = {
+  "agent.idleSeconds": "settings.preSendChecks.triggers.idleSeconds",
+  "agent.contextUsedPercent": "settings.preSendChecks.triggers.contextUsedPercent",
+  "agent.sessionCostUsd": "settings.preSendChecks.triggers.sessionCostUsd",
 };
 
 /**
@@ -316,22 +388,27 @@ export function previewPreSendCheckMessage(
   rule: PreSendCheckRule,
   t: PreSendTranslate,
 ): string | null {
-  if (!rule.message) {
+  const { trigger, value, message } = normalizePreSendCheckRule(rule);
+  if (!message) {
     return null;
   }
-  return t(rule.message, {
-    defaultValue: rule.message,
-    value: formatMeasurementValue(rule.measurement, rule.threshold),
-    threshold: formatMeasurementValue(rule.measurement, rule.threshold),
-    // A trigger has no threshold to render as a duration; the token is left
+  const rendered = formatTriggerValue(trigger, value);
+  return t(message, {
+    defaultValue: message,
+    value: rendered,
+    // `threshold` is the token a rule written before the rename uses, and a
+    // message is the one part of a rule someone typed by hand. Both names fill.
+    threshold: rendered,
+    // A text trigger has no number to render as a duration; the token is left
     // empty rather than printed as a formatted zero.
-    duration: typeof rule.threshold === "number" ? formatDuration(rule.threshold * 1000) : "",
+    duration: typeof value === "number" ? formatDuration(value * 1000) : "",
   });
 }
 
 export function describePreSendCheck(rule: PreSendCheckRule, t: PreSendTranslate): string {
-  const labelKey = MEASUREMENT_LABEL_KEYS[rule.measurement];
-  const measurement = labelKey ? t(labelKey) : rule.measurement;
-  const operator = OPERATOR_SYMBOLS[rule.operator] ?? rule.operator;
-  return `${measurement} ${operator} ${formatMeasurementValue(rule.measurement, rule.threshold)}`;
+  const { trigger, value, operator } = normalizePreSendCheckRule(rule);
+  const labelKey = TRIGGER_LABEL_KEYS[trigger];
+  const label = labelKey ? t(labelKey) : trigger;
+  const symbol = OPERATOR_SYMBOLS[operator] ?? operator;
+  return `${label} ${symbol} ${formatTriggerValue(trigger, value)}`;
 }

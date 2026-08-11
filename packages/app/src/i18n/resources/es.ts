@@ -1841,7 +1841,7 @@ export const es: TranslationResources = {
       removeConfirmMessage: "{{rule}} ya no se comprobará.",
       save: "Guardar",
       saving: "Guardando...",
-      measurementLabel: "Medir",
+      triggerLabel: "Activador",
       operatorLabel: "Cuando sea",
       textLabel: "Texto a comparar",
       textHint: "El mensaje se compara con esto, sin distinguir mayúsculas.",
@@ -1851,7 +1851,7 @@ export const es: TranslationResources = {
       messageHint: "Opcional. Sustituye el texto predeterminado cuando se activa esta regla.",
       messagePlaceholder: "Déjelo vacío para usar el texto predeterminado",
       defaultMessageHint: "Usa el texto predeterminado",
-      measurementRequired: "Elija qué medir",
+      triggerRequired: "Elija un activador",
       operatorRequired: "Elija una comparación",
       dispositionRequired: "Elija qué debe ocurrir",
       actionLabel: "Acción",
@@ -1860,7 +1860,7 @@ export const es: TranslationResources = {
       textRequired: "Escriba el texto a comparar",
       thresholdInvalid: "Introduzca un número",
       unrecognisedOption: "{{value}} (no reconocido)",
-      measurements: {
+      triggers: {
         message: "Lo que escribió",
         idleSeconds: "Tiempo inactivo",
         contextUsedPercent: "Contexto usado",

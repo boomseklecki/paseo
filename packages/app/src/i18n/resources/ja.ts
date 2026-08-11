@@ -1812,7 +1812,7 @@ export const ja: TranslationResources = {
       removeConfirmMessage: "{{rule}} は今後チェックされません。",
       save: "保存",
       saving: "保存中...",
-      measurementLabel: "測定対象",
+      triggerLabel: "トリガー",
       operatorLabel: "条件",
       textLabel: "照合するテキスト",
       textHint: "大文字と小文字を区別せずにメッセージと比較します。",
@@ -1822,7 +1822,7 @@ export const ja: TranslationResources = {
       messageHint: "任意。このルールが該当したときに、既定の文言を置き換えます。",
       messagePlaceholder: "空欄にすると既定の文言を使います",
       defaultMessageHint: "既定の文言を使います",
-      measurementRequired: "測定するものを選んでください",
+      triggerRequired: "トリガーを選んでください",
       operatorRequired: "比較方法を選んでください",
       dispositionRequired: "どうするかを選んでください",
       actionLabel: "アクション",
@@ -1831,7 +1831,7 @@ export const ja: TranslationResources = {
       textRequired: "照合するテキストを入力してください",
       thresholdInvalid: "数値を入力してください",
       unrecognisedOption: "{{value}}（未対応）",
-      measurements: {
+      triggers: {
         message: "入力した内容",
         idleSeconds: "アイドル時間",
         contextUsedPercent: "コンテキスト使用率",

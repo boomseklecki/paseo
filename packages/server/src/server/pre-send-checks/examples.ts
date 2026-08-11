@@ -1,4 +1,5 @@
 import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
+import { isPlainOutcomeKind } from "@getpaseo/protocol/pre-send-checks/types";
 import { PRE_SEND_ACTION_DESCRIPTORS } from "./actions/descriptors.js";
 
 /**
@@ -24,11 +25,10 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     description:
       "A message starting with /btw is answered by a hidden agent instead of being sent, and the reply appears under subagents. The conversation is not interrupted and gains no context.",
     rule: {
-      measurement: "message",
+      trigger: "message",
       operator: "startsWith",
-      text: "/btw",
-      disposition: "redirect",
-      action: {
+      value: "/btw",
+      outcome: {
         kind: "aside",
         title: "Aside",
         prompt:
@@ -42,10 +42,10 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     description:
       "Says so at 80% rather than at the compaction that follows, which is the point where finishing the thought is still cheaper than restarting it.",
     rule: {
-      measurement: "agent.contextUsedPercent",
+      trigger: "agent.contextUsedPercent",
       operator: "gte",
-      threshold: 80,
-      disposition: "warn",
+      value: 80,
+      outcome: { kind: "warn" },
       message: "This conversation is {{value}}% full and will compact soon.",
     },
   },
@@ -55,10 +55,10 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     description:
       "A warning rather than a block, because the number that matters is different every day and a block on the wrong one is a rule you turn off.",
     rule: {
-      measurement: "agent.sessionCostUsd",
+      trigger: "agent.sessionCostUsd",
       operator: "gte",
-      threshold: 10,
-      disposition: "warn",
+      value: 10,
+      outcome: { kind: "warn" },
       message: "This session has cost {{value}} so far.",
     },
   },
@@ -68,10 +68,10 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     description:
       "An hour is the longest cache TTL the provider offers, so past it the next turn reprocesses the whole conversation. This is what a fresh install starts with.",
     rule: {
-      measurement: "agent.idleSeconds",
+      trigger: "agent.idleSeconds",
       operator: "gte",
-      threshold: 3600,
-      disposition: "block",
+      value: 3600,
+      outcome: { kind: "block" },
     },
   },
 ];
@@ -84,15 +84,15 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
  * nothing on screen explaining why the rule the person just chose did nothing.
  * Cheaper to never offer it.
  *
- * Examples without an action are always offered: a warn or a block needs nothing
- * of the daemon beyond evaluating it, which every version can do.
+ * A plain outcome is always offered: a warn or a block needs nothing of the
+ * daemon beyond evaluating it, which every version can do.
  */
 export function listPreSendCheckExamples(
   examples: readonly PreSendCheckExample[] = PRE_SEND_CHECK_EXAMPLES,
   actionKinds: readonly string[] = PRE_SEND_ACTION_DESCRIPTORS.map((descriptor) => descriptor.kind),
 ): PreSendCheckExample[] {
   return examples.filter((example) => {
-    const kind = example.rule.action?.kind;
-    return kind === undefined || actionKinds.includes(kind);
+    const kind = example.rule.outcome.kind;
+    return isPlainOutcomeKind(kind) || actionKinds.includes(kind);
   });
 }

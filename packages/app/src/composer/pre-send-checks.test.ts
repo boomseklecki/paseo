@@ -124,12 +124,12 @@ describe("formatPreSendFinding", () => {
   function finding(overrides: Partial<PreSendFinding> = {}): PreSendFinding {
     return {
       ruleId: "cold-prompt-cache",
-      measurement: "agent.idleSeconds",
+      trigger: "agent.idleSeconds",
       disposition: "block",
       value: 7200,
-      threshold: 3600,
+      operand: 3600,
       message: null,
-      action: null,
+      outcome: null,
       ...overrides,
     };
   }
@@ -155,10 +155,10 @@ describe("formatPreSendFinding", () => {
   it("formats a percentage measurement as a percentage", () => {
     const text = formatPreSendFinding(
       finding({
-        measurement: "agent.contextUsedPercent",
+        trigger: "agent.contextUsedPercent",
         message: "{{value}} of {{threshold}}",
         value: 82.4,
-        threshold: 80,
+        operand: 80,
         disposition: "warn",
       }),
       t,
@@ -169,10 +169,10 @@ describe("formatPreSendFinding", () => {
   it("formats a cost measurement as currency", () => {
     const text = formatPreSendFinding(
       finding({
-        measurement: "agent.sessionCostUsd",
+        trigger: "agent.sessionCostUsd",
         message: "{{value}} of {{threshold}}",
         value: 12.5,
-        threshold: 10,
+        operand: 10,
         disposition: "warn",
       }),
       t,

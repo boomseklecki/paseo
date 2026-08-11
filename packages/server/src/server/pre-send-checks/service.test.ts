@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  DEFAULT_PRE_SEND_EVENT,
+  projectPreSendCheckRule,
+} from "@getpaseo/protocol/pre-send-checks/vocabulary";
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import { PreSendChecksService } from "./service.js";
 
@@ -21,15 +25,24 @@ afterEach(async () => {
   await rm(paseoHome, { recursive: true, force: true });
 });
 
+// Written through the projector, so a rule this helper writes is byte-identical
+// to one the seed wrote. A fixture in one vocabulary would look like a change to
+// a file written in both, and the silence tests below would all fire.
 async function writeRule(id: string, overrides: Partial<PreSendCheckRule> = {}): Promise<void> {
   await writeFile(
     join(dir, `${id}.json`),
     JSON.stringify({
-      id,
-      measurement: "agent.idleSeconds",
-      operator: "gte",
-      threshold: 3600,
-      disposition: "block",
+      ...projectPreSendCheckRule({
+        id,
+        event: DEFAULT_PRE_SEND_EVENT,
+        trigger: "agent.idleSeconds",
+        operator: "gte",
+        value: 3600,
+        outcome: { kind: "block" },
+        message: undefined,
+        order: undefined,
+        enabled: true,
+      }),
       ...overrides,
     }),
     "utf-8",

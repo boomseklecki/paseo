@@ -1794,7 +1794,7 @@ export const ar: TranslationResources = {
       removeConfirmMessage: "لن يتم فحص {{rule}} بعد الآن.",
       save: "حفظ",
       saving: "جارٍ الحفظ...",
-      measurementLabel: "قياس",
+      triggerLabel: "المشغّل",
       operatorLabel: "عندما تكون القيمة",
       textLabel: "النص المراد مطابقته",
       textHint: "تتم مقارنة الرسالة بهذا دون اعتبار لحالة الأحرف.",
@@ -1804,7 +1804,7 @@ export const ar: TranslationResources = {
       messageHint: "اختياري. يحل محل النص المدمج عند تطبيق هذه القاعدة.",
       messagePlaceholder: "اتركه فارغًا لاستخدام النص الافتراضي",
       defaultMessageHint: "يستخدم النص المدمج",
-      measurementRequired: "اختر ما تريد قياسه",
+      triggerRequired: "اختر مشغّلًا",
       operatorRequired: "اختر طريقة المقارنة",
       dispositionRequired: "اختر ما ينبغي أن يحدث",
       actionLabel: "إجراء",
@@ -1813,7 +1813,7 @@ export const ar: TranslationResources = {
       textRequired: "أدخل النص المراد مطابقته",
       thresholdInvalid: "أدخل رقمًا",
       unrecognisedOption: "{{value}} (غير معروف)",
-      measurements: {
+      triggers: {
         message: "ما كتبته",
         idleSeconds: "مدة الخمول",
         contextUsedPercent: "السياق المستخدم",

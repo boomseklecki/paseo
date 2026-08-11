@@ -97,7 +97,7 @@ const MESSAGE_KEY_BY_MEASUREMENT: Record<string, string> = {
  * reports the measured value in. Two formatters would drift, and the first anyone
  * would notice is a rule that reads "3600" in the editor and "1 hour" when it fires.
  */
-export function formatMeasurementValue(
+export function formatTriggerValue(
   measurement: string,
   value: number | string | undefined,
 ): string {
@@ -128,8 +128,8 @@ export function formatMeasurementValue(
  */
 export function formatPreSendFinding(finding: PreSendFinding, t: PreSendTranslate): string {
   const values = {
-    value: formatMeasurementValue(finding.measurement, finding.value),
-    threshold: formatMeasurementValue(finding.measurement, finding.threshold),
+    value: formatTriggerValue(finding.trigger, finding.value),
+    threshold: formatTriggerValue(finding.trigger, finding.operand),
     // Only a numeric finding has a duration to render; a text trigger's value is
     // the message, and there is nothing to convert.
     duration: typeof finding.value === "number" ? formatDuration(finding.value * 1000) : "",
@@ -137,10 +137,7 @@ export function formatPreSendFinding(finding: PreSendFinding, t: PreSendTranslat
 
   const sentence = finding.message
     ? t(finding.message, { ...values, defaultValue: finding.message })
-    : t(
-        MESSAGE_KEY_BY_MEASUREMENT[finding.measurement] ?? "composer.preSendChecks.generic",
-        values,
-      );
+    : t(MESSAGE_KEY_BY_MEASUREMENT[finding.trigger] ?? "composer.preSendChecks.generic", values);
 
   if (finding.disposition !== "block") {
     return sentence;

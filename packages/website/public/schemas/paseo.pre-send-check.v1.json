@@ -5,11 +5,27 @@
     "id": {
       "type": "string"
     },
+    "event": {
+      "type": "string"
+    },
     "measurement": {
+      "type": "string"
+    },
+    "trigger": {
       "type": "string"
     },
     "operator": {
       "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ]
     },
     "threshold": {
       "type": "number"
@@ -19,6 +35,22 @@
     },
     "disposition": {
       "type": "string"
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": {}
     },
     "message": {
       "type": "string"

@@ -1,4 +1,4 @@
-import { isTextMeasurement, PRE_SEND_ACTION_KINDS } from "./types.js";
+import { isPlainOutcomeKind, isPreSendActionKind, isTextTrigger } from "./types.js";
 import type {
   PreSendCheckRule,
   PreSendDisposition,
@@ -8,6 +8,7 @@ import type {
   PreSendNumericOperator,
   PreSendTextOperator,
 } from "./types.js";
+import { normalizePreSendCheckRule, type NormalizedPreSendCheckRule } from "./vocabulary.js";
 
 /**
  * What a rule means. Deliberately pure and string-free: the app supplies the
@@ -54,7 +55,7 @@ const TEXT_COMPARATORS: Record<PreSendTextOperator, TextComparator> = {
 
 const TEXT_COMPARATORS_BY_NAME = TEXT_COMPARATORS as Record<string, TextComparator | undefined>;
 
-// A redirect outranks a block because it does not send the message at all: it
+// An action outranks a block because it does not send the message at all: it
 // takes the text somewhere else, so the reasons to hold a send back have nothing
 // left to act on. An aside is also the one thing that should still work when the
 // agent is in the state the other rules are complaining about.
@@ -65,11 +66,11 @@ const SEVERITY: Record<PreSendDisposition, number> = {
   redirect: 3,
 };
 
-function readMeasurement(
-  measurement: string,
+function readNumericTrigger(
+  trigger: string,
   context: PreSendMeasurementContext,
 ): number | null | undefined {
-  switch (measurement) {
+  switch (trigger) {
     case "agent.idleSeconds":
       return context.idleSeconds;
     case "agent.contextUsedPercent":
@@ -82,39 +83,39 @@ function readMeasurement(
 }
 
 /**
- * A rule's disposition, or `null` if it is not one a rule may carry.
+ * How severe an outcome is, or `null` for one this build cannot carry out.
  *
- * A `redirect` naming an action this build cannot carry out is refused here
- * rather than reported and declined later. That direction matters: a redirect
- * consumes the message instead of sending it, so an unrecognised one that still
- * counted as a finding would swallow what you typed on the way to a destination
- * that does not exist. Failing back to an ordinary send is the safe miss.
+ * An outcome kind that is neither plain nor an action this build knows is
+ * refused here rather than reported and declined later. That direction matters:
+ * an action consumes the message instead of sending it, so an unrecognised one
+ * that still counted as a finding would swallow what you typed on the way to a
+ * destination that does not exist. Failing back to an ordinary send is the safe
+ * miss.
+ *
+ * The old shape needed this check to reconcile two fields that could disagree -
+ * a `redirect` naming no action, an action sitting beside a `warn`. One outcome
+ * makes that state unrepresentable, so what is left is the honest question:
+ * can this build do the thing the rule asked for.
  */
-function readRuleDisposition(rule: PreSendCheckRule): PreSendFinding["disposition"] | null {
-  if (rule.disposition === "warn" || rule.disposition === "block") {
-    return rule.disposition;
+function readOutcomeDisposition(kind: string): PreSendFinding["disposition"] | null {
+  if (kind === "warn" || kind === "block") {
+    return kind;
   }
-  if (rule.disposition !== "redirect") {
-    return null;
-  }
-  const kind = rule.action?.kind;
-  return kind && (PRE_SEND_ACTION_KINDS as readonly string[]).includes(kind) ? "redirect" : null;
+  return isPreSendActionKind(kind) ? "redirect" : null;
 }
 
 function evaluateRule(
-  rule: PreSendCheckRule,
+  rule: NormalizedPreSendCheckRule,
   context: PreSendMeasurementContext,
 ): PreSendFinding | null {
-  // Explicitly `false`, not falsy: absent means enabled, so a rule that predates
-  // the field or was written by hand is live without saying so.
-  if (rule.enabled === false) {
+  if (!rule.enabled) {
     return null;
   }
-  const disposition = readRuleDisposition(rule);
+  const disposition = readOutcomeDisposition(rule.outcome.kind);
   if (!disposition) {
     return null;
   }
-  const tripped = isTextMeasurement(rule.measurement)
+  const tripped = isTextTrigger(rule.trigger)
     ? evaluateTextRule(rule, context)
     : evaluateNumericRule(rule, context);
   if (!tripped) {
@@ -122,71 +123,70 @@ function evaluateRule(
   }
   return {
     ruleId: rule.id,
-    measurement: rule.measurement,
+    trigger: rule.trigger,
     disposition,
     value: tripped.value,
-    threshold: tripped.threshold,
+    operand: tripped.operand,
     message: rule.message ?? null,
-    action: disposition === "redirect" ? (rule.action ?? null) : null,
+    outcome: isPlainOutcomeKind(rule.outcome.kind) ? null : rule.outcome,
   };
 }
 
 interface TrippedComparison {
   value: number | string;
-  threshold: number | string;
+  operand: number | string;
 }
 
 function evaluateNumericRule(
-  rule: PreSendCheckRule,
+  rule: NormalizedPreSendCheckRule,
   context: PreSendMeasurementContext,
 ): TrippedComparison | null {
   const compare = COMPARATORS_BY_NAME[rule.operator];
   if (!compare) {
     return null;
   }
-  if (typeof rule.threshold !== "number" || !Number.isFinite(rule.threshold)) {
+  const operand = rule.value;
+  if (typeof operand !== "number" || !Number.isFinite(operand)) {
     return null;
   }
-  const value = readMeasurement(rule.measurement, context);
+  const value = readNumericTrigger(rule.trigger, context);
   if (value === undefined || value === null || !Number.isFinite(value)) {
     return null;
   }
-  return compare(value, rule.threshold) ? { value, threshold: rule.threshold } : null;
+  return compare(value, operand) ? { value, operand } : null;
 }
 
 function evaluateTextRule(
-  rule: PreSendCheckRule,
+  rule: NormalizedPreSendCheckRule,
   context: PreSendMeasurementContext,
 ): TrippedComparison | null {
   const compare = TEXT_COMPARATORS_BY_NAME[rule.operator];
   if (!compare) {
     return null;
   }
-  // An empty operand would match every message, which for a redirect means every
+  // An empty operand would match every message, which for an action means every
   // send disappearing into an aside. A rule that says nothing matches nothing.
-  if (typeof rule.text !== "string" || rule.text.length === 0) {
+  const operand = rule.value;
+  if (typeof operand !== "string" || operand.length === 0) {
     return null;
   }
-  const value = readTextMeasurement(rule.measurement, context);
+  const value = readTextTrigger(rule.trigger, context);
   if (value === undefined) {
     return null;
   }
-  return compare(value, rule.text) ? { value, threshold: rule.text } : null;
+  return compare(value, operand) ? { value, operand } : null;
 }
 
-function readTextMeasurement(
-  measurement: string,
-  context: PreSendMeasurementContext,
-): string | undefined {
-  return measurement === "message" ? context.message : undefined;
+function readTextTrigger(trigger: string, context: PreSendMeasurementContext): string | undefined {
+  return trigger === "message" ? context.message : undefined;
 }
 
 /**
  * Evaluates every rule and reports what tripped.
  *
- * Skips rather than throws on anything it cannot read — an unrecognised
- * measurement, operator or disposition, a non-finite threshold, or a value the
- * caller could not measure. A rule list is hand-edited JSON that also arrives
+ * Skips rather than throws on anything it cannot read — an unrecognised trigger,
+ * operator or outcome kind, a non-finite operand, or a value the caller could
+ * not measure. A rule list is hand-edited JSON that also arrives
  * from daemons of other versions, so one unreadable entry must cost that entry
  * and nothing else. Failing open is the deliberate direction: a gate that
  * blocks because it could not read its own config is worse than one that
@@ -199,7 +199,7 @@ export function evaluatePreSendChecks(
   const findings: PreSendFinding[] = [];
 
   for (const rule of rules) {
-    const finding = evaluateRule(rule, context);
+    const finding = evaluateRule(normalizePreSendCheckRule(rule), context);
     if (finding) {
       findings.push(finding);
     }

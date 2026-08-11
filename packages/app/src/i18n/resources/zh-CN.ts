@@ -1772,7 +1772,7 @@ export const zhCN: TranslationResources = {
       removeConfirmMessage: "{{rule}} 将不再被检查。",
       save: "保存",
       saving: "正在保存...",
-      measurementLabel: "检查项",
+      triggerLabel: "触发条件",
       operatorLabel: "当其",
       textLabel: "要匹配的文本",
       textHint: "比较消息时忽略大小写。",
@@ -1782,7 +1782,7 @@ export const zhCN: TranslationResources = {
       messageHint: "可选。该规则命中时用它替代内置文案。",
       messagePlaceholder: "留空则使用默认文案",
       defaultMessageHint: "使用内置文案",
-      measurementRequired: "请选择要检查的内容",
+      triggerRequired: "请选择触发条件",
       operatorRequired: "请选择比较方式",
       dispositionRequired: "请选择要执行的动作",
       actionLabel: "动作",
@@ -1791,7 +1791,7 @@ export const zhCN: TranslationResources = {
       textRequired: "请输入要匹配的文本",
       thresholdInvalid: "请输入数字",
       unrecognisedOption: "{{value}}（无法识别）",
-      measurements: {
+      triggers: {
         message: "你输入的内容",
         idleSeconds: "空闲时长",
         contextUsedPercent: "上下文占用",
