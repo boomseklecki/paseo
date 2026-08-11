@@ -490,7 +490,7 @@ rather than half-performed.
 
 Actions are `aside` (answer in a hidden agent), `fork` (carry this conversation
 into a new one), `start` (open a fresh one carrying nothing) and `schedule` (come
-back to this later). `packages/server/src/server/pre-send-checks/actions/registry.ts`
+back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
 is the lookup, and it declines a kind it does not have rather than ignoring it.
 
 **A daemon-side rule fires on the crossing, not on the condition.** Once it has

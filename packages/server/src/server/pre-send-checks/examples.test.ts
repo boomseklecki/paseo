@@ -4,7 +4,7 @@ import {
   PreSendCheckExampleSchema,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { PRE_SEND_CHECK_EXAMPLES, listPreSendCheckExamples } from "./examples.js";
-import { PRE_SEND_ACTION_DESCRIPTORS } from "./actions/descriptors.js";
+import { PRE_SEND_OUTCOME_DESCRIPTORS } from "./outcomes/descriptors.js";
 
 describe("pre-send check examples", () => {
   test("every shipped example is a valid example", () => {
@@ -58,7 +58,7 @@ describe("pre-send check examples", () => {
   });
 
   test("every action an example names is one this daemon describes", () => {
-    const kinds = PRE_SEND_ACTION_DESCRIPTORS.map((descriptor) => descriptor.kind);
+    const kinds = PRE_SEND_OUTCOME_DESCRIPTORS.map((descriptor) => descriptor.kind);
 
     for (const example of PRE_SEND_CHECK_EXAMPLES) {
       const kind = example.rule.outcome.kind;

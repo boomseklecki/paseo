@@ -3,8 +3,8 @@ import type { AgentManager } from "../../agent/agent-manager.js";
 import {
   RULE_CREATED_AGENT_LABEL,
   wasCreatedByRule,
-  type PreSendActionOutcome,
-  type PreSendActionRequest,
+  type PreSendOutcomeResult,
+  type PreSendOutcomeRequest,
 } from "./types.js";
 
 /**
@@ -20,7 +20,7 @@ import {
  * `start` opens the conversation that receives it. Two rules, or one rule and a
  * prompt that says where the handoff lives.
  */
-export class StartAction {
+export class StartOutcome {
   private readonly manager: AgentManager;
   private readonly logger: Logger;
 
@@ -29,7 +29,7 @@ export class StartAction {
     this.logger = options.logger.child({ module: "pre-send-checks", action: "start" });
   }
 
-  async run(request: PreSendActionRequest): Promise<PreSendActionOutcome> {
+  async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
     const parent = this.manager.getAgent(request.agentId);
     if (!parent) {
       return { status: "declined", reason: "No such agent" };
@@ -92,7 +92,7 @@ export class StartAction {
  * opened and left waiting, which is a legitimate thing to want: somewhere with
  * room, ready when you switch to it.
  */
-function readOpening(request: PreSendActionRequest): string {
+function readOpening(request: PreSendOutcomeRequest): string {
   const template = request.action.prompt?.trim();
   const message = request.message.trim();
   if (!template) {

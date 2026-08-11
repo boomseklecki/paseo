@@ -4,7 +4,7 @@ import {
   PRE_SEND_TRIGGERS,
   isPlainOutcomeKind,
   isTextTrigger,
-  type PreSendActionDescriptor,
+  type PreSendOutcomeDescriptor,
   type PreSendCheckRule,
   type PreSendCheckExample,
   type PreSendOutcome,
@@ -163,7 +163,7 @@ export function applyPreSendCheckDraft(input: {
   draft: PreSendCheckDraft;
   id: string;
   /** What the daemon says each action takes. Absent keeps every parameter. */
-  descriptors?: readonly PreSendActionDescriptor[];
+  descriptors?: readonly PreSendOutcomeDescriptor[];
 }): PreSendCheckRule {
   const previous = input.existing ? normalizePreSendCheckRule(input.existing) : null;
   const message = input.draft.message.trim();
@@ -196,7 +196,7 @@ export function applyPreSendCheckDraft(input: {
  */
 function buildOutcome(
   draft: PreSendCheckDraft,
-  descriptors?: readonly PreSendActionDescriptor[],
+  descriptors?: readonly PreSendOutcomeDescriptor[],
 ): PreSendOutcome {
   if (draft.disposition !== "redirect" || !draft.actionKind) {
     return { kind: draft.disposition };
@@ -406,10 +406,10 @@ export function preSendDispositionOptions(event: string): readonly string[] {
 }
 
 /** The actions a seam will actually carry out, for the third picker. */
-export function preSendActionOptions(
+export function preSendOutcomeOptions(
   event: string,
-  descriptors: readonly PreSendActionDescriptor[],
-): PreSendActionDescriptor[] {
+  descriptors: readonly PreSendOutcomeDescriptor[],
+): PreSendOutcomeDescriptor[] {
   return descriptors.filter((descriptor) => isOutcomeValidForEvent(event, descriptor.kind));
 }
 

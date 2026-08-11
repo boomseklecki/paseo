@@ -1,12 +1,12 @@
 import type pino from "pino";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
-import { PRE_SEND_ACTION_DESCRIPTORS } from "../../pre-send-checks/actions/descriptors.js";
+import { PRE_SEND_OUTCOME_DESCRIPTORS } from "../../pre-send-checks/outcomes/descriptors.js";
 import { listPreSendCheckExamples } from "../../pre-send-checks/examples.js";
 import type {
-  PreSendActionOutcome,
-  PreSendActionRequest,
-} from "../../pre-send-checks/actions/types.js";
+  PreSendOutcomeResult,
+  PreSendOutcomeRequest,
+} from "../../pre-send-checks/outcomes/types.js";
 import type { PreSendChecksService } from "../../pre-send-checks/service.js";
 
 export interface PreSendChecksSessionHost {
@@ -16,21 +16,21 @@ export interface PreSendChecksSessionHost {
 /**
  * The whole of what this subsystem needs from an action.
  *
- * Declared here rather than importing `AsideAction`, which would drag
+ * Declared here rather than importing `AsideOutcome`, which would drag
  * `AgentManager` — the fattest collaborator in the daemon — into a file that
- * otherwise touches nothing but a store and the wire. `AsideAction` satisfies
+ * otherwise touches nothing but a store and the wire. `AsideOutcome` satisfies
  * this structurally, so nothing has to implement it on purpose, and a test
  * needing an action that behaves a certain way writes the object rather than
  * standing up a manager to get one.
  */
-export interface PreSendActionRunner {
-  run(request: PreSendActionRequest): Promise<PreSendActionOutcome>;
+export interface PreSendOutcomeRunner {
+  run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult>;
 }
 
 export interface PreSendChecksSessionOptions {
   host: PreSendChecksSessionHost;
   preSendChecksService: PreSendChecksService;
-  actionRunner: PreSendActionRunner;
+  outcomeRunner: PreSendOutcomeRunner;
   logger: pino.Logger;
 }
 
@@ -53,13 +53,13 @@ type PreSendChecksWriteRequest = Extract<
 export class PreSendChecksSession {
   private readonly host: PreSendChecksSessionHost;
   private readonly preSendChecksService: PreSendChecksService;
-  private readonly actionRunner: PreSendActionRunner;
+  private readonly outcomeRunner: PreSendOutcomeRunner;
   private readonly logger: pino.Logger;
 
   constructor(options: PreSendChecksSessionOptions) {
     this.host = options.host;
     this.preSendChecksService = options.preSendChecksService;
-    this.actionRunner = options.actionRunner;
+    this.outcomeRunner = options.outcomeRunner;
     this.logger = options.logger;
   }
 
@@ -79,7 +79,7 @@ export class PreSendChecksSession {
         payload: {
           requestId: msg.requestId,
           checks: await this.preSendChecksService.list(),
-          actions: [...PRE_SEND_ACTION_DESCRIPTORS],
+          actions: [...PRE_SEND_OUTCOME_DESCRIPTORS],
           examples: listPreSendCheckExamples(),
           error: null,
         },
@@ -122,8 +122,8 @@ export class PreSendChecksSession {
    * caller reads that as "I did not take your message, send it yourself". An
    * error here would leave the person having typed something that went nowhere.
    */
-  async handlePreSendChecksRunActionRequest(
-    msg: Extract<SessionInboundMessage, { type: "rules.run_action.request" }>,
+  async handlePreSendChecksRunOutcomeRequest(
+    msg: Extract<SessionInboundMessage, { type: "rules.run_outcome.request" }>,
   ): Promise<void> {
     // Which kinds exist is the runner's business now that there is more than
     // one, and it declines anything it does not have. A newer client can name a
@@ -131,25 +131,25 @@ export class PreSendChecksSession {
     // typed — so declining is the difference between a message sending normally
     // and a message disappearing.
     try {
-      const outcome = await this.actionRunner.run({
+      const outcome = await this.outcomeRunner.run({
         agentId: msg.agentId,
         message: msg.message,
         action: msg.action,
         confirmed: msg.confirmed === true,
       });
-      this.respondToRunAction(msg.requestId, outcome);
+      this.respondToRunOutcome(msg.requestId, outcome);
     } catch (error) {
       this.logger.warn({ err: error }, "Pre-send action failed");
-      this.respondToRunAction(msg.requestId, {
+      this.respondToRunOutcome(msg.requestId, {
         status: "failed",
         reason: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
-  private respondToRunAction(requestId: string, outcome: PreSendActionOutcome): void {
+  private respondToRunOutcome(requestId: string, outcome: PreSendOutcomeResult): void {
     this.host.emit({
-      type: "rules.run_action.response",
+      type: "rules.run_outcome.response",
       payload: {
         requestId,
         status: outcome.status,

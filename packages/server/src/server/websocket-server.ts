@@ -19,8 +19,8 @@ import {
   PreSendRuleEventTracker,
 } from "./pre-send-checks/rule-events.js";
 import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
-import { createPreSendActionRegistry } from "./pre-send-checks/actions/registry.js";
-import type { PreSendActionRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
+import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registry.js";
+import type { PreSendOutcomeRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
 import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
@@ -568,7 +568,7 @@ export class VoiceAssistantWebSocketServer {
    * daemon seam belongs to no session - there may be no client connected at all
    * when a rule fires.
    */
-  private readonly ruleActionRunner: PreSendActionRunner;
+  private readonly ruleOutcomeRunner: PreSendOutcomeRunner;
   /** The one seam that needs a clock rather than a transition. See idle-watcher.ts. */
   private readonly ruleIdleWatcher: PreSendRuleIdleWatcher;
   /** Per-agent memory of which rules are already tripping. See rule-events.ts. */
@@ -770,7 +770,7 @@ export class VoiceAssistantWebSocketServer {
       }
     });
 
-    this.ruleActionRunner = createPreSendActionRegistry({
+    this.ruleOutcomeRunner = createPreSendOutcomeRegistry({
       manager: this.agentManager,
       scheduleService: this.scheduleService,
       logger: this.logger,
@@ -2532,7 +2532,7 @@ export class VoiceAssistantWebSocketServer {
         });
         continue;
       }
-      await this.runAgentRuleAction(agentId, provider, event, finding);
+      await this.runAgentRuleOutcome(agentId, provider, event, finding);
     }
   }
 
@@ -2547,13 +2547,13 @@ export class VoiceAssistantWebSocketServer {
    * when someone dismisses the confirmation, and the opposite of quietly
    * spending a conversation's worth of tokens on every crossing.
    */
-  private async runAgentRuleAction(
+  private async runAgentRuleOutcome(
     agentId: string,
     provider: AgentProvider,
     event: string,
     finding: PreSendEventFinding,
   ): Promise<void> {
-    const outcome = await this.ruleActionRunner.run({
+    const outcome = await this.ruleOutcomeRunner.run({
       agentId,
       // Nobody typed anything here, so the rule's own wording is the message.
       // An action whose prompt has no {{message}} ignores it entirely.

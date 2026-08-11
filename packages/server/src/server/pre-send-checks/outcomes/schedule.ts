@@ -1,7 +1,7 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import type { ScheduleService } from "../../schedule/service.js";
-import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
+import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
 
 /**
  * Says the one thing no other outcome can say: later.
@@ -16,7 +16,7 @@ import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
  * follow-up is an ordinary schedule: visible in the schedules list, editable,
  * and cancellable by someone who did not know a rule created it.
  */
-export class ScheduleAction {
+export class ScheduleOutcome {
   private readonly manager: AgentManager;
   private readonly scheduleService: ScheduleService;
   private readonly logger: Logger;
@@ -31,7 +31,7 @@ export class ScheduleAction {
     this.logger = options.logger.child({ module: "pre-send-checks", action: "schedule" });
   }
 
-  async run(request: PreSendActionRequest): Promise<PreSendActionOutcome> {
+  async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
     const parent = this.manager.getAgent(request.agentId);
     if (!parent) {
       return { status: "declined", reason: "No such agent" };
@@ -110,7 +110,7 @@ export function parseDelay(value: unknown): number | null {
   return amount * unit;
 }
 
-function readPrompt(request: PreSendActionRequest): string {
+function readPrompt(request: PreSendOutcomeRequest): string {
   const template = request.action.prompt?.trim();
   const message = request.message.trim();
   if (!template) {

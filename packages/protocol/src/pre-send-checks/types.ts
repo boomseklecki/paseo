@@ -201,20 +201,23 @@ export type PreSendNumericOperator = (typeof PRE_SEND_NUMERIC_OPERATORS)[number]
 export type PreSendTextOperator = (typeof PRE_SEND_TEXT_OPERATORS)[number];
 export type PreSendOperator = (typeof PRE_SEND_OPERATORS)[number];
 
-/** Action kinds the daemon can carry out. Unknown kinds are declined, not run. */
-export const PRE_SEND_ACTION_KINDS = ["aside", "fork", "start"] as const;
+/**
+ * Outcome kinds the daemon runs, as opposed to the plain ones the app and
+ * daemon carry out themselves. Unknown kinds are declined, not run.
+ */
+export const PRE_SEND_RUNNABLE_OUTCOME_KINDS = ["aside", "fork", "start", "schedule"] as const;
 
-export type PreSendActionKind = (typeof PRE_SEND_ACTION_KINDS)[number];
+export type PreSendRunnableOutcomeKind = (typeof PRE_SEND_RUNNABLE_OUTCOME_KINDS)[number];
 
-export type PreSendAction = NonNullable<PreSendCheckRule["action"]>;
+export type PreSendOutcomeSpec = NonNullable<PreSendCheckRule["action"]>;
 
-export function isPreSendActionKind(kind: string): boolean {
-  return (PRE_SEND_ACTION_KINDS as readonly string[]).includes(kind);
+export function isPreSendRunnableOutcomeKind(kind: string): boolean {
+  return (PRE_SEND_RUNNABLE_OUTCOME_KINDS as readonly string[]).includes(kind);
 }
 
 /**
- * Outcome kinds the daemon and app carry out themselves, as opposed to action
- * kinds, which are a registry an editor is told about.
+ * Outcome kinds the daemon and app carry out themselves, as opposed to the
+ * runnable ones, which are a registry an editor is told about.
  *
  * `warn` and `block` only mean something where there is a send to comment on or
  * hold; `notify` only means something where there is not, since a person looking
@@ -226,10 +229,10 @@ export const PRE_SEND_PLAIN_OUTCOME_KINDS = ["warn", "block", "notify"] as const
 
 export type PreSendPlainOutcomeKind = (typeof PRE_SEND_PLAIN_OUTCOME_KINDS)[number];
 
-/** What an editor offers: the plain outcomes plus every action this build knows. */
+/** What an editor offers: the plain outcomes plus every runnable one this build has. */
 export const PRE_SEND_OUTCOME_KINDS = [
   ...PRE_SEND_PLAIN_OUTCOME_KINDS,
-  ...PRE_SEND_ACTION_KINDS,
+  ...PRE_SEND_RUNNABLE_OUTCOME_KINDS,
 ] as const;
 
 export function isPlainOutcomeKind(kind: string): boolean {
@@ -307,7 +310,7 @@ export interface PreSendEvaluation {
  * the price of an editor that needs no change to offer an action it has never
  * heard of.
  */
-export const PreSendActionParameterSchema = z.discriminatedUnion("type", [
+export const PreSendOutcomeParameterSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("text"),
     id: z.string(),
@@ -324,17 +327,17 @@ export const PreSendActionParameterSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export type PreSendActionParameter = z.infer<typeof PreSendActionParameterSchema>;
+export type PreSendOutcomeParameter = z.infer<typeof PreSendOutcomeParameterSchema>;
 
 /** What one action is and what it takes, as the daemon describes itself. */
-export const PreSendActionDescriptorSchema = z.object({
+export const PreSendOutcomeDescriptorSchema = z.object({
   kind: z.string(),
   label: z.string(),
   description: z.string().optional(),
-  parameters: z.array(PreSendActionParameterSchema),
+  parameters: z.array(PreSendOutcomeParameterSchema),
 });
 
-export type PreSendActionDescriptor = z.infer<typeof PreSendActionDescriptorSchema>;
+export type PreSendOutcomeDescriptor = z.infer<typeof PreSendOutcomeDescriptorSchema>;
 
 /**
  * A rule someone might want, offered rather than installed.

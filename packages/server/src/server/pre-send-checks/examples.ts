@@ -1,6 +1,6 @@
 import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
 import { isPlainOutcomeKind } from "@getpaseo/protocol/pre-send-checks/types";
-import { PRE_SEND_ACTION_DESCRIPTORS } from "./actions/descriptors.js";
+import { PRE_SEND_OUTCOME_DESCRIPTORS } from "./outcomes/descriptors.js";
 
 /**
  * Rules worth suggesting, none of them installed.
@@ -196,7 +196,9 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
  */
 export function listPreSendCheckExamples(
   examples: readonly PreSendCheckExample[] = PRE_SEND_CHECK_EXAMPLES,
-  actionKinds: readonly string[] = PRE_SEND_ACTION_DESCRIPTORS.map((descriptor) => descriptor.kind),
+  actionKinds: readonly string[] = PRE_SEND_OUTCOME_DESCRIPTORS.map(
+    (descriptor) => descriptor.kind,
+  ),
 ): PreSendCheckExample[] {
   return examples.filter((example) => {
     const kind = example.rule.outcome.kind;

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  PreSendActionDescriptor,
+  PreSendOutcomeDescriptor,
   PreSendCheckExample,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { useFetchQuery } from "@/data/query";
@@ -10,7 +10,7 @@ import { getHostRuntimeStore } from "@/runtime/host-runtime";
 
 export interface PreSendCheckCatalog {
   /** What the daemon can carry out, so the editor can offer it untaught. */
-  actions: PreSendActionDescriptor[];
+  actions: PreSendOutcomeDescriptor[];
   /** Rules the daemon suggests, none of them installed. */
   examples: PreSendCheckExample[];
 }

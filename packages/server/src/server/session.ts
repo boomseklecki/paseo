@@ -60,7 +60,7 @@ import {
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
-import { createPreSendActionRegistry } from "./pre-send-checks/actions/registry.js";
+import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registry.js";
 import { PreSendChecksSession } from "./session/pre-send-checks/pre-send-checks-session.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
@@ -843,7 +843,7 @@ export class Session {
       // Passed as the port rather than the class, so the subsystem never sees
       // AgentManager. Built here and not on demand: the manager is assigned
       // well before this line, and an action is a logger and a reference.
-      actionRunner: createPreSendActionRegistry({
+      outcomeRunner: createPreSendOutcomeRegistry({
         manager: agentManager,
         scheduleService,
         logger: this.sessionLogger,
@@ -2090,8 +2090,8 @@ export class Session {
         return this.preSendChecksSession.handlePreSendChecksDeleteRequest(msg);
       case "rules.reorder.request":
         return this.preSendChecksSession.handlePreSendChecksReorderRequest(msg);
-      case "rules.run_action.request":
-        return this.preSendChecksSession.handlePreSendChecksRunActionRequest(msg);
+      case "rules.run_outcome.request":
+        return this.preSendChecksSession.handlePreSendChecksRunOutcomeRequest(msg);
       default:
         return undefined;
     }

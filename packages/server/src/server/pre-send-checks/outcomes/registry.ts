@@ -1,11 +1,11 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import type { ScheduleService } from "../../schedule/service.js";
-import { AsideAction } from "./aside.js";
-import { ForkAction } from "./fork.js";
-import { ScheduleAction } from "./schedule.js";
-import { StartAction } from "./start.js";
-import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
+import { AsideOutcome } from "./aside.js";
+import { ForkOutcome } from "./fork.js";
+import { ScheduleOutcome } from "./schedule.js";
+import { StartOutcome } from "./start.js";
+import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
 
 /**
  * Every action this daemon can carry out, by kind.
@@ -16,21 +16,21 @@ import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
  * the message instead of sending it, so silently doing nothing would swallow
  * what somebody typed on the way to a destination that does not exist.
  */
-export function createPreSendActionRegistry(options: {
+export function createPreSendOutcomeRegistry(options: {
   manager: AgentManager;
   scheduleService: ScheduleService;
   logger: Logger;
 }): {
-  run: (request: PreSendActionRequest) => Promise<PreSendActionOutcome>;
+  run: (request: PreSendOutcomeRequest) => Promise<PreSendOutcomeResult>;
 } {
   const actions: Record<
     string,
-    { run: (r: PreSendActionRequest) => Promise<PreSendActionOutcome> }
+    { run: (r: PreSendOutcomeRequest) => Promise<PreSendOutcomeResult> }
   > = {
-    aside: new AsideAction(options),
-    fork: new ForkAction(options),
-    start: new StartAction(options),
-    schedule: new ScheduleAction(options),
+    aside: new AsideOutcome(options),
+    fork: new ForkOutcome(options),
+    start: new StartOutcome(options),
+    schedule: new ScheduleOutcome(options),
   };
 
   return {

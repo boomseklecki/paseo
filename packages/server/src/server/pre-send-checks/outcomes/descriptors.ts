@@ -1,4 +1,4 @@
-import type { PreSendActionDescriptor } from "@getpaseo/protocol/pre-send-checks/types";
+import type { PreSendOutcomeDescriptor } from "@getpaseo/protocol/pre-send-checks/types";
 
 /**
  * What this daemon can do, described well enough for an editor to draw it.
@@ -13,7 +13,7 @@ import type { PreSendActionDescriptor } from "@getpaseo/protocol/pre-send-checks
  * the app has not already shipped a translation for, which is the coupling this
  * exists to remove.
  */
-export const PRE_SEND_ACTION_DESCRIPTORS: readonly PreSendActionDescriptor[] = [
+export const PRE_SEND_OUTCOME_DESCRIPTORS: readonly PreSendOutcomeDescriptor[] = [
   {
     kind: "aside",
     label: "Ask on the side",

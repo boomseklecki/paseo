@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import pino from "pino";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
-import { PreSendChecksSession, type PreSendActionRunner } from "./pre-send-checks-session.js";
+import { PreSendChecksSession, type PreSendOutcomeRunner } from "./pre-send-checks-session.js";
 import { createStub } from "../../test-utils/class-mocks.js";
 import { findByType } from "../../test-utils/session-stubs.js";
 import type { SessionOutboundMessage } from "../../messages.js";
-import type { PreSendActionOutcome } from "../../pre-send-checks/actions/types.js";
+import type { PreSendOutcomeResult } from "../../pre-send-checks/outcomes/types.js";
 import type { PreSendChecksService } from "../../pre-send-checks/service.js";
 
 const RULE: PreSendCheckRule = {
@@ -17,8 +17,8 @@ const RULE: PreSendCheckRule = {
 };
 
 // The port is one method, so a test that wants an action to behave a certain
-// way writes the object. This is what not importing AsideAction buys.
-function runner(run: PreSendActionRunner["run"]): PreSendActionRunner {
+// way writes the object. This is what not importing AsideOutcome buys.
+function runner(run: PreSendOutcomeRunner["run"]): PreSendOutcomeRunner {
   return { run };
 }
 
@@ -29,13 +29,13 @@ const DECLINE_EVERYTHING = runner(async () => ({
 
 function makeSession(
   service: { [K in keyof PreSendChecksService]?: unknown },
-  actionRunner: PreSendActionRunner = DECLINE_EVERYTHING,
+  outcomeRunner: PreSendOutcomeRunner = DECLINE_EVERYTHING,
 ) {
   const emitted: SessionOutboundMessage[] = [];
   const session = new PreSendChecksSession({
     host: { emit: (message) => emitted.push(message) },
     preSendChecksService: createStub<PreSendChecksService>(service),
-    actionRunner,
+    outcomeRunner,
     logger: pino({ level: "silent" }),
   });
   return { session, emitted };
@@ -178,8 +178,8 @@ describe("PreSendChecksSession", () => {
       }),
     );
 
-    await session.handlePreSendChecksRunActionRequest({
-      type: "rules.run_action.request",
+    await session.handlePreSendChecksRunOutcomeRequest({
+      type: "rules.run_outcome.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw what does this flag do",
@@ -195,7 +195,7 @@ describe("PreSendChecksSession", () => {
         confirmed: true,
       },
     ]);
-    const response = findByType(emitted, "rules.run_action.response");
+    const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.status).toBe("started");
     expect(response?.payload.subagentId).toBe("sub-1");
   });
@@ -210,15 +210,15 @@ describe("PreSendChecksSession", () => {
       })),
     );
 
-    await session.handlePreSendChecksRunActionRequest({
-      type: "rules.run_action.request",
+    await session.handlePreSendChecksRunOutcomeRequest({
+      type: "rules.run_outcome.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "rules.run_action.response");
+    const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.status).toBe("needs_confirmation");
     expect(response?.payload.estimatedTokens).toBe(51_000);
     expect(response?.payload.subagentId).toBeNull();
@@ -238,8 +238,8 @@ describe("PreSendChecksSession", () => {
       }),
     );
 
-    await session.handlePreSendChecksRunActionRequest({
-      type: "rules.run_action.request",
+    await session.handlePreSendChecksRunOutcomeRequest({
+      type: "rules.run_outcome.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "hello",
@@ -247,7 +247,7 @@ describe("PreSendChecksSession", () => {
     });
 
     expect(seen).toEqual(["teleport"]);
-    const response = findByType(emitted, "rules.run_action.response");
+    const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.status).toBe("declined");
     expect(response?.payload.reason).toBe("Unknown action 'teleport'");
   });
@@ -262,36 +262,36 @@ describe("PreSendChecksSession", () => {
       }),
     );
 
-    await session.handlePreSendChecksRunActionRequest({
-      type: "rules.run_action.request",
+    await session.handlePreSendChecksRunOutcomeRequest({
+      type: "rules.run_outcome.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "rules.run_action.response");
+    const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.status).toBe("failed");
     expect(response?.payload.reason).toBe("provider refused");
     expect(findByType(emitted, "rpc_error")).toBeUndefined();
   });
 
   it("does not let a declined outcome carry a subagent id", async () => {
-    const declined: PreSendActionOutcome = { status: "declined", reason: "No such agent" };
+    const declined: PreSendOutcomeResult = { status: "declined", reason: "No such agent" };
     const { session, emitted } = makeSession(
       {},
       runner(async () => declined),
     );
 
-    await session.handlePreSendChecksRunActionRequest({
-      type: "rules.run_action.request",
+    await session.handlePreSendChecksRunOutcomeRequest({
+      type: "rules.run_outcome.request",
       requestId: "r1",
       agentId: "gone",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "rules.run_action.response");
+    const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.subagentId).toBeNull();
     expect(response?.payload.estimatedTokens).toBeNull();
   });

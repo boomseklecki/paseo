@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  PreSendActionDescriptorSchema,
+  PreSendOutcomeDescriptorSchema,
   PreSendCheckExampleSchema,
   PreSendCheckRuleSchema,
 } from "./types.js";
@@ -41,7 +41,7 @@ export const PreSendChecksListResponseSchema = z.object({
      * seeing none falls back to what it knows rather than showing an empty
      * picker.
      */
-    actions: z.array(PreSendActionDescriptorSchema).optional(),
+    actions: z.array(PreSendOutcomeDescriptorSchema).optional(),
     /**
      * Rules this daemon suggests, none of them installed.
      *
@@ -107,8 +107,8 @@ export const PreSendChecksReorderResponseSchema = z.object({
  * `needs_confirmation` when the action would cost more than the caller is likely
  * to expect, and the caller asks again with this set once the person agrees.
  */
-export const PreSendChecksRunActionRequestSchema = z.object({
-  type: z.literal("rules.run_action.request"),
+export const PreSendChecksRunOutcomeRequestSchema = z.object({
+  type: z.literal("rules.run_outcome.request"),
   requestId: z.string(),
   agentId: z.string(),
   message: z.string(),
@@ -123,8 +123,8 @@ export const PreSendChecksRunActionRequestSchema = z.object({
  * broke — and sending the text on anyway would deliver the aside to the agent as
  * an instruction.
  */
-export const PreSendChecksRunActionResponseSchema = z.object({
-  type: z.literal("rules.run_action.response"),
+export const PreSendChecksRunOutcomeResponseSchema = z.object({
+  type: z.literal("rules.run_outcome.response"),
   payload: z.object({
     requestId: z.string(),
     status: z.enum(["started", "needs_confirmation", "declined", "failed"]),

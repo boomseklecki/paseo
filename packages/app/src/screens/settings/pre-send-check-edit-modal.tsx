@@ -9,8 +9,8 @@ import { SelectField } from "@/components/ui/select-field";
 import { Switch } from "@/components/ui/switch";
 import {
   isTextTrigger,
-  type PreSendActionDescriptor,
-  type PreSendActionParameter,
+  type PreSendOutcomeDescriptor,
+  type PreSendOutcomeParameter,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { settingsStyles } from "@/styles/settings";
 import { dryRunPreSendCheckSample } from "@getpaseo/protocol/pre-send-checks/dry-run";
@@ -19,7 +19,7 @@ import {
   preSendCheckChoosesHosts,
   applyPreSendCheckDraft,
   applyPreSendEventChange,
-  preSendActionOptions,
+  preSendOutcomeOptions,
   preSendCheckOptions,
   preSendDispositionOptions,
   preSendTriggerOptions,
@@ -52,7 +52,7 @@ interface PreSendCheckEditModalProps {
    * daemon too old to say, so the action fields stay hidden rather than showing
    * an empty picker: there is nothing to offer and guessing would invent a kind.
    */
-  actions: readonly PreSendActionDescriptor[];
+  actions: readonly PreSendOutcomeDescriptor[];
   onClose: () => void;
   onSave: (draft: PreSendCheckDraft, serverIds: readonly string[]) => Promise<void>;
   testID?: string;
@@ -168,7 +168,7 @@ function PreSendCheckPicker({
 
 interface PreSendCheckTryItProps {
   draft: PreSendCheckDraft;
-  descriptors: readonly PreSendActionDescriptor[];
+  descriptors: readonly PreSendOutcomeDescriptor[];
   resetKey: string;
   disabled: boolean;
   testID: string;
@@ -311,8 +311,8 @@ function PreSendCheckHostRow({ host, selected, disabled, onToggle }: PreSendChec
   );
 }
 
-interface PreSendActionFieldProps {
-  parameter: PreSendActionParameter;
+interface PreSendOutcomeFieldProps {
+  parameter: PreSendOutcomeParameter;
   value: string;
   disabled: boolean;
   resetKey: string;
@@ -327,14 +327,14 @@ interface PreSendActionFieldProps {
  * trade this arrangement makes: an editor that needs no change to offer an
  * action it has never heard of cannot also translate it.
  */
-function PreSendActionField({
+function PreSendOutcomeField({
   parameter,
   value,
   disabled,
   resetKey,
   onChange,
   testID,
-}: PreSendActionFieldProps) {
+}: PreSendOutcomeFieldProps) {
   const handleChangeText = useCallback(
     (next: string) => {
       onChange(parameter.id, next);
@@ -557,7 +557,7 @@ export function PreSendCheckEditModal({
   // of them mean anything everywhere. Offering one the seam would refuse is how
   // a rule gets saved that never fires.
   const seamActions = useMemo(
-    () => preSendActionOptions(draft.event, actions),
+    () => preSendOutcomeOptions(draft.event, actions),
     [actions, draft.event],
   );
   const selectedAction = seamActions.find((action) => action.kind === draft.actionKind);
@@ -722,7 +722,7 @@ export function PreSendCheckEditModal({
             </Field>
 
             {selectedAction?.parameters.map((parameter) => (
-              <PreSendActionField
+              <PreSendOutcomeField
                 key={parameter.id}
                 parameter={parameter}
                 value={draft.actionParams[parameter.id] ?? ""}

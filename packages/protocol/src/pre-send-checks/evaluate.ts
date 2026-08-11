@@ -1,6 +1,6 @@
 import {
   isPlainOutcomeKind,
-  isPreSendActionKind,
+  isPreSendRunnableOutcomeKind,
   isTextTrigger,
   PRE_SEND_ALWAYS_TRIGGER,
 } from "./types.js";
@@ -112,7 +112,7 @@ function readOutcomeDisposition(kind: string): PreSendFinding["disposition"] | n
   if (kind === "warn" || kind === "block") {
     return kind;
   }
-  return isPreSendActionKind(kind) ? "redirect" : null;
+  return isPreSendRunnableOutcomeKind(kind) ? "redirect" : null;
 }
 
 function evaluateRule(

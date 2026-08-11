@@ -1,4 +1,4 @@
-import { PRE_SEND_ACTION_KINDS, PRE_SEND_TRIGGERS } from "./types.js";
+import { PRE_SEND_RUNNABLE_OUTCOME_KINDS, PRE_SEND_TRIGGERS } from "./types.js";
 import type { PreSendCheckRule } from "./types.js";
 import { DEFAULT_PRE_SEND_EVENT, normalizePreSendCheckRule } from "./vocabulary.js";
 
@@ -35,7 +35,7 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     side: "composer",
     // No `notify`: there is a person at the keyboard, and the toast a `warn`
     // raises is already in front of them.
-    outcomeKinds: ["warn", "block", ...PRE_SEND_ACTION_KINDS],
+    outcomeKinds: ["warn", "block", ...PRE_SEND_RUNNABLE_OUTCOME_KINDS],
     triggers: PRE_SEND_TRIGGERS,
   },
   {
@@ -49,7 +49,7 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     // Actions too, not just notify. An aside at a daemon seam is the same
     // hidden agent the composer's /btw uses, asked without anyone typing: write
     // the handoff before this conversation compacts, say why that turn failed.
-    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
+    outcomeKinds: ["notify", ...PRE_SEND_RUNNABLE_OUTCOME_KINDS],
     triggers: AGENT_TRIGGERS,
   },
   {
@@ -61,7 +61,7 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     // Actions too, not just notify. An aside at a daemon seam is the same
     // hidden agent the composer's /btw uses, asked without anyone typing: write
     // the handoff before this conversation compacts, say why that turn failed.
-    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
+    outcomeKinds: ["notify", ...PRE_SEND_RUNNABLE_OUTCOME_KINDS],
     triggers: AGENT_TRIGGERS,
   },
   {
@@ -72,7 +72,7 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     // Actions too, not just notify. An aside at a daemon seam is the same
     // hidden agent the composer's /btw uses, asked without anyone typing: write
     // the handoff before this conversation compacts, say why that turn failed.
-    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
+    outcomeKinds: ["notify", ...PRE_SEND_RUNNABLE_OUTCOME_KINDS],
     // No `message`: the text was sent a turn ago, so matching on it here would
     // fire on something the rule's author is no longer looking at.
     triggers: AGENT_TRIGGERS,

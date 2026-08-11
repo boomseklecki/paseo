@@ -2,7 +2,7 @@ import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import type { AgentSessionConfig, AgentTimelineItem } from "../../agent/agent-sdk-types.js";
 import { planAside, type AsideRoute } from "./aside-plan.js";
-import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
+import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
 
 /**
  * Answers a question about the current work without the conversation taking a
@@ -21,25 +21,25 @@ import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
 
 const DEFAULT_TITLE = "Aside";
 
-export interface AsideActionOptions {
+export interface AsideOutcomeOptions {
   manager: AgentManager;
   logger: Logger;
   /** Injected so a test can await the work the caller deliberately does not. */
   onSettled?: (result: { subagentId: string; error: Error | null }) => void;
 }
 
-export class AsideAction {
+export class AsideOutcome {
   private readonly manager: AgentManager;
   private readonly logger: Logger;
-  private readonly onSettled: AsideActionOptions["onSettled"];
+  private readonly onSettled: AsideOutcomeOptions["onSettled"];
 
-  constructor(options: AsideActionOptions) {
+  constructor(options: AsideOutcomeOptions) {
     this.manager = options.manager;
     this.logger = options.logger.child({ module: "pre-send-checks", action: "aside" });
     this.onSettled = options.onSettled;
   }
 
-  async run(request: PreSendActionRequest): Promise<PreSendActionOutcome> {
+  async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
     const parent = this.manager.getAgent(request.agentId);
     if (!parent) {
       return { status: "declined", reason: "No such agent" };
@@ -105,7 +105,7 @@ export class AsideAction {
   }
 
   private async execute(input: {
-    request: PreSendActionRequest;
+    request: PreSendOutcomeRequest;
     plan: AsideRoute;
     subagentId: string;
     question: string;
@@ -200,7 +200,7 @@ function asideConfig(parent: AgentSessionConfig): AgentSessionConfig {
  * trigger text, which the action is not given and should not have to know, and
  * a model reading `/btw what does this flag do` understands it perfectly well.
  */
-function buildQuestion(request: PreSendActionRequest): string {
+function buildQuestion(request: PreSendOutcomeRequest): string {
   const template = request.action.prompt?.trim();
   const message = request.message.trim();
   if (!template) {

@@ -519,9 +519,9 @@ type PreSendChecksReorderPayload = Extract<
   SessionOutboundMessage,
   { type: "rules.reorder.response" }
 >["payload"];
-type PreSendChecksRunActionPayload = Extract<
+type PreSendChecksRunOutcomePayload = Extract<
   SessionOutboundMessage,
-  { type: "rules.run_action.response" }
+  { type: "rules.run_outcome.response" }
 >["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
@@ -5131,7 +5131,7 @@ export class DaemonClient {
    * do, and means the message was not consumed — the caller should send it the
    * ordinary way rather than surfacing an error.
    */
-  async preSendChecksRunAction(
+  async preSendChecksRunOutcome(
     input: {
       agentId: string;
       message: string;
@@ -5139,17 +5139,17 @@ export class DaemonClient {
       confirmed?: boolean;
     },
     requestId?: string,
-  ): Promise<PreSendChecksRunActionPayload> {
+  ): Promise<PreSendChecksRunOutcomePayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "rules.run_action.request",
+        type: "rules.run_outcome.request",
         agentId: input.agentId,
         message: input.message,
         action: input.action,
         confirmed: input.confirmed === true,
       },
-      responseType: "rules.run_action.response",
+      responseType: "rules.run_outcome.response",
     });
   }
 

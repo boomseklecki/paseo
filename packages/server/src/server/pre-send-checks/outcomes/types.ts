@@ -1,4 +1,4 @@
-import type { PreSendAction } from "@getpaseo/protocol/pre-send-checks/types";
+import type { PreSendOutcomeSpec } from "@getpaseo/protocol/pre-send-checks/types";
 
 /**
  * What a rule does instead of sending.
@@ -26,7 +26,7 @@ import type { PreSendAction } from "@getpaseo/protocol/pre-send-checks/types";
  * and sending the text on anyway would deliver `/btw what does this flag do` to
  * the agent as an instruction.
  */
-export type PreSendActionOutcome =
+export type PreSendOutcomeResult =
   | {
       status: "started";
       subagentId: string;
@@ -41,12 +41,12 @@ export type PreSendActionOutcome =
   | { status: "declined"; reason: string }
   | { status: "failed"; reason: string };
 
-export interface PreSendActionRequest {
+export interface PreSendOutcomeRequest {
   /** The conversation the message was typed into. */
   agentId: string;
   /** The full text, trigger prefix and all. Trimming it is the action's business. */
   message: string;
-  action: PreSendAction;
+  action: PreSendOutcomeSpec;
   /** True on a second attempt, after the caller answered a `needs_confirmation`. */
   confirmed: boolean;
 }

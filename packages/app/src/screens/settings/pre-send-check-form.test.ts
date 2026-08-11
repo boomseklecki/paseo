@@ -7,7 +7,7 @@ import {
   preSendCheckChoosesHosts,
   preSendCheckExampleToDraft,
   applyPreSendEventChange,
-  preSendActionOptions,
+  preSendOutcomeOptions,
   preSendDispositionOptions,
   preSendTriggerOptions,
   movePreSendCheck,
@@ -461,7 +461,9 @@ describe("what a seam offers the editor", () => {
       { kind: "teleport", label: "Teleport", parameters: [] },
     ];
 
-    expect(preSendActionOptions("message.send", descriptors).map((d) => d.kind)).toEqual(["aside"]);
+    expect(preSendOutcomeOptions("message.send", descriptors).map((d) => d.kind)).toEqual([
+      "aside",
+    ]);
   });
 });
 

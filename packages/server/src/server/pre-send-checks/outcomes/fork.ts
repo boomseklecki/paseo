@@ -4,8 +4,8 @@ import { buildAgentForkContextAttachment } from "../../agent/activity-curator.js
 import {
   RULE_CREATED_AGENT_LABEL,
   wasCreatedByRule,
-  type PreSendActionOutcome,
-  type PreSendActionRequest,
+  type PreSendOutcomeResult,
+  type PreSendOutcomeRequest,
 } from "./types.js";
 
 /**
@@ -25,7 +25,7 @@ import {
  * that shows up in the list and can be replied to. The aside is the one that
  * hides.
  */
-export class ForkAction {
+export class ForkOutcome {
   private readonly manager: AgentManager;
   private readonly logger: Logger;
 
@@ -34,7 +34,7 @@ export class ForkAction {
     this.logger = options.logger.child({ module: "pre-send-checks", action: "fork" });
   }
 
-  async run(request: PreSendActionRequest): Promise<PreSendActionOutcome> {
+  async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
     const parent = this.manager.getAgent(request.agentId);
     if (!parent) {
       return { status: "declined", reason: "No such agent" };

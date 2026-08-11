@@ -316,7 +316,7 @@ async function runPreSendRedirect(input: {
   }
 
   try {
-    const result = await client.preSendChecksRunAction({
+    const result = await client.preSendChecksRunOutcome({
       agentId: input.agentId,
       message: input.message,
       action: action as { kind: string } & Record<string, unknown>,

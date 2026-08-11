@@ -421,4 +421,57 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 90_000);
+
+  // schedule shipped dead: it was missing from the runnable outcome kinds, so
+  // the evaluator refused it at every seam while the registry, the descriptor
+  // and a shipped example all claimed it worked. Only its delay parser had a
+  // test. This is the test whose absence allowed that.
+  test("creates a schedule from a rule", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-sched-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "retry-later",
+      event: "turn.failed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "schedule", title: "Retry", delay: "10m", prompt: "Try that again." },
+    });
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-sched-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Failing",
+      });
+
+      await client.sendMessage(agent.id, "Please emit a turn failure");
+
+      let schedules: Awaited<ReturnType<typeof client.scheduleList>>["schedules"] = [];
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && schedules.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        schedules = (await client.scheduleList()).schedules;
+      }
+
+      // An ordinary schedule, which is the point: it lands in the same list any
+      // other schedule does, and can be cancelled by someone who never knew a
+      // rule made it.
+      expect(schedules).toHaveLength(1);
+      expect(schedules[0]?.name).toBe("Retry");
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
 });
