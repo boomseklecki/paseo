@@ -13,9 +13,11 @@ import {
   type PreSendActionParameter,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { settingsStyles } from "@/styles/settings";
+import { dryRunPreSendCheckSample } from "@getpaseo/protocol/pre-send-checks/dry-run";
 import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
+  applyPreSendCheckDraft,
   applyPreSendEventChange,
   preSendActionOptions,
   preSendCheckOptions,
@@ -158,6 +160,71 @@ function PreSendCheckPicker({
       />
     </Field>
   );
+}
+
+interface PreSendCheckTryItProps {
+  draft: PreSendCheckDraft;
+  descriptors: readonly PreSendActionDescriptor[];
+  resetKey: string;
+  disabled: boolean;
+  testID: string;
+}
+
+/**
+ * Try the rule you are writing, before saving it.
+ *
+ * Against a value you type rather than a live agent. The question while writing
+ * a rule is "would this match" - would `/btw hello` trip my prefix, is 3600 the
+ * number I meant - and answering from a real agent means picking one, waiting
+ * for it to be in the right state, and getting an answer that changes by the
+ * minute.
+ *
+ * Built from the draft on every keystroke, so it answers for the rule as it
+ * stands rather than as it was last saved, and through the same evaluator the
+ * real path uses so the two cannot disagree.
+ */
+function PreSendCheckTryIt({
+  draft,
+  descriptors,
+  resetKey,
+  disabled,
+  testID,
+}: PreSendCheckTryItProps) {
+  const { t } = useTranslation();
+  const [sample, setSample] = useState("");
+
+  const verdict = useMemo(() => {
+    const rule = applyPreSendCheckDraft({ existing: null, draft, id: "try-it", descriptors });
+    return dryRunPreSendCheckSample(rule, sample).verdict;
+  }, [descriptors, draft, sample]);
+
+  const label = t("settings.preSendChecks.tryItLabel");
+
+  return (
+    <Field
+      label={label}
+      hint={t(`settings.preSendChecks.verdicts.${verdictKey(verdict)}`)}
+      testID={testID}
+    >
+      <FormTextInput
+        initialValue=""
+        value={sample}
+        resetKey={resetKey}
+        onChangeText={setSample}
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!disabled}
+        placeholder={t("settings.preSendChecks.tryItPlaceholder")}
+        accessibilityLabel={label}
+        testID={`${testID}-input`}
+      />
+    </Field>
+  );
+}
+
+/** One key per verdict, so the reason is translated rather than assembled. */
+function verdictKey(verdict: ReturnType<typeof dryRunPreSendCheckSample>["verdict"]): string {
+  return verdict.fires ? "fires" : verdict.because;
 }
 
 interface PreSendCheckEventPickerProps {
@@ -585,6 +652,14 @@ export function PreSendCheckEditModal({
           disabled={isPending}
           onChange={handlePickerChange}
           testID={`${prefix}-disposition`}
+        />
+
+        <PreSendCheckTryIt
+          draft={draft}
+          descriptors={seamActions}
+          resetKey={resetKey}
+          disabled={isPending}
+          testID={`${prefix}-try-it`}
         />
 
         <Field

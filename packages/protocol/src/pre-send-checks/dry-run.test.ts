@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dryRunPreSendCheck, dryRunPreSendChecks } from "./dry-run.js";
+import { dryRunPreSendCheck, dryRunPreSendCheckSample, dryRunPreSendChecks } from "./dry-run.js";
 import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
@@ -117,5 +117,57 @@ describe("dryRunPreSendChecks", () => {
       ["cold", true],
       ["off", false],
     ]);
+  });
+});
+
+describe("dryRunPreSendCheckSample", () => {
+  // The question someone actually has while writing a rule: would this match?
+  it("answers a text rule against typed text", () => {
+    const btw: PreSendCheckRule = {
+      id: "btw",
+      measurement: "message",
+      trigger: "message",
+      operator: "startsWith",
+      text: "/btw",
+      value: "/btw",
+      disposition: "redirect",
+      outcome: { kind: "aside" },
+    };
+
+    expect(dryRunPreSendCheckSample(btw, "/btw what is this").verdict).toEqual({ fires: true });
+    expect(dryRunPreSendCheckSample(btw, "hello").verdict).toEqual({
+      fires: false,
+      because: "condition-false",
+    });
+  });
+
+  it("answers a numeric rule against a typed number", () => {
+    expect(dryRunPreSendCheckSample(IDLE, "250").verdict).toEqual({ fires: true });
+    expect(dryRunPreSendCheckSample(IDLE, "5").verdict).toEqual({
+      fires: false,
+      because: "condition-false",
+    });
+  });
+
+  // Nothing to compare, so nothing to type.
+  it("fires an always rule whatever the sample", () => {
+    const always: PreSendCheckRule = { ...IDLE, measurement: "always", trigger: "always" };
+
+    expect(dryRunPreSendCheckSample(always, "").verdict).toEqual({ fires: true });
+  });
+
+  it("does not fire a numeric rule on text that is not a number", () => {
+    expect(dryRunPreSendCheckSample(IDLE, "soon").verdict).toEqual({
+      fires: false,
+      because: "condition-false",
+    });
+  });
+
+  // Structural still wins: no sample makes an impossible rule possible.
+  it("still reports a rule that can never fire", () => {
+    expect(dryRunPreSendCheckSample({ ...IDLE, event: "turn.failed" }, "250").verdict).toEqual({
+      fires: false,
+      because: "outcome-not-at-this-event",
+    });
   });
 });

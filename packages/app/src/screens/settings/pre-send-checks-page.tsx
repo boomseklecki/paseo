@@ -26,6 +26,7 @@ import {
   type PreSendCheckExample,
 } from "@getpaseo/protocol/pre-send-checks/types";
 import { normalizePreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/vocabulary";
+import { preSendCheckNeverFires } from "@getpaseo/protocol/pre-send-checks/dry-run";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
@@ -176,6 +177,10 @@ function PreSendCheckRow({
   // variant on StatusBadge and adding one would change a component several other
   // screens share, so the other two take the muted one rather than growing the
   // vocabulary for a single caller.
+  // The editor refuses to build an impossible rule, but this directory is
+  // hand-editable by design, so a rule written into a file never met the
+  // editor. This is the only thing that would tell someone it can never fire.
+  const neverFires = preSendCheckNeverFires(rule);
   const outcomeKind = normalizePreSendCheckRule(rule).outcome.kind;
   const isBlocking = outcomeKind === "block";
   const badgeLabel = isPlainOutcomeKind(outcomeKind)
@@ -199,6 +204,13 @@ function PreSendCheckRow({
           ) : null}
         </View>
         <View style={styles.badges}>
+          {/* Ahead of the outcome badge, because "this can never fire" is the
+              thing to read first. Only for rules that *cannot* fire, never for
+              ones simply switched off - that would be telling someone off for
+              using the switch. */}
+          {neverFires ? (
+            <StatusBadge label={t("settings.preSendChecks.neverFires")} variant="error" />
+          ) : null}
           <StatusBadge label={badgeLabel} variant={isBlocking ? "error" : "muted"} />
           {group.differs ? (
             <StatusBadge label={t("settings.preSendChecks.differs")} variant="error" />
