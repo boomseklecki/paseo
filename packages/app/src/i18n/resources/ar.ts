@@ -1842,6 +1842,13 @@ export const ar: TranslationResources = {
       textRequired: "أدخل النص المراد مطابقته",
       thresholdInvalid: "أدخل رقمًا",
       unrecognisedOption: "{{value}} (غير معروف)",
+      eventLabel: "متى",
+      events: {
+        send: "قبل إرسال رسالة",
+        completed: "عند انتهاء دور",
+        failed: "عند فشل دور",
+        idle: "عند ترك وكيل بلا عمل",
+      },
       triggers: {
         always: "دائمًا",
         message: "ما كتبته",
@@ -1862,6 +1869,7 @@ export const ar: TranslationResources = {
         lte: "أقل من أو يساوي",
       },
       dispositions: {
+        notify: "إشعار",
         redirect: "إعادة توجيه",
         warn: "تحذير",
         block: "حظر",

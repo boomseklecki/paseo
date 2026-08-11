@@ -1819,6 +1819,13 @@ export const zhCN: TranslationResources = {
       textRequired: "请输入要匹配的文本",
       thresholdInvalid: "请输入数字",
       unrecognisedOption: "{{value}}（无法识别）",
+      eventLabel: "时机",
+      events: {
+        send: "发送消息前",
+        completed: "回合结束时",
+        failed: "回合失败时",
+        idle: "代理闲置时",
+      },
       triggers: {
         always: "始终",
         message: "你输入的内容",
@@ -1839,6 +1846,7 @@ export const zhCN: TranslationResources = {
         lte: "小于或等于",
       },
       dispositions: {
+        notify: "通知",
         redirect: "重定向",
         warn: "警告",
         block: "拦截",

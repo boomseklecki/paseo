@@ -6,6 +6,10 @@ import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
   preSendCheckExampleToDraft,
+  applyPreSendEventChange,
+  preSendActionOptions,
+  preSendDispositionOptions,
+  preSendTriggerOptions,
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckOptions,
@@ -428,5 +432,74 @@ describe("describePreSendCheck for a text rule", () => {
     expect(described).toBe(
       "settings.preSendChecks.triggers.message settings.preSendChecks.operatorPhrases.startsWith /btw",
     );
+  });
+});
+
+describe("what a seam offers the editor", () => {
+  it("offers the message trigger only where a message is being sent", () => {
+    expect(preSendTriggerOptions("message.send")).toContain("message");
+    expect(preSendTriggerOptions("turn.failed")).not.toContain("message");
+  });
+
+  // The editor asks two questions, so every action kind collapses into the one
+  // word `redirect` and the action picker resolves which.
+  it("collapses action kinds into redirect", () => {
+    expect(preSendDispositionOptions("message.send")).toEqual(["warn", "block", "redirect"]);
+    expect(preSendDispositionOptions("turn.failed")).toEqual(["notify", "redirect"]);
+  });
+
+  // A rule from a newer daemon must stay editable rather than showing a picker
+  // with nothing in it.
+  it("offers everything for a seam it has never heard of", () => {
+    expect(preSendDispositionOptions("moon.rose")).toEqual(["warn", "block", "redirect"]);
+    expect(preSendTriggerOptions("moon.rose").length).toBeGreaterThan(0);
+  });
+
+  it("offers only the actions a seam will carry out", () => {
+    const descriptors = [
+      { kind: "aside", label: "Aside", parameters: [] },
+      { kind: "teleport", label: "Teleport", parameters: [] },
+    ];
+
+    expect(preSendActionOptions("message.send", descriptors).map((d) => d.kind)).toEqual(["aside"]);
+  });
+});
+
+describe("applyPreSendEventChange", () => {
+  // Leaving a picker showing something its new seam rejects is how someone
+  // saves a rule that is stored, evaluated, and silently does nothing.
+  it("drops a trigger the new seam cannot use", () => {
+    const moved = applyPreSendEventChange(draft({ trigger: "message" }), "turn.failed");
+
+    expect(moved.event).toBe("turn.failed");
+    expect(moved.trigger).not.toBe("message");
+    expect(preSendTriggerOptions("turn.failed")).toContain(moved.trigger);
+  });
+
+  it("drops a disposition the new seam cannot carry out", () => {
+    const moved = applyPreSendEventChange(draft({ disposition: "block" }), "turn.failed");
+
+    expect(moved.disposition).toBe("notify");
+  });
+
+  it("keeps what the new seam still accepts", () => {
+    const moved = applyPreSendEventChange(
+      draft({ trigger: "agent.sessionCostUsd", disposition: "redirect", actionKind: "aside" }),
+      "turn.failed",
+    );
+
+    expect(moved.trigger).toBe("agent.sessionCostUsd");
+    expect(moved.disposition).toBe("redirect");
+    expect(moved.actionKind).toBe("aside");
+  });
+
+  // An action behind no redirect is a kind nobody can pick again.
+  it("clears the action when the outcome is no longer a redirect", () => {
+    const moved = applyPreSendEventChange(
+      draft({ trigger: "message", disposition: "block", actionKind: "aside" }),
+      "turn.failed",
+    );
+
+    expect(moved.actionKind).toBe("");
   });
 });

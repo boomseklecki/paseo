@@ -1860,6 +1860,13 @@ export const en = {
       textRequired: "Enter the text to match",
       thresholdInvalid: "Enter a number",
       unrecognisedOption: "{{value}} (not recognised)",
+      eventLabel: "When",
+      events: {
+        send: "Before a message is sent",
+        completed: "When a turn finishes",
+        failed: "When a turn fails",
+        idle: "When an agent is left idle",
+      },
       triggers: {
         always: "Always",
         message: "What you typed",
@@ -1880,6 +1887,7 @@ export const en = {
         lte: "At or under",
       },
       dispositions: {
+        notify: "Notify",
         redirect: "Redirect",
         warn: "Warn",
         block: "Block",

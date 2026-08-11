@@ -1901,6 +1901,13 @@ export const fr: TranslationResources = {
       textRequired: "Saisissez le texte à comparer",
       thresholdInvalid: "Saisissez un nombre",
       unrecognisedOption: "{{value}} (non reconnu)",
+      eventLabel: "Quand",
+      events: {
+        send: "Avant l'envoi d'un message",
+        completed: "À la fin d'un tour",
+        failed: "À l'échec d'un tour",
+        idle: "Quand un agent reste inactif",
+      },
       triggers: {
         always: "Toujours",
         message: "Ce que vous avez tapé",
@@ -1921,6 +1928,7 @@ export const fr: TranslationResources = {
         lte: "Égal ou en dessous",
       },
       dispositions: {
+        notify: "Notifier",
         redirect: "Rediriger",
         warn: "Avertir",
         block: "Bloquer",

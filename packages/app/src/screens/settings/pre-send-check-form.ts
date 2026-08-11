@@ -2,6 +2,7 @@ import {
   PRE_SEND_OPERATORS,
   PRE_SEND_PLAIN_OUTCOME_KINDS,
   PRE_SEND_TRIGGERS,
+  isPlainOutcomeKind,
   isTextTrigger,
   type PreSendActionDescriptor,
   type PreSendCheckRule,
@@ -13,6 +14,11 @@ import {
   normalizePreSendCheckRule,
   projectPreSendCheckRule,
 } from "@getpaseo/protocol/pre-send-checks/vocabulary";
+import {
+  findPreSendEventDefinition,
+  isOutcomeValidForEvent,
+  PRE_SEND_EVENT_DEFINITIONS,
+} from "@getpaseo/protocol/pre-send-checks/events";
 import { formatTriggerValue, type PreSendTranslate } from "@/composer/pre-send-checks";
 import { formatDuration } from "@/utils/time";
 
@@ -65,7 +71,13 @@ export interface PreSendCheckDraft {
   actionParams: Record<string, string>;
 }
 
-export type PreSendCheckField = "trigger" | "operator" | "value" | "disposition" | "action";
+export type PreSendCheckField =
+  | "event"
+  | "trigger"
+  | "operator"
+  | "value"
+  | "disposition"
+  | "action";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
@@ -357,7 +369,79 @@ export function movePreSendCheck(
 }
 
 export const PRE_SEND_OPERATOR_OPTIONS = PRE_SEND_OPERATORS;
+export const PRE_SEND_EVENT_OPTIONS = PRE_SEND_EVENT_DEFINITIONS.map(
+  (definition) => definition.event,
+);
+
 export const PRE_SEND_TRIGGER_OPTIONS = PRE_SEND_TRIGGERS;
+
+/**
+ * The triggers worth offering at a seam.
+ *
+ * An event this build has never heard of offers everything rather than nothing:
+ * a rule from a newer daemon should still be editable, and an empty picker is a
+ * dead end. Same instinct as `preSendCheckOptions`, which keeps an unrecognised
+ * value selectable rather than quietly rewriting it.
+ */
+export function preSendTriggerOptions(event: string): readonly string[] {
+  return findPreSendEventDefinition(event)?.triggers ?? PRE_SEND_TRIGGERS;
+}
+
+/**
+ * What the second picker offers, which is not the list of outcome kinds.
+ *
+ * The editor asks "what should happen" and then, if that is a redirect, "where
+ * to" — so every action kind a seam accepts collapses into the single word
+ * `redirect` here and the action picker resolves which one. A seam with no
+ * action kinds shows no redirect and no action picker.
+ */
+export function preSendDispositionOptions(event: string): readonly string[] {
+  const definition = findPreSendEventDefinition(event);
+  if (!definition) {
+    return ["warn", "block", "redirect"];
+  }
+  const plain = definition.outcomeKinds.filter((kind) => isPlainOutcomeKind(kind));
+  const hasAction = definition.outcomeKinds.some((kind) => !isPlainOutcomeKind(kind));
+  return hasAction ? [...plain, "redirect"] : plain;
+}
+
+/** The actions a seam will actually carry out, for the third picker. */
+export function preSendActionOptions(
+  event: string,
+  descriptors: readonly PreSendActionDescriptor[],
+): PreSendActionDescriptor[] {
+  return descriptors.filter((descriptor) => isOutcomeValidForEvent(event, descriptor.kind));
+}
+
+/**
+ * Moves a draft to another seam, dropping what that seam cannot express.
+ *
+ * Changing the event invalidates the other pickers — `turn.failed` has no
+ * `message` trigger and no `block` — and leaving one showing a value its seam
+ * rejects is how someone saves a rule that is stored, evaluated, and silently
+ * does nothing. Each falls back to the first thing the new seam accepts, which
+ * is visible in the picker rather than silent.
+ */
+export function applyPreSendEventChange(
+  draft: PreSendCheckDraft,
+  event: string,
+): PreSendCheckDraft {
+  const triggers = preSendTriggerOptions(event);
+  const dispositions = preSendDispositionOptions(event);
+  const trigger = triggers.includes(draft.trigger) ? draft.trigger : (triggers[0] ?? draft.trigger);
+  const disposition = dispositions.includes(draft.disposition)
+    ? draft.disposition
+    : (dispositions[0] ?? draft.disposition);
+  return {
+    ...draft,
+    event,
+    trigger,
+    disposition,
+    // An action only means anything behind a redirect, and a seam with none
+    // would otherwise keep a kind nobody can pick again.
+    actionKind: disposition === "redirect" ? draft.actionKind : "",
+  };
+}
 export const PRE_SEND_DISPOSITION_OPTIONS = ["warn", "block", "redirect"] as const;
 
 // Symbols rather than words, so they need no translation and the sentence stays

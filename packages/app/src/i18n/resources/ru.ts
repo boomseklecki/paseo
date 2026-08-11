@@ -1885,6 +1885,13 @@ export const ru: TranslationResources = {
       textRequired: "Введите текст для сравнения",
       thresholdInvalid: "Введите число",
       unrecognisedOption: "{{value}} (не распознано)",
+      eventLabel: "Когда",
+      events: {
+        send: "Перед отправкой сообщения",
+        completed: "Когда ход завершён",
+        failed: "Когда ход не удался",
+        idle: "Когда агент простаивает",
+      },
       triggers: {
         always: "Всегда",
         message: "Что вы ввели",
@@ -1905,6 +1912,7 @@ export const ru: TranslationResources = {
         lte: "Меньше или равно",
       },
       dispositions: {
+        notify: "Уведомить",
         redirect: "Перенаправить",
         warn: "Предупредить",
         block: "Заблокировать",

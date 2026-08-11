@@ -1878,6 +1878,13 @@ export const ptBR: TranslationResources = {
       textRequired: "Digite o texto a comparar",
       thresholdInvalid: "Digite um número",
       unrecognisedOption: "{{value}} (não reconhecido)",
+      eventLabel: "Quando",
+      events: {
+        send: "Antes de enviar uma mensagem",
+        completed: "Ao terminar um turno",
+        failed: "Ao falhar um turno",
+        idle: "Quando um agente fica ocioso",
+      },
       triggers: {
         always: "Sempre",
         message: "O que você digitou",
@@ -1898,6 +1905,7 @@ export const ptBR: TranslationResources = {
         lte: "Igual ou abaixo",
       },
       dispositions: {
+        notify: "Notificar",
         redirect: "Redirecionar",
         warn: "Avisar",
         block: "Bloquear",

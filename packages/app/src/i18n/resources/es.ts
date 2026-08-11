@@ -1893,6 +1893,13 @@ export const es: TranslationResources = {
       textRequired: "Escriba el texto a comparar",
       thresholdInvalid: "Introduzca un número",
       unrecognisedOption: "{{value}} (no reconocido)",
+      eventLabel: "Cuándo",
+      events: {
+        send: "Antes de enviar un mensaje",
+        completed: "Al terminar un turno",
+        failed: "Al fallar un turno",
+        idle: "Cuando un agente queda inactivo",
+      },
       triggers: {
         always: "Siempre",
         message: "Lo que escribió",
@@ -1913,6 +1920,7 @@ export const es: TranslationResources = {
         lte: "Igual o menos de",
       },
       dispositions: {
+        notify: "Notificar",
         redirect: "Redirigir",
         warn: "Advertir",
         block: "Bloquear",

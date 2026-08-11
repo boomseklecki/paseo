@@ -1863,6 +1863,13 @@ export const ja: TranslationResources = {
       textRequired: "照合するテキストを入力してください",
       thresholdInvalid: "数値を入力してください",
       unrecognisedOption: "{{value}}（未対応）",
+      eventLabel: "タイミング",
+      events: {
+        send: "メッセージ送信前",
+        completed: "ターン終了時",
+        failed: "ターン失敗時",
+        idle: "エージェントが放置されたとき",
+      },
       triggers: {
         always: "常に",
         message: "入力した内容",
@@ -1883,6 +1890,7 @@ export const ja: TranslationResources = {
         lte: "以下",
       },
       dispositions: {
+        notify: "通知",
         redirect: "リダイレクト",
         warn: "警告",
         block: "ブロック",

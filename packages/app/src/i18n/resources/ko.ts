@@ -1854,6 +1854,13 @@ export const ko: TranslationResources = {
       textRequired: "비교할 텍스트를 입력하세요",
       thresholdInvalid: "숫자를 입력하세요",
       unrecognisedOption: "{{value}}(알 수 없음)",
+      eventLabel: "시점",
+      events: {
+        send: "메시지를 보내기 전",
+        completed: "턴이 끝났을 때",
+        failed: "턴이 실패했을 때",
+        idle: "에이전트가 방치되었을 때",
+      },
       triggers: {
         always: "항상",
         message: "입력한 내용",
@@ -1874,6 +1881,7 @@ export const ko: TranslationResources = {
         lte: "이하",
       },
       dispositions: {
+        notify: "알림",
         redirect: "전달",
         warn: "경고",
         block: "차단",

@@ -16,9 +16,12 @@ import { settingsStyles } from "@/styles/settings";
 import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
+  applyPreSendEventChange,
+  preSendActionOptions,
   preSendCheckOptions,
-  PRE_SEND_DISPOSITION_OPTIONS,
-  PRE_SEND_TRIGGER_OPTIONS,
+  preSendDispositionOptions,
+  preSendTriggerOptions,
+  PRE_SEND_EVENT_OPTIONS,
   PRE_SEND_OPERATOR_OPTIONS,
   type PreSendCheckDraft,
   type PreSendCheckField,
@@ -53,7 +56,7 @@ interface PreSendCheckEditModalProps {
   testID?: string;
 }
 
-type PickerKind = "trigger" | "operator" | "disposition";
+type PickerKind = "event" | "trigger" | "operator" | "disposition";
 
 // Separates server ids inside the memo key below, chosen because it cannot
 // occur in one. Written as an escape and not as the character itself: a raw
@@ -62,6 +65,7 @@ type PickerKind = "trigger" | "operator" | "disposition";
 const SERVER_ID_KEY_SEPARATOR = "\u0000";
 
 const OPTION_LABEL_PREFIX: Record<PickerKind, string> = {
+  event: "settings.preSendChecks.events.",
   trigger: "settings.preSendChecks.triggers.",
   operator: "settings.preSendChecks.operators.",
   disposition: "settings.preSendChecks.dispositions.",
@@ -153,6 +157,46 @@ function PreSendCheckPicker({
         testID={`${testID}-select`}
       />
     </Field>
+  );
+}
+
+interface PreSendCheckEventPickerProps {
+  value: string;
+  error: string | undefined;
+  disabled: boolean;
+  onChange: (kind: PickerKind, value: string) => void;
+  testID: string;
+}
+
+/**
+ * Which seam the rule belongs to.
+ *
+ * Its own component so the modal is not the thing deciding whether to render it,
+ * and renders nothing at all when there is one seam to choose from: a picker
+ * offering a single option is a control that teaches nothing and takes a line
+ * of a sheet that is already long.
+ */
+function PreSendCheckEventPicker({
+  value,
+  error,
+  disabled,
+  onChange,
+  testID,
+}: PreSendCheckEventPickerProps) {
+  const { t } = useTranslation();
+  if (PRE_SEND_EVENT_OPTIONS.length < 2) {
+    return null;
+  }
+  return (
+    <PreSendCheckPicker
+      kind="event"
+      known={PRE_SEND_EVENT_OPTIONS}
+      value={value}
+      error={error ? t(error) : undefined}
+      disabled={disabled}
+      onChange={onChange}
+      testID={testID}
+    />
   );
 }
 
@@ -377,10 +421,20 @@ export function PreSendCheckEditModal({
 
   const handlePickerChange = useCallback(
     (kind: PickerKind, value: string) => {
-      setField(kind, value);
+      // A seam change drags the other pickers with it: what a rule may look at
+      // and ask for differs per seam, so the rest of the draft has to be made
+      // legal in the same breath rather than left showing something its new
+      // seam would silently refuse.
+      setDraft((current) =>
+        kind === "event" ? applyPreSendEventChange(current, value) : { ...current, [kind]: value },
+      );
+      setFieldErrors((current) => ({ ...current, [kind]: undefined }));
     },
-    [setField],
+    [setDraft, setFieldErrors],
   );
+
+  const triggerOptions = useMemo(() => preSendTriggerOptions(draft.event), [draft.event]);
+  const dispositionOptions = useMemo(() => preSendDispositionOptions(draft.event), [draft.event]);
 
   const handleThresholdChange = useCallback(
     (next: string) => {
@@ -428,16 +482,23 @@ export function PreSendCheckEditModal({
     onClose();
   }, [isPending, onClose]);
 
-  const selectedAction = actions.find((action) => action.kind === draft.actionKind);
+  // Filtered by seam: the daemon describes every action it can run, and not all
+  // of them mean anything everywhere. Offering one the seam would refuse is how
+  // a rule gets saved that never fires.
+  const seamActions = useMemo(
+    () => preSendActionOptions(draft.event, actions),
+    [actions, draft.event],
+  );
+  const selectedAction = seamActions.find((action) => action.kind === draft.actionKind);
   const actionOptions = useMemo(
     () =>
-      actions.map((action) => ({
+      seamActions.map((action) => ({
         id: action.kind,
         value: action.kind,
         label: action.label,
         description: action.description,
       })),
-    [actions],
+    [seamActions],
   );
   // The daemon's own label where it knows the kind, and the raw kind where it
   // does not — a rule written against a newer daemon must still show what it
@@ -469,9 +530,16 @@ export function PreSendCheckEditModal({
       testID={testID}
     >
       <View style={styles.body}>
+        <PreSendCheckEventPicker
+          value={draft.event}
+          error={fieldErrors.event}
+          disabled={isPending}
+          onChange={handlePickerChange}
+          testID={`${prefix}-event`}
+        />
         <PreSendCheckPicker
           kind="trigger"
-          known={PRE_SEND_TRIGGER_OPTIONS}
+          known={triggerOptions}
           value={draft.trigger}
           error={fieldErrors.trigger ? t(fieldErrors.trigger) : undefined}
           disabled={isPending}
@@ -511,7 +579,7 @@ export function PreSendCheckEditModal({
 
         <PreSendCheckPicker
           kind="disposition"
-          known={PRE_SEND_DISPOSITION_OPTIONS}
+          known={dispositionOptions}
           value={draft.disposition}
           error={fieldErrors.disposition ? t(fieldErrors.disposition) : undefined}
           disabled={isPending}
