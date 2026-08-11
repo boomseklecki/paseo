@@ -28,40 +28,42 @@ describe("pre-send check examples", () => {
     }
   });
 
-  test("what ships is offered by a daemon that has the actions for it", () => {
+  test("what ships is offered by a daemon that has the runners for it", () => {
     const offered = listPreSendCheckExamples();
 
     expect(offered.map((example) => example.id)).toEqual(
       PRE_SEND_CHECK_EXAMPLES.map((example) => example.id),
     );
-    expect(offered.some((example) => example.rule.outcome.kind === "aside")).toBe(true);
+    expect(offered.some((example) => example.rule.outcomes[0]?.kind ?? "" === "aside")).toBe(true);
   });
 
-  // Installing an example whose action the daemon declines would redirect a
+  // Installing an example whose outcome the daemon declines would redirect a
   // message into nothing, with the person's text coming back unsent and no sign
   // of why the rule they just chose did nothing.
-  test("drops an example naming an action this daemon cannot perform", () => {
+  test("drops an example naming an outcome this daemon cannot perform", () => {
     const offered = listPreSendCheckExamples(PRE_SEND_CHECK_EXAMPLES, []);
 
-    expect(offered.every((example) => isPlainOutcomeKind(example.rule.outcome.kind))).toBe(true);
+    expect(
+      offered.every((example) => isPlainOutcomeKind(example.rule.outcomes[0]?.kind ?? "")),
+    ).toBe(true);
     expect(offered.length).toBeGreaterThan(0);
   });
 
   // A warn or a block asks nothing of the daemon beyond evaluating it, so it is
-  // offered whatever actions the daemon has.
-  test("keeps every actionless example whatever the daemon can do", () => {
-    const actionless = PRE_SEND_CHECK_EXAMPLES.filter((example) =>
-      isPlainOutcomeKind(example.rule.outcome.kind),
+  // offered whatever runners the daemon has.
+  test("keeps every plain example whatever the daemon can do", () => {
+    const plain = PRE_SEND_CHECK_EXAMPLES.filter((example) =>
+      isPlainOutcomeKind(example.rule.outcomes[0]?.kind ?? ""),
     );
 
-    expect(listPreSendCheckExamples(PRE_SEND_CHECK_EXAMPLES, [])).toEqual(actionless);
+    expect(listPreSendCheckExamples(PRE_SEND_CHECK_EXAMPLES, [])).toEqual(plain);
   });
 
-  test("every action an example names is one this daemon describes", () => {
+  test("every outcome an example names is one this daemon describes", () => {
     const kinds = PRE_SEND_OUTCOME_DESCRIPTORS.map((descriptor) => descriptor.kind);
 
     for (const example of PRE_SEND_CHECK_EXAMPLES) {
-      const kind = example.rule.outcome.kind;
+      const kind = example.rule.outcomes[0]?.kind ?? "";
       if (!isPlainOutcomeKind(kind)) {
         expect(kinds).toContain(kind);
       }

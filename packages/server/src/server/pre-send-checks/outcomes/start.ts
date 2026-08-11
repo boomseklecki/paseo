@@ -26,7 +26,7 @@ export class StartOutcome {
 
   constructor(options: { manager: AgentManager; logger: Logger }) {
     this.manager = options.manager;
-    this.logger = options.logger.child({ module: "pre-send-checks", action: "start" });
+    this.logger = options.logger.child({ module: "pre-send-checks", outcome: "start" });
   }
 
   async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
@@ -45,7 +45,7 @@ export class StartOutcome {
       };
     }
 
-    const title = request.action.title?.trim() || `${parent.config.title ?? "Agent"} (continued)`;
+    const title = request.outcome.title?.trim() || `${parent.config.title ?? "Agent"} (continued)`;
     const opening = readOpening(request);
 
     try {
@@ -93,7 +93,7 @@ export class StartOutcome {
  * room, ready when you switch to it.
  */
 function readOpening(request: PreSendOutcomeRequest): string {
-  const template = request.action.prompt?.trim();
+  const template = request.outcome.prompt?.trim();
   const message = request.message.trim();
   if (!template) {
     return "";

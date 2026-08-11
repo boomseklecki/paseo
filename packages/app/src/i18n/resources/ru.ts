@@ -1836,9 +1836,9 @@ export const ru: TranslationResources = {
             "Проверяется в конце хода и приходит на телефон, а не на экран, куда вы не смотрите.",
         },
         "handoff-before-compaction": {
-          label: "Записать передачу до сжатия разговора",
+          label: "Записать передачу дел до сжатия разговора и сообщить об этом",
           description:
-            "Скрытый агент пишет сводку, которую вы написали бы сами, чтобы она уже была в нужный день.",
+            "Скрытый агент пишет сводку, которую вы написали бы сами, а уведомление сообщает, что она готова.",
         },
         "fork-on-slash-fork": {
           label: "Ответвлять разговор по /fork",
@@ -1882,17 +1882,20 @@ export const ru: TranslationResources = {
       textLabel: "Значение",
       textHint: "Сообщение сравнивается с этим без учёта регистра.",
       thresholdLabel: "Значение",
-      dispositionLabel: "Итог",
+      outcomesLabel: "Итоги",
+      outcomesHint:
+        "Всё, что должно произойти по этому правилу. Добавьте несколько, если одно условие заслуживает нескольких ответов.",
+      outcomeLabel: "Итог",
       messageLabel: "Сообщение",
       messageHint: "Необязательно. Заменяет встроенный текст при срабатывании этого правила.",
       messagePlaceholder: "Оставьте пустым, чтобы использовать текст по умолчанию",
       defaultMessageHint: "Используется встроенный текст",
       triggerRequired: "Выберите триггер",
       operatorRequired: "Выберите сравнение",
-      dispositionRequired: "Выберите, что должно произойти",
-      actionLabel: "Действие",
-      actionPlaceholder: "Выберите действие",
-      actionRequired: "Выберите, что должно произойти",
+      outcomeRequired: "Выберите хотя бы один итог",
+      outcomeDuplicate: "Каждый итог можно указать только один раз",
+      addOutcome: "Добавить итог",
+      removeOutcome: "Убрать этот итог",
       textRequired: "Введите текст для сравнения",
       thresholdInvalid: "Введите число",
       unrecognisedOption: "{{value}} (не распознано)",
@@ -1924,9 +1927,8 @@ export const ru: TranslationResources = {
         lt: "Меньше",
         lte: "Меньше или равно",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "Уведомить",
-        redirect: "Перенаправить",
         warn: "Предупредить",
         block: "Заблокировать",
       },

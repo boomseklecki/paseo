@@ -39,7 +39,7 @@ export const DEFAULT_PRE_SEND_CHECKS: readonly PreSendCheckRule[] = [
     trigger: "agent.idleSeconds",
     operator: "gte",
     value: 3600,
-    outcome: { kind: "block" },
+    outcomes: [{ kind: "block" }],
     message: undefined,
     order: undefined,
     enabled: true,
@@ -63,7 +63,7 @@ This file is not a rule. Only \`*.json\` is read.
   "trigger": "agent.idleSeconds",
   "operator": "gte",
   "value": 3600,
-  "outcome": { "kind": "block" },
+  "outcomes": [{ "kind": "block" }],
   "message": "Optional. Overrides the built-in wording."
 }
 \`\`\`
@@ -72,10 +72,12 @@ The filename is the id — a rule needs no \`id\` field, and one that disagrees 
 read under its filename anyway. \`message\` may use \`{{value}}\` and, for a
 duration trigger, \`{{duration}}\`.
 
-The seeded files also carry \`measurement\`, \`threshold\` and \`disposition\`,
-which are the older names for \`trigger\`, \`value\` and \`outcome.kind\`. They are
-written so a Paseo older than 0.3.2 can still read these rules, and either name
-works if you write one by hand. The newer name wins where both appear.
+The seeded files also carry \`measurement\`, \`threshold\`, \`disposition\`,
+\`action\` and a singular \`outcome\`, which are the older names for
+\`trigger\`, \`value\` and \`outcomes\`. They are written so a Paseo older than
+0.3.2 can still read these rules, and either name works if you write one by
+hand. The newer name wins where both appear, and where an older Paseo can carry
+out only one outcome it gets the one that decides what happens to the message.
 
 ## Events
 
@@ -84,13 +86,16 @@ works if you write one by hand. The newer name wins where both appear.
 
 | name | when | outcomes | evaluated by |
 | --- | --- | --- | --- |
-| \`message.send\` | before a message leaves the composer | \`warn\`, \`block\`, an action | the app |
-| \`turn.failed\` | after an agent's turn fails | \`notify\` | the daemon |
+| \`message.send\` | before a message leaves the composer | \`warn\`, \`block\`, a runner | the app |
+| \`turn.completed\` | after an agent's turn ends | \`notify\`, a runner | the daemon |
+| \`turn.failed\` | after an agent's turn fails | \`notify\`, a runner | the daemon |
+| \`agent.idle\` | while an agent sits untouched, swept each minute | \`notify\`, a runner | the daemon |
 
-A rule asking for an outcome its event does not accept is skipped rather than
-half-performed, so a \`block\` on \`turn.failed\` never fires.
+An outcome its event does not accept is dropped and the rest of the rule still
+runs, so a \`block\` on \`turn.failed\` never fires but a \`notify\` beside it
+does. A rule whose every outcome the event refuses is skipped entirely.
 
-A \`turn.failed\` rule fires on the *crossing*, not on the condition: once it has
+A daemon-side rule fires on the *crossing*, not on the condition: once it has
 notified, it stays quiet until the condition stops holding and starts again.
 Otherwise a rule about a session's cost would notify on every failed turn for
 the rest of that session. Restarting the daemon arms every rule afresh.
@@ -113,12 +118,21 @@ duration or a dollar amount never fires. \`startsWith\` and \`contains\` for
 
 ## Outcomes
 
-\`{"kind": "warn"}\` shows a toast and sends anyway. \`{"kind": "block"}\` shows a
-toast and holds the send with your typed text still in the box; pressing send
-again within a minute goes through. Any other kind names an action that takes
-the message instead of sending it — \`{"kind": "aside"}\` answers it in a hidden
-agent and shows the reply under subagents. A kind this Paseo cannot perform is
-skipped, and the message sends normally.
+\`outcomes\` is a list, and everything in it happens. \`{"kind": "warn"}\` shows
+a toast and sends anyway. \`{"kind": "block"}\` shows a toast and holds the send
+with your typed text still in the box; pressing send again within a minute goes
+through. \`{"kind": "notify"}\` reaches your phone, and only means something at a
+daemon-side event. Any other kind names something the daemon runs with the
+message instead of sending it — \`{"kind": "aside"}\` answers it in a hidden agent
+and shows the reply under subagents; \`fork\`, \`start\` and \`schedule\` are the
+others.
+
+Listing several is how one condition gets more than one answer: an \`aside\` that
+writes a handoff and a \`notify\` that tells you it is there are one moment, and
+writing them as two rules means keeping two copies of the threshold in step.
+Where two of them want the message, the most decisive one gets it and the rest
+still run. A kind this Paseo cannot perform is dropped, and the outcomes beside
+it still happen.
 
 ## Turning them off
 

@@ -67,6 +67,20 @@ describe("dryRunPreSendCheck", () => {
     });
   });
 
+  // Only when the seam refuses every one of them. Badging a rule that still
+  // fires as broken would send someone looking for a fault that is not there.
+  it("does not call a rule broken for one outcome its seam refuses", () => {
+    const partly: PreSendCheckRule = {
+      ...IDLE,
+      event: "turn.failed",
+      outcomes: [{ kind: "block" }, { kind: "notify" }],
+    };
+
+    expect(dryRunPreSendCheck(partly, context({ idleSeconds: 250 })).verdict).toEqual({
+      fires: true,
+    });
+  });
+
   it("names a seam it has never heard of", () => {
     expect(dryRunPreSendCheck({ ...IDLE, event: "moon.rose" }, context()).verdict).toEqual({
       fires: false,

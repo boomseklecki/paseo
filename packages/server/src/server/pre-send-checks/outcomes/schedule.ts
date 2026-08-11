@@ -28,7 +28,7 @@ export class ScheduleOutcome {
   }) {
     this.manager = options.manager;
     this.scheduleService = options.scheduleService;
-    this.logger = options.logger.child({ module: "pre-send-checks", action: "schedule" });
+    this.logger = options.logger.child({ module: "pre-send-checks", outcome: "schedule" });
   }
 
   async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
@@ -37,11 +37,11 @@ export class ScheduleOutcome {
       return { status: "declined", reason: "No such agent" };
     }
 
-    const delayMs = parseDelay(request.action.delay);
+    const delayMs = parseDelay(request.outcome.delay);
     if (delayMs === null) {
       return {
         status: "declined",
-        reason: `Could not read '${String(request.action.delay ?? "")}' as a delay`,
+        reason: `Could not read '${String(request.outcome.delay ?? "")}' as a delay`,
       };
     }
 
@@ -54,7 +54,7 @@ export class ScheduleOutcome {
 
     try {
       const schedule = await this.scheduleService.create({
-        name: request.action.title?.trim() || "Scheduled by a rule",
+        name: request.outcome.title?.trim() || "Scheduled by a rule",
         prompt,
         cadence: { type: "every", everyMs: delayMs },
         // Back to the conversation that triggered it. A schedule that opened a
@@ -63,7 +63,7 @@ export class ScheduleOutcome {
         // Once unless the rule says otherwise. A rule firing on a crossing that
         // quietly created a repeating schedule is how someone ends up with an
         // agent talking to itself every ten minutes for a week.
-        maxRuns: request.action.repeat === "true" ? null : 1,
+        maxRuns: request.outcome.repeat === "true" ? null : 1,
       });
 
       this.logger.info(
@@ -111,7 +111,7 @@ export function parseDelay(value: unknown): number | null {
 }
 
 function readPrompt(request: PreSendOutcomeRequest): string {
-  const template = request.action.prompt?.trim();
+  const template = request.outcome.prompt?.trim();
   const message = request.message.trim();
   if (!template) {
     return message;

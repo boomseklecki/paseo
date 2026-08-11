@@ -1843,9 +1843,9 @@ export const es: TranslationResources = {
             "Se comprueba al terminar un turno y llega a su teléfono, no a una pantalla que no está mirando.",
         },
         "handoff-before-compaction": {
-          label: "Escribir el traspaso antes de que se compacte",
+          label: "Escriba el traspaso antes de que la conversación se compacte, y avise",
           description:
-            "Un agente oculto escribe el resumen que usted habría escrito, para que ya exista el día que lo necesite.",
+            "Un agente oculto escribe el resumen que habría escrito usted, y una notificación le avisa de que ya existe.",
         },
         "fork-on-slash-fork": {
           label: "Bifurcar la conversación con /fork",
@@ -1890,17 +1890,20 @@ export const es: TranslationResources = {
       textLabel: "Valor",
       textHint: "El mensaje se compara con esto, sin distinguir mayúsculas.",
       thresholdLabel: "Valor",
-      dispositionLabel: "Resultado",
+      outcomesLabel: "Resultados",
+      outcomesHint:
+        "Todo lo que debe hacer esta regla. Añada más de uno cuando una condición merezca más de una respuesta.",
+      outcomeLabel: "Resultado",
       messageLabel: "Mensaje",
       messageHint: "Opcional. Sustituye el texto predeterminado cuando se activa esta regla.",
       messagePlaceholder: "Déjelo vacío para usar el texto predeterminado",
       defaultMessageHint: "Usa el texto predeterminado",
       triggerRequired: "Elija un activador",
       operatorRequired: "Elija una comparación",
-      dispositionRequired: "Elija qué debe ocurrir",
-      actionLabel: "Acción",
-      actionPlaceholder: "Elija una acción",
-      actionRequired: "Elija qué debe ocurrir",
+      outcomeRequired: "Elija al menos un resultado",
+      outcomeDuplicate: "Cada resultado solo puede aparecer una vez",
+      addOutcome: "Añadir resultado",
+      removeOutcome: "Quitar este resultado",
       textRequired: "Escriba el texto a comparar",
       thresholdInvalid: "Introduzca un número",
       unrecognisedOption: "{{value}} (no reconocido)",
@@ -1932,9 +1935,8 @@ export const es: TranslationResources = {
         lt: "Menos de",
         lte: "Igual o menos de",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "Notificar",
-        redirect: "Redirigir",
         warn: "Advertir",
         block: "Bloquear",
       },

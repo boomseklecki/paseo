@@ -129,7 +129,7 @@ describe("formatPreSendFinding", () => {
       value: 7200,
       operand: 3600,
       message: null,
-      outcome: null,
+      outcomes: [{ kind: "block" }],
       ...overrides,
     };
   }

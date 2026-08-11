@@ -38,7 +38,7 @@ async function writeRule(id: string, overrides: Partial<PreSendCheckRule> = {}):
         trigger: "agent.idleSeconds",
         operator: "gte",
         value: 3600,
-        outcome: { kind: "block" },
+        outcomes: [{ kind: "block" }],
         message: undefined,
         order: undefined,
         enabled: true,

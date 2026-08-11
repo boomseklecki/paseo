@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluatePreSendChecks } from "./evaluate.js";
+import { evaluatePreSendChecks, firstRunnablePreSendOutcome } from "./evaluate.js";
 import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
@@ -95,7 +95,7 @@ describe("evaluatePreSendChecks findings", () => {
         value: 250,
         operand: 100,
         message: "Idle for {{duration}}.",
-        outcome: null,
+        outcomes: [{ kind: "warn" }],
       },
     ]);
   });
@@ -210,7 +210,7 @@ describe("text triggers", () => {
       context({ message: "/btw what is this" }),
     );
     expect(evaluation.disposition).toBe("redirect");
-    expect(evaluation.findings[0]?.outcome).toEqual({ kind: "aside" });
+    expect(evaluation.findings[0]?.outcomes).toEqual([{ kind: "aside" }]);
     expect(evaluation.findings[0]?.value).toBe("/btw what is this");
   });
 
@@ -271,5 +271,86 @@ describe("text triggers", () => {
     );
     expect(evaluation.disposition).toBe("redirect");
     expect(evaluation.findings).toHaveLength(2);
+  });
+});
+
+/**
+ * The reason outcomes are a list: one condition usually deserves more than one
+ * answer, and writing the condition twice to get two answers means keeping two
+ * copies of it in step by hand.
+ */
+describe("a rule with several outcomes", () => {
+  const both = rule({
+    trigger: "message",
+    measurement: "message",
+    operator: "startsWith",
+    value: "/btw",
+    outcomes: [{ kind: "warn" }, { kind: "aside", title: "Aside" }],
+  });
+
+  // "block OR block + ask on the side" - the combination this feature was asked
+  // for by name.
+  it("keeps every outcome on the finding", () => {
+    const evaluation = evaluatePreSendChecks([both], context({ message: "/btw quick one" }));
+
+    expect(evaluation.findings[0]?.outcomes).toEqual([
+      { kind: "warn" },
+      { kind: "aside", title: "Aside" },
+    ]);
+  });
+
+  // One send goes one place, so the rule's disposition is whichever outcome
+  // decides the most - the same resolution two separate rules already got.
+  it("takes its disposition from the most severe outcome", () => {
+    expect(evaluatePreSendChecks([both], context({ message: "/btw" })).disposition).toBe(
+      "redirect",
+    );
+  });
+
+  // Dropping the whole rule would mean an app one version ahead silently
+  // disarming a rule on every older host it is assigned to.
+  it("carries out the half this build understands", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ outcomes: [{ kind: "teleport" }, { kind: "warn" }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.disposition).toBe("warn");
+    expect(evaluation.findings[0]?.outcomes).toEqual([{ kind: "warn" }]);
+  });
+
+  it("skips a rule whose every outcome is unreadable", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ outcomes: [{ kind: "teleport" }, { kind: "levitate" }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.findings).toEqual([]);
+  });
+});
+
+describe("firstRunnablePreSendOutcome", () => {
+  // A send goes one place, and the findings arrive in the arrangement someone
+  // chose, so the first is an answer a person can predict.
+  it("takes the first runnable outcome across the findings in order", () => {
+    const evaluation = evaluatePreSendChecks(
+      [
+        rule({ id: "warns", order: 0, outcomes: [{ kind: "warn" }] }),
+        rule({ id: "asks", order: 1, outcomes: [{ kind: "warn" }, { kind: "aside" }] }),
+        rule({ id: "forks", order: 2, outcomes: [{ kind: "fork" }] }),
+      ],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(firstRunnablePreSendOutcome(evaluation.findings)).toEqual({ kind: "aside" });
+  });
+
+  it("answers null when nothing that tripped asked for a runner", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ outcomes: [{ kind: "warn" }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(firstRunnablePreSendOutcome(evaluation.findings)).toBeNull();
   });
 });

@@ -1,9 +1,4 @@
-import {
-  isPlainOutcomeKind,
-  isPreSendRunnableOutcomeKind,
-  isTextTrigger,
-  PRE_SEND_ALWAYS_TRIGGER,
-} from "./types.js";
+import { isPreSendRunnableOutcomeKind, isTextTrigger, PRE_SEND_ALWAYS_TRIGGER } from "./types.js";
 import type {
   PreSendCheckRule,
   PreSendDisposition,
@@ -115,6 +110,28 @@ function readOutcomeDisposition(kind: string): PreSendFinding["disposition"] | n
   return isPreSendRunnableOutcomeKind(kind) ? "redirect" : null;
 }
 
+/**
+ * The rule's outcomes that this seam can carry out, each with its severity.
+ *
+ * Filtered one at a time rather than all-or-nothing. A rule asking for `warn`
+ * beside a kind this build has never heard of should still warn — dropping the
+ * whole rule would mean an app one version ahead silently disarms a rule on
+ * every older host it is assigned to, and the half it understands was the half
+ * a person could see in their own editor.
+ */
+function readableOutcomes(
+  rule: NormalizedPreSendCheckRule,
+): { outcome: PreSendOutcome; disposition: PreSendFinding["disposition"] }[] {
+  const readable: { outcome: PreSendOutcome; disposition: PreSendFinding["disposition"] }[] = [];
+  for (const outcome of rule.outcomes) {
+    const disposition = readOutcomeDisposition(outcome.kind);
+    if (disposition) {
+      readable.push({ outcome, disposition });
+    }
+  }
+  return readable;
+}
+
 function evaluateRule(
   rule: NormalizedPreSendCheckRule,
   context: PreSendMeasurementContext,
@@ -122,14 +139,23 @@ function evaluateRule(
   if (!rule.enabled) {
     return null;
   }
-  const disposition = readOutcomeDisposition(rule.outcome.kind);
-  if (!disposition) {
+  const readable = readableOutcomes(rule);
+  if (readable.length === 0) {
     return null;
   }
   const tripped = tripRule(rule, context);
   if (!tripped) {
     return null;
   }
+  // One rule, one disposition: the composer holds or releases a send once, so
+  // what a rule asking for both a `warn` and an `aside` means for the send is
+  // whichever of them decides the most. The list below keeps both, so the toast
+  // can still say what the warning said.
+  const disposition = readable.reduce(
+    (worst, candidate) =>
+      SEVERITY[candidate.disposition] > SEVERITY[worst] ? candidate.disposition : worst,
+    readable[0]?.disposition ?? "warn",
+  );
   return {
     ruleId: rule.id,
     trigger: rule.trigger,
@@ -137,7 +163,7 @@ function evaluateRule(
     value: tripped.value,
     operand: tripped.operand,
     message: rule.message ?? null,
-    outcome: isPlainOutcomeKind(rule.outcome.kind) ? null : rule.outcome,
+    outcomes: readable.map((candidate) => candidate.outcome),
   };
 }
 
@@ -257,6 +283,30 @@ export function evaluatePreSendChecks(
 }
 
 /**
+ * The one outcome that gets the message, across every rule that tripped.
+ *
+ * A send goes one place, so somewhere this has to be decided, and the findings
+ * arrive already in the arrangement someone chose — so "the first one you put in
+ * the list" is the answer, which is one a person can predict and act on. Within
+ * a rule it is the first outcome for the same reason.
+ *
+ * `null` when nothing tripped asked for a runner, which is every `warn`-only
+ * evaluation and is not a failure.
+ */
+export function firstRunnablePreSendOutcome(
+  findings: readonly PreSendFinding[],
+): PreSendOutcome | null {
+  for (const finding of findings) {
+    for (const outcome of finding.outcomes) {
+      if (isPreSendRunnableOutcomeKind(outcome.kind)) {
+        return outcome;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * What one rule asked for at a daemon-side seam.
  *
  * Deliberately not a `PreSendFinding`: that carries a `disposition`, which is
@@ -270,7 +320,15 @@ export interface PreSendEventFinding {
   operand: number | string;
   /** The rule's own message, raw and uninterpolated. */
   message: string | null;
-  outcome: PreSendOutcome;
+  /**
+   * Every outcome this seam accepts, in the order the rule listed them.
+   *
+   * All of them run, and none of them competes: nothing is being held back at a
+   * daemon seam, so a rule that says notify me and write the handoff means both,
+   * and the caller does both in order. That is the difference from the composer,
+   * where one message can only go one place.
+   */
+  outcomes: readonly PreSendOutcome[];
 }
 
 /**
@@ -291,7 +349,16 @@ export function evaluatePreSendEvent(
 
   for (const rule of rulesForPreSendEvent(rules, event)) {
     const normalized = normalizePreSendCheckRule(rule);
-    if (!normalized.enabled || !isOutcomeValidForEvent(event, normalized.outcome.kind)) {
+    if (!normalized.enabled) {
+      continue;
+    }
+    // Per outcome, not per rule: a rule asking to notify and to block at
+    // `turn.failed` notifies, because the half the seam refuses is no reason to
+    // drop the half it accepts.
+    const outcomes = normalized.outcomes.filter((outcome) =>
+      isOutcomeValidForEvent(event, outcome.kind),
+    );
+    if (outcomes.length === 0) {
       continue;
     }
     const tripped = tripRule(normalized, context);
@@ -304,7 +371,7 @@ export function evaluatePreSendEvent(
       value: tripped.value,
       operand: tripped.operand,
       message: normalized.message ?? null,
-      outcome: normalized.outcome,
+      outcomes,
     });
   }
 

@@ -31,7 +31,7 @@ export class ForkOutcome {
 
   constructor(options: { manager: AgentManager; logger: Logger }) {
     this.manager = options.manager;
-    this.logger = options.logger.child({ module: "pre-send-checks", action: "fork" });
+    this.logger = options.logger.child({ module: "pre-send-checks", outcome: "fork" });
   }
 
   async run(request: PreSendOutcomeRequest): Promise<PreSendOutcomeResult> {
@@ -64,7 +64,7 @@ export class ForkOutcome {
       return { status: "declined", reason: "This conversation has nothing to carry over yet" };
     }
 
-    const title = request.action.title?.trim() || `${parent.config.title ?? "Agent"} (fork)`;
+    const title = request.outcome.title?.trim() || `${parent.config.title ?? "Agent"} (fork)`;
 
     try {
       const agent = await this.manager.createAgent(

@@ -127,7 +127,7 @@ describe("evaluatePreSendEvent", () => {
         value: 25,
         operand: 10,
         message: null,
-        outcome: { kind: "notify" },
+        outcomes: [{ kind: "notify" }],
       },
     ]);
   });
@@ -223,7 +223,7 @@ describe("two redirects matching", () => {
     );
 
     expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["first", "second"]);
-    expect(evaluation.findings[0]?.outcome).toEqual({ kind: "aside" });
+    expect(evaluation.findings[0]?.outcomes).toEqual([{ kind: "aside" }]);
   });
 
   // Matching how the store lists them, so adding order to some rules and not
@@ -244,5 +244,48 @@ describe("two redirects matching", () => {
     );
 
     expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["a", "b"]);
+  });
+});
+
+/**
+ * Nothing is being held back at a daemon seam, so the outcomes do not compete:
+ * a rule that says notify me and write the handoff means both.
+ */
+describe("several outcomes at a daemon seam", () => {
+  const rule = (outcomes: readonly { kind: string }[]): PreSendCheckRule => ({
+    ...FAILURE_RULE,
+    outcomes: [...outcomes],
+  });
+
+  it("reports every outcome, in the order the rule listed them", () => {
+    const findings = evaluatePreSendEvent(
+      [rule([{ kind: "notify" }, { kind: "aside" }])],
+      "turn.failed",
+      context({ sessionCostUsd: 25 }),
+    );
+
+    expect(findings[0]?.outcomes).toEqual([{ kind: "notify" }, { kind: "aside" }]);
+  });
+
+  // Per outcome, not per rule: the half the seam refuses is no reason to drop
+  // the half it accepts.
+  it("drops only the outcomes the seam refuses", () => {
+    const findings = evaluatePreSendEvent(
+      [rule([{ kind: "block" }, { kind: "notify" }])],
+      "turn.failed",
+      context({ sessionCostUsd: 25 }),
+    );
+
+    expect(findings[0]?.outcomes).toEqual([{ kind: "notify" }]);
+  });
+
+  it("skips a rule whose every outcome the seam refuses", () => {
+    const findings = evaluatePreSendEvent(
+      [rule([{ kind: "block" }, { kind: "warn" }])],
+      "turn.failed",
+      context({ sessionCostUsd: 25 }),
+    );
+
+    expect(findings).toEqual([]);
   });
 });

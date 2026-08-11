@@ -79,7 +79,7 @@ export class PreSendChecksSession {
         payload: {
           requestId: msg.requestId,
           checks: await this.preSendChecksService.list(),
-          actions: [...PRE_SEND_OUTCOME_DESCRIPTORS],
+          outcomes: [...PRE_SEND_OUTCOME_DESCRIPTORS],
           examples: listPreSendCheckExamples(),
           error: null,
         },
@@ -134,7 +134,7 @@ export class PreSendChecksSession {
       const outcome = await this.outcomeRunner.run({
         agentId: msg.agentId,
         message: msg.message,
-        action: msg.action,
+        outcome: msg.outcome,
         confirmed: msg.confirmed === true,
       });
       this.respondToRunOutcome(msg.requestId, outcome);

@@ -1830,9 +1830,9 @@ export const ptBR: TranslationResources = {
             "Verificado no fim do turno e enviado ao seu telefone, não a uma tela que você não está olhando.",
         },
         "handoff-before-compaction": {
-          label: "Escrever a passagem antes de a conversa compactar",
+          label: "Escreva a passagem antes que a conversa compacte, e avise",
           description:
-            "Um agente oculto escreve o resumo que você teria escrito, para que ele já exista no dia em que precisar.",
+            "Um agente oculto escreve o resumo que você teria escrito, e uma notificação avisa que ele existe.",
         },
         "fork-on-slash-fork": {
           label: "Bifurcar a conversa com /fork",
@@ -1875,17 +1875,20 @@ export const ptBR: TranslationResources = {
       textLabel: "Valor",
       textHint: "A mensagem é comparada com isto, sem diferenciar maiúsculas.",
       thresholdLabel: "Valor",
-      dispositionLabel: "Resultado",
+      outcomesLabel: "Resultados",
+      outcomesHint:
+        "Tudo o que esta regra deve fazer. Adicione mais de um quando uma condição merecer mais de uma resposta.",
+      outcomeLabel: "Resultado",
       messageLabel: "Mensagem",
       messageHint: "Opcional. Substitui o texto padrão quando esta regra é acionada.",
       messagePlaceholder: "Deixe vazio para usar o texto padrão",
       defaultMessageHint: "Usa o texto padrão",
       triggerRequired: "Escolha um gatilho",
       operatorRequired: "Escolha uma comparação",
-      dispositionRequired: "Escolha o que deve acontecer",
-      actionLabel: "Ação",
-      actionPlaceholder: "Escolha uma ação",
-      actionRequired: "Escolha o que deve acontecer",
+      outcomeRequired: "Escolha ao menos um resultado",
+      outcomeDuplicate: "Cada resultado só pode aparecer uma vez",
+      addOutcome: "Adicionar resultado",
+      removeOutcome: "Remover este resultado",
       textRequired: "Digite o texto a comparar",
       thresholdInvalid: "Digite um número",
       unrecognisedOption: "{{value}} (não reconhecido)",
@@ -1917,9 +1920,8 @@ export const ptBR: TranslationResources = {
         lt: "Abaixo de",
         lte: "Igual ou abaixo",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "Notificar",
-        redirect: "Redirecionar",
         warn: "Avisar",
         block: "Bloquear",
       },

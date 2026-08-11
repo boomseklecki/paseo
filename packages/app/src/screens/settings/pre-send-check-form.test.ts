@@ -7,8 +7,14 @@ import {
   preSendCheckChoosesHosts,
   preSendCheckExampleToDraft,
   applyPreSendEventChange,
+  addPreSendOutcome,
+  nextPreSendOutcomeKind,
+  preSendOutcomeKindOptions,
+  preSendOutcomeKindsForRow,
   preSendOutcomeOptions,
-  preSendDispositionOptions,
+  removePreSendOutcome,
+  setPreSendOutcomeKind,
+  setPreSendOutcomeParam,
   preSendTriggerOptions,
   movePreSendCheck,
   previewPreSendCheckMessage,
@@ -35,6 +41,10 @@ function draft(overrides: Partial<PreSendCheckDraft> = {}): PreSendCheckDraft {
 
 const t = (key: string) => key;
 
+// One descriptor, because what matters is that a runnable kind appears only when
+// the daemon described it — not which kind it happens to be.
+const ASIDE_DESCRIPTORS = [{ kind: "aside", label: "Ask on the side", parameters: [] }];
+
 describe("toPreSendCheckDraft", () => {
   it("renders the threshold as a string and a missing message as empty", () => {
     expect(toPreSendCheckDraft(RULE)).toEqual({
@@ -43,10 +53,8 @@ describe("toPreSendCheckDraft", () => {
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: "3600",
-      disposition: "block",
+      outcomes: [{ kind: "block", params: {} }],
       message: "",
-      actionKind: "",
-      actionParams: {},
     });
   });
 
@@ -65,8 +73,7 @@ describe("toPreSendCheckDraft", () => {
       }),
     ).toMatchObject({
       value: "/btw",
-      actionKind: "aside",
-      actionParams: { title: "Aside" },
+      outcomes: [{ kind: "aside", params: { title: "Aside" } }],
     });
   });
 });
@@ -136,29 +143,40 @@ describe("applyPreSendCheckDraft", () => {
     expect(saved).not.toHaveProperty("text");
   });
 
-  it("keeps only the parameters the chosen action declares", () => {
+  it("keeps only the parameters the chosen outcome declares", () => {
     const saved = applyPreSendCheckDraft({
       existing: null,
       draft: draft({
-        disposition: "redirect",
-        actionKind: "aside",
-        actionParams: { title: "Aside", leftover: "from another kind" },
+        outcomes: [{ kind: "aside", params: { title: "Aside", leftover: "from another kind" } }],
       }),
       id: "r",
       descriptors: [
         { kind: "aside", label: "Aside", parameters: [{ type: "text", id: "title", label: "T" }] },
       ],
     });
-    expect(saved.action).toEqual({ kind: "aside", title: "Aside" });
+    expect(saved.outcomes).toEqual([{ kind: "aside", title: "Aside" }]);
   });
 
-  it("drops the action when the disposition is not a redirect", () => {
+  // The whole point of the list, and the combination it was asked for by name.
+  it("writes every outcome, in the order the editor holds them", () => {
     const saved = applyPreSendCheckDraft({
-      existing: { ...RULE, action: { kind: "aside" } },
-      draft: draft({ disposition: "warn" }),
-      id: RULE.id,
+      existing: null,
+      draft: draft({
+        outcomes: [
+          { kind: "block", params: {} },
+          { kind: "aside", params: { title: "Aside" } },
+        ],
+      }),
+      id: "r",
+      descriptors: [
+        { kind: "aside", label: "Aside", parameters: [{ type: "text", id: "title", label: "T" }] },
+      ],
     });
-    expect(saved).not.toHaveProperty("action");
+
+    expect(saved.outcomes).toEqual([{ kind: "block" }, { kind: "aside", title: "Aside" }]);
+    // An older reader gets the one that decides what happens to the message.
+    expect(saved.disposition).toBe("redirect");
+    expect(saved.action).toEqual({ kind: "aside", title: "Aside" });
   });
 
   // Both vocabularies, so a daemon that predates the rename reads the same rule.
@@ -171,6 +189,7 @@ describe("applyPreSendCheckDraft", () => {
       event: "message.send",
       trigger: "agent.idleSeconds",
       value: 3600,
+      outcomes: [{ kind: "block" }],
       outcome: { kind: "block" },
     });
   });
@@ -193,7 +212,36 @@ describe("validatePreSendCheckDraft", () => {
 
   it("rejects an empty picker value", () => {
     expect(validatePreSendCheckDraft(draft({ trigger: "" })).trigger).toBeDefined();
-    expect(validatePreSendCheckDraft(draft({ disposition: "" })).disposition).toBeDefined();
+    expect(validatePreSendCheckDraft(draft({ outcomes: [] })).outcomes).toBeDefined();
+  });
+
+  // Both are states the wire would accept and nobody meant: a rule with no
+  // outcome is stored, evaluated, and does nothing, and two asides on one
+  // condition is two identical subagents rather than two questions.
+  it("rejects an outcome listed twice", () => {
+    expect(
+      validatePreSendCheckDraft(
+        draft({
+          outcomes: [
+            { kind: "warn", params: {} },
+            { kind: "warn", params: {} },
+          ],
+        }),
+      ).outcomes,
+    ).toBe("settings.preSendChecks.outcomeDuplicate");
+  });
+
+  it("accepts two different outcomes", () => {
+    expect(
+      validatePreSendCheckDraft(
+        draft({
+          outcomes: [
+            { kind: "block", params: {} },
+            { kind: "aside", params: {} },
+          ],
+        }),
+      ),
+    ).toEqual({});
   });
 });
 
@@ -350,7 +398,7 @@ describe("gatePreSendCheckSave", () => {
 });
 
 describe("preSendCheckExampleToDraft", () => {
-  it("opens a redirect example with its action and parameters filled in", () => {
+  it("opens a redirect example with its outcome and parameters filled in", () => {
     const built = preSendCheckExampleToDraft({
       id: "aside-on-btw",
       label: "Answer /btw on the side",
@@ -358,7 +406,7 @@ describe("preSendCheckExampleToDraft", () => {
         trigger: "message",
         operator: "startsWith",
         value: "/btw",
-        outcome: { kind: "aside", title: "Aside", prompt: "Answer this.\n\n{{message}}" },
+        outcomes: [{ kind: "aside", title: "Aside", prompt: "Answer this.\n\n{{message}}" }],
       },
     });
 
@@ -369,10 +417,10 @@ describe("preSendCheckExampleToDraft", () => {
       // The one input holds whichever operand applies, and a text trigger's is
       // `text` rather than `threshold`.
       value: "/btw",
-      disposition: "redirect",
+      outcomes: [
+        { kind: "aside", params: { title: "Aside", prompt: "Answer this.\n\n{{message}}" } },
+      ],
       message: "",
-      actionKind: "aside",
-      actionParams: { title: "Aside", prompt: "Answer this.\n\n{{message}}" },
     });
   });
 
@@ -384,14 +432,14 @@ describe("preSendCheckExampleToDraft", () => {
         trigger: "agent.contextUsedPercent",
         operator: "gte",
         value: 80,
-        outcome: { kind: "warn" },
+        outcomes: [{ kind: "warn" }],
         message: "Nearly full.",
       },
     });
 
     expect(built.value).toBe("80");
     expect(built.message).toBe("Nearly full.");
-    expect(built.actionKind).toBe("");
+    expect(built.outcomes).toEqual([{ kind: "warn", params: {} }]);
   });
 
   // The template's id names the example, not the rule: a rule gets its own at
@@ -404,7 +452,7 @@ describe("preSendCheckExampleToDraft", () => {
         trigger: "agent.idleSeconds",
         operator: "gte",
         value: 3600,
-        outcome: { kind: "block" },
+        outcomes: [{ kind: "block" }],
       },
     });
 
@@ -441,21 +489,14 @@ describe("what a seam offers the editor", () => {
     expect(preSendTriggerOptions("turn.failed")).not.toContain("message");
   });
 
-  // The editor asks two questions, so every action kind collapses into the one
-  // word `redirect` and the action picker resolves which.
-  it("collapses action kinds into redirect", () => {
-    expect(preSendDispositionOptions("message.send")).toEqual(["warn", "block", "redirect"]);
-    expect(preSendDispositionOptions("turn.failed")).toEqual(["notify", "redirect"]);
-  });
-
   // A rule from a newer daemon must stay editable rather than showing a picker
   // with nothing in it.
-  it("offers everything for a seam it has never heard of", () => {
-    expect(preSendDispositionOptions("moon.rose")).toEqual(["warn", "block", "redirect"]);
+  it("offers the composer's set for a seam it has never heard of", () => {
+    expect(preSendOutcomeKindOptions("moon.rose", ASIDE_DESCRIPTORS)).toEqual(["warn", "block"]);
     expect(preSendTriggerOptions("moon.rose").length).toBeGreaterThan(0);
   });
 
-  it("offers only the actions a seam will carry out", () => {
+  it("offers only the outcomes a seam will carry out", () => {
     const descriptors = [
       { kind: "aside", label: "Aside", parameters: [] },
       { kind: "teleport", label: "Teleport", parameters: [] },
@@ -478,30 +519,161 @@ describe("applyPreSendEventChange", () => {
     expect(preSendTriggerOptions("turn.failed")).toContain(moved.trigger);
   });
 
-  it("drops a disposition the new seam cannot carry out", () => {
-    const moved = applyPreSendEventChange(draft({ disposition: "block" }), "turn.failed");
+  // Emptying the list would be saving a rule that does nothing, so a draft left
+  // with none falls back to a row of whatever the new seam offers first.
+  it("drops an outcome the new seam cannot carry out", () => {
+    const moved = applyPreSendEventChange(
+      draft({ outcomes: [{ kind: "block", params: {} }] }),
+      "turn.failed",
+    );
 
-    expect(moved.disposition).toBe("notify");
+    expect(moved.outcomes).toEqual([{ kind: "notify", params: {} }]);
   });
 
   it("keeps what the new seam still accepts", () => {
     const moved = applyPreSendEventChange(
-      draft({ trigger: "agent.sessionCostUsd", disposition: "redirect", actionKind: "aside" }),
+      draft({
+        trigger: "agent.sessionCostUsd",
+        outcomes: [{ kind: "aside", params: { title: "Aside" } }],
+      }),
       "turn.failed",
+      ASIDE_DESCRIPTORS,
     );
 
     expect(moved.trigger).toBe("agent.sessionCostUsd");
-    expect(moved.disposition).toBe("redirect");
-    expect(moved.actionKind).toBe("aside");
+    expect(moved.outcomes).toEqual([{ kind: "aside", params: { title: "Aside" } }]);
   });
 
-  // An action behind no redirect is a kind nobody can pick again.
-  it("clears the action when the outcome is no longer a redirect", () => {
+  // Filtered rather than reset, so a rule that says notify and fork keeps both
+  // when it moves between two daemon seams.
+  it("keeps the outcomes the new seam accepts and drops only the rest", () => {
     const moved = applyPreSendEventChange(
-      draft({ trigger: "message", disposition: "block", actionKind: "aside" }),
+      draft({
+        outcomes: [
+          { kind: "block", params: {} },
+          { kind: "aside", params: {} },
+        ],
+      }),
       "turn.failed",
+      ASIDE_DESCRIPTORS,
     );
 
-    expect(moved.actionKind).toBe("");
+    expect(moved.outcomes).toEqual([{ kind: "aside", params: {} }]);
+  });
+});
+
+describe("preSendOutcomeKindOptions", () => {
+  // One list where there were two. `redirect` was a word in the interface that
+  // named nothing in the rule - it existed only to introduce a second picker.
+  it("offers the plain kinds and every runnable one the daemon described", () => {
+    expect(preSendOutcomeKindOptions("message.send", ASIDE_DESCRIPTORS)).toEqual([
+      "warn",
+      "block",
+      "aside",
+    ]);
+    expect(preSendOutcomeKindOptions("message.send", [])).not.toContain("redirect");
+  });
+
+  // This build can name `fork` all it likes; a daemon that cannot perform one
+  // would take the message and decline.
+  it("leaves out a runnable kind the daemon did not describe", () => {
+    expect(preSendOutcomeKindOptions("message.send", [])).toEqual(["warn", "block"]);
+  });
+
+  it("offers only what a daemon seam accepts", () => {
+    const kinds = preSendOutcomeKindOptions("turn.failed", ASIDE_DESCRIPTORS);
+
+    expect(kinds).toContain("notify");
+    expect(kinds).not.toContain("block");
+  });
+});
+
+describe("preSendOutcomeKindsForRow", () => {
+  // Removing the error state rather than reporting it, and what makes a row's
+  // kind a sound React key.
+  it("leaves out what a sibling row already holds", () => {
+    const two = draft({
+      outcomes: [
+        { kind: "warn", params: {} },
+        { kind: "block", params: {} },
+      ],
+    });
+
+    expect(preSendOutcomeKindsForRow(two, 0, ASIDE_DESCRIPTORS)).toEqual(["warn", "aside"]);
+    expect(preSendOutcomeKindsForRow(two, 1, ASIDE_DESCRIPTORS)).toEqual(["block", "aside"]);
+  });
+
+  it("always keeps the row's own kind, or the picker would show nothing", () => {
+    const one = draft({ outcomes: [{ kind: "warn", params: {} }] });
+
+    expect(preSendOutcomeKindsForRow(one, 0, [])).toContain("warn");
+  });
+});
+
+describe("editing the outcome list", () => {
+  it("adds the first kind the seam accepts that is not already listed", () => {
+    const one = draft({ outcomes: [{ kind: "warn", params: {} }] });
+
+    expect(nextPreSendOutcomeKind(one, ASIDE_DESCRIPTORS)).toBe("block");
+    expect(addPreSendOutcome(one, "block").outcomes).toEqual([
+      { kind: "warn", params: {} },
+      { kind: "block", params: {} },
+    ]);
+  });
+
+  // What hides the button rather than showing one that does nothing.
+  it("has nothing left to add once every kind is listed", () => {
+    const full = draft({
+      outcomes: [
+        { kind: "warn", params: {} },
+        { kind: "block", params: {} },
+      ],
+    });
+
+    expect(nextPreSendOutcomeKind(full, [])).toBeNull();
+    expect(addPreSendOutcome(full, null)).toBe(full);
+  });
+
+  // A rule with no outcomes fires and does nothing, so the last `-` is refused
+  // rather than allowed and then complained about.
+  it("refuses to empty the list", () => {
+    const one = draft({ outcomes: [{ kind: "warn", params: {} }] });
+
+    expect(removePreSendOutcome(one, 0)).toBe(one);
+  });
+
+  it("removes by position", () => {
+    const two = draft({
+      outcomes: [
+        { kind: "warn", params: {} },
+        { kind: "block", params: {} },
+      ],
+    });
+
+    expect(removePreSendOutcome(two, 0).outcomes).toEqual([{ kind: "block", params: {} }]);
+  });
+
+  // Switching kind and back should not lose the prompt; only the parameters the
+  // saved kind declares are written anyway.
+  it("keeps what was typed when the kind changes", () => {
+    const one = draft({ outcomes: [{ kind: "aside", params: { title: "Aside" } }] });
+
+    expect(setPreSendOutcomeKind(one, 0, "start").outcomes).toEqual([
+      { kind: "start", params: { title: "Aside" } },
+    ]);
+  });
+
+  it("sets one parameter on one row", () => {
+    const two = draft({
+      outcomes: [
+        { kind: "aside", params: {} },
+        { kind: "start", params: {} },
+      ],
+    });
+
+    expect(setPreSendOutcomeParam(two, 1, "title", "Continued").outcomes).toEqual([
+      { kind: "aside", params: {} },
+      { kind: "start", params: { title: "Continued" } },
+    ]);
   });
 });

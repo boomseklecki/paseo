@@ -12,7 +12,7 @@ import { PRE_SEND_OUTCOME_DESCRIPTORS } from "./outcomes/descriptors.js";
  * chose it and alarming when you did not. So the daemon offers and the person
  * installs.
  *
- * These live here beside the actions for the same reason those do: adding one is
+ * These live here beside the runners for the same reason those do: adding one is
  * a server change, and an older app shows a newer daemon's example without
  * having shipped anything. The English is a fallback — the app translates the
  * ids it recognises and falls back to `label` for the ones it does not, so a
@@ -28,12 +28,14 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "message",
       operator: "startsWith",
       value: "/btw",
-      outcome: {
-        kind: "aside",
-        title: "Aside",
-        prompt:
-          "Answer this side question about the work in progress. Be brief, and do not change anything.\n\n{{message}}",
-      },
+      outcomes: [
+        {
+          kind: "aside",
+          title: "Aside",
+          prompt:
+            "Answer this side question about the work in progress. Be brief, and do not change anything.\n\n{{message}}",
+        },
+      ],
     },
   },
   {
@@ -46,7 +48,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.sessionCostUsd",
       operator: "gte",
       value: 25,
-      outcome: { kind: "notify" },
+      outcomes: [{ kind: "notify" }],
       message: "A turn failed on a session that has already cost {{value}}.",
     },
   },
@@ -59,7 +61,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "message",
       operator: "startsWith",
       value: "/fork",
-      outcome: { kind: "fork" },
+      outcomes: [{ kind: "fork" }],
     },
   },
   {
@@ -72,12 +74,14 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 85,
-      outcome: {
-        kind: "start",
-        title: "Continued",
-        prompt:
-          "You are continuing work that filled its context. The previous conversation's handoff is in its subagent panel - ask for it if you need it. Start by saying what you understand the task to be.",
-      },
+      outcomes: [
+        {
+          kind: "start",
+          title: "Continued",
+          prompt:
+            "You are continuing work that filled its context. The previous conversation's handoff is in its subagent panel - ask for it if you need it. Start by saying what you understand the task to be.",
+        },
+      ],
     },
   },
   {
@@ -89,12 +93,14 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       event: "turn.failed",
       trigger: "always",
       operator: "gte",
-      outcome: {
-        kind: "schedule",
-        title: "Retry after a failure",
-        delay: "10m",
-        prompt: "The last turn failed. Try it again.",
-      },
+      outcomes: [
+        {
+          kind: "schedule",
+          title: "Retry after a failure",
+          delay: "10m",
+          prompt: "The last turn failed. Try it again.",
+        },
+      ],
     },
   },
   {
@@ -107,7 +113,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 80,
-      outcome: { kind: "notify" },
+      outcomes: [{ kind: "notify" }],
       message: "This conversation is {{value}} full. Wrap up or hand off before it compacts.",
     },
   },
@@ -121,26 +127,33 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: 3600,
-      outcome: { kind: "notify" },
+      outcomes: [{ kind: "notify" }],
       message: "This agent has been idle for {{duration}}.",
     },
   },
   {
     id: "handoff-before-compaction",
-    label: "Write the handoff before a conversation compacts",
+    label: "Write the handoff before a conversation compacts, and say so",
     description:
-      "At 80% full, a hidden agent writes the summary you would have had to write yourself, and it appears under subagents. Nothing is sent to the conversation and it takes no turn - the point is to have the handoff already written on the day you need it.",
+      "At 80% full, a hidden agent writes the summary you would have had to write yourself, and it appears under subagents. Two outcomes on one condition: the aside writes it, the notification tells you it is there - because a handoff nobody knows about is one nobody reads.",
     rule: {
       event: "turn.completed",
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 80,
-      outcome: {
-        kind: "aside",
-        title: "Handoff",
-        prompt:
-          "This conversation is nearly full and will compact soon. Write a handoff for whoever picks it up: what we were doing, what is decided, what is still open, and which files matter. Be specific and do not go looking - use what you already have.",
-      },
+      // The example that shows why outcomes are a list. Written as two rules
+      // this is the same threshold twice, and the day someone adjusts one of
+      // them the handoff and the notification stop meaning the same moment.
+      outcomes: [
+        {
+          kind: "aside",
+          title: "Handoff",
+          prompt:
+            "This conversation is nearly full and will compact soon. Write a handoff for whoever picks it up: what we were doing, what is decided, what is still open, and which files matter. Be specific and do not go looking - use what you already have.",
+        },
+        { kind: "notify" },
+      ],
+      message: "This conversation is {{value}} full. The handoff is under subagents.",
     },
   },
   {
@@ -152,7 +165,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 80,
-      outcome: { kind: "warn" },
+      outcomes: [{ kind: "warn" }],
       message: "This conversation is {{value}}% full and will compact soon.",
     },
   },
@@ -165,7 +178,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.sessionCostUsd",
       operator: "gte",
       value: 10,
-      outcome: { kind: "warn" },
+      outcomes: [{ kind: "warn" }],
       message: "This session has cost {{value}} so far.",
     },
   },
@@ -178,7 +191,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: 3600,
-      outcome: { kind: "block" },
+      outcomes: [{ kind: "block" }],
     },
   },
 ];
@@ -186,22 +199,30 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
 /**
  * The examples this daemon could actually carry out.
  *
- * An example naming an action the daemon does not have would install a rule that
- * redirects a message into a decline — the message comes back unsent, with
+ * An example naming an outcome the daemon does not have would install a rule
+ * that redirects a message into a decline — the message comes back unsent, with
  * nothing on screen explaining why the rule the person just chose did nothing.
  * Cheaper to never offer it.
  *
- * A plain outcome is always offered: a warn or a block needs nothing of the
+ * Every outcome has to be available, not merely one of them. An example is a
+ * whole rule someone is being offered by its description, and installing half of
+ * what that promised is worse than not being offered it at all. Deliberately the
+ * opposite of how the evaluator treats a *stored* rule, which keeps the half it
+ * understands — there the rule already exists, and dropping it would disarm
+ * something a person wrote.
+ *
+ * A plain outcome is always available: a warn or a block needs nothing of the
  * daemon beyond evaluating it, which every version can do.
  */
 export function listPreSendCheckExamples(
   examples: readonly PreSendCheckExample[] = PRE_SEND_CHECK_EXAMPLES,
-  actionKinds: readonly string[] = PRE_SEND_OUTCOME_DESCRIPTORS.map(
+  outcomeKinds: readonly string[] = PRE_SEND_OUTCOME_DESCRIPTORS.map(
     (descriptor) => descriptor.kind,
   ),
 ): PreSendCheckExample[] {
-  return examples.filter((example) => {
-    const kind = example.rule.outcome.kind;
-    return isPlainOutcomeKind(kind) || actionKinds.includes(kind);
-  });
+  return examples.filter((example) =>
+    example.rule.outcomes.every(
+      (outcome) => isPlainOutcomeKind(outcome.kind) || outcomeKinds.includes(outcome.kind),
+    ),
+  );
 }

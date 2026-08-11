@@ -1,9 +1,9 @@
 import {
   PRE_SEND_OPERATORS,
-  PRE_SEND_PLAIN_OUTCOME_KINDS,
   PRE_SEND_TRIGGERS,
   isPlainOutcomeKind,
   isTextTrigger,
+  mostSeverePreSendOutcome,
   type PreSendOutcomeDescriptor,
   type PreSendCheckRule,
   type PreSendCheckExample,
@@ -32,14 +32,29 @@ import { formatDuration } from "@/utils/time";
  */
 
 /**
+ * One outcome as the editor holds it.
+ *
+ * Split from the wire shape because a form holds strings: `params` is keyed by
+ * the descriptor's parameter id and every value is what an input contained, so
+ * nothing here has to know that `repeat` is a toggle and `delay` is text.
+ *
+ * Parameters the current kind does not declare are kept rather than dropped, so
+ * switching kind and switching back does not lose what was typed. Only the
+ * declared ones are written on save.
+ */
+export interface PreSendCheckOutcomeDraft {
+  kind: string;
+  params: Record<string, string>;
+}
+
+/**
  * All strings, because that is what a text input holds. Parsed on the way out.
  *
- * `disposition` survives here where the wire retired it, and that is deliberate
- * rather than missed. The editor asks two questions - what should happen, and if
- * that is a redirect then where to - because two small pickers read better than
- * one long list mixing `Warn` with `Ask on the side`. The rule that comes out
- * carries a single `outcome`; this is the shape of the questions, not of the
- * record.
+ * `outcomes` is a list and `disposition` is gone. The editor used to ask two
+ * questions — what should happen, and if that is a redirect then where to —
+ * which made `redirect` a word in the interface that was never a word in the
+ * rule: it existed only to introduce the second picker. One list of outcomes
+ * asks the question once, and the answer is the same shape as the record.
  */
 export interface PreSendCheckDraft {
   /**
@@ -57,27 +72,12 @@ export interface PreSendCheckDraft {
   operator: string;
   /** The number for a numeric trigger, or the text a message trigger matches. */
   value: string;
-  disposition: string;
+  /** Never empty on a saveable draft: a rule with no outcome does nothing. */
+  outcomes: PreSendCheckOutcomeDraft[];
   message: string;
-  /** Which action a redirect performs. Empty for any other disposition. */
-  actionKind: string;
-  /**
-   * The action parameters, keyed by the descriptor's parameter id.
-   *
-   * Kept as strings for the same reason the value is: this is what an input
-   * holds. Parameters the current kind does not declare are kept rather than
-   * dropped, so switching kind and switching back does not lose what was typed.
-   */
-  actionParams: Record<string, string>;
 }
 
-export type PreSendCheckField =
-  | "event"
-  | "trigger"
-  | "operator"
-  | "value"
-  | "disposition"
-  | "action";
+export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
@@ -86,34 +86,38 @@ export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
   trigger: PRE_SEND_TRIGGERS[0],
   operator: "gte",
   value: "",
-  disposition: "block",
+  outcomes: [{ kind: "block", params: {} }],
   message: "",
-  actionKind: "",
-  actionParams: {},
 };
 
 export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
   const normalized = normalizePreSendCheckRule(rule);
-  const { kind, ...params } = normalized.outcome;
-  const isAction = !isPlainDisposition(kind);
   return {
     event: normalized.event,
     trigger: normalized.trigger,
     operator: normalized.operator,
     value: normalized.value === undefined ? "" : String(normalized.value),
-    // The two questions the editor asks, read back off the one field that
-    // answers both: an action kind means the disposition was a redirect.
-    disposition: isAction ? "redirect" : kind,
+    outcomes: normalized.outcomes.map(toOutcomeDraft),
     message: normalized.message ?? "",
-    actionKind: isAction ? kind : "",
-    actionParams: Object.fromEntries(
-      Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
-    ),
   };
 }
 
-function isPlainDisposition(kind: string): boolean {
-  return (PRE_SEND_PLAIN_OUTCOME_KINDS as readonly string[]).includes(kind);
+/**
+ * One wire outcome as the form holds it.
+ *
+ * A non-string parameter becomes an empty string rather than being coerced.
+ * Only text and toggle parameters exist, and a toggle is `"true"` or empty, so
+ * anything else came from a daemon this build cannot draw a control for — and
+ * an input showing `[object Object]` is worse than one showing nothing.
+ */
+function toOutcomeDraft(outcome: PreSendOutcome): PreSendCheckOutcomeDraft {
+  const { kind, ...params } = outcome;
+  return {
+    kind,
+    params: Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
+    ),
+  };
 }
 
 /**
@@ -162,7 +166,7 @@ export function applyPreSendCheckDraft(input: {
   existing: PreSendCheckRule | null;
   draft: PreSendCheckDraft;
   id: string;
-  /** What the daemon says each action takes. Absent keeps every parameter. */
+  /** What the daemon says each outcome takes. Absent keeps every parameter. */
   descriptors?: readonly PreSendOutcomeDescriptor[];
 }): PreSendCheckRule {
   const previous = input.existing ? normalizePreSendCheckRule(input.existing) : null;
@@ -179,7 +183,7 @@ export function applyPreSendCheckDraft(input: {
       // stays a string and a numeric one is parsed. Nothing has to write both
       // and nothing has to delete the other.
       value: isTextTrigger(input.draft.trigger) ? operand : Number(operand),
-      outcome: buildOutcome(input.draft, input.descriptors),
+      outcomes: input.draft.outcomes.map((outcome) => buildOutcome(outcome, input.descriptors)),
       message: message || undefined,
       order: previous?.order,
       enabled: previous?.enabled ?? true,
@@ -188,34 +192,30 @@ export function applyPreSendCheckDraft(input: {
 }
 
 /**
- * The two pickers, resolved into the one field that records them.
+ * One drafted outcome as it is recorded.
  *
- * A redirect naming no action produces `{ kind: "redirect" }`, which no build
- * can perform and the evaluator therefore skips. That is the same refusal the
- * old two-field shape made, and validation catches it before a save anyway.
+ * Only the parameters the chosen kind declares are written. The draft keeps the
+ * rest so switching kind and back does not lose them, but a rule should not
+ * carry settings for something it does not do. With no descriptors — a daemon
+ * too old to describe itself — every parameter is kept, because dropping them
+ * all would silently strip a rule of everything it was configured with.
  */
 function buildOutcome(
-  draft: PreSendCheckDraft,
+  outcome: PreSendCheckOutcomeDraft,
   descriptors?: readonly PreSendOutcomeDescriptor[],
 ): PreSendOutcome {
-  if (draft.disposition !== "redirect" || !draft.actionKind) {
-    return { kind: draft.disposition };
-  }
-  // Only the parameters the chosen kind declares are written. The draft keeps
-  // the rest so switching kind and back does not lose them, but a rule should
-  // not carry settings for an action it does not perform.
   const declared = new Set(
     (descriptors ?? [])
-      .find((descriptor) => descriptor.kind === draft.actionKind)
-      ?.parameters.map((parameter) => parameter.id) ?? Object.keys(draft.actionParams),
+      .find((descriptor) => descriptor.kind === outcome.kind)
+      ?.parameters.map((parameter) => parameter.id) ?? Object.keys(outcome.params),
   );
   const params: Record<string, string> = {};
-  for (const [key, value] of Object.entries(draft.actionParams)) {
+  for (const [key, value] of Object.entries(outcome.params)) {
     if (declared.has(key) && value.trim()) {
       params[key] = value;
     }
   }
-  return { ...params, kind: draft.actionKind };
+  return { ...params, kind: outcome.kind };
 }
 
 export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendCheckFieldErrors {
@@ -226,8 +226,9 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
   if (!draft.operator.trim()) {
     errors.operator = "settings.preSendChecks.operatorRequired";
   }
-  if (!draft.disposition.trim()) {
-    errors.disposition = "settings.preSendChecks.dispositionRequired";
+  const outcomeError = validateOutcomes(draft.outcomes);
+  if (outcomeError) {
+    errors.outcomes = outcomeError;
   }
   // A text rule compares against a string, so any non-empty value is usable and
   // only a numeric one has to parse.
@@ -241,11 +242,36 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
       errors.value = "settings.preSendChecks.thresholdInvalid";
     }
   }
-  // A redirect with no action would consume the message and take it nowhere.
-  if (draft.disposition === "redirect" && !draft.actionKind.trim()) {
-    errors.action = "settings.preSendChecks.actionRequired";
-  }
   return errors;
+}
+
+/**
+ * What is wrong with the list, or null.
+ *
+ * Two rules, and both are about states the wire would accept and nobody meant.
+ * A rule with no outcome is stored, evaluated, and does nothing. The same kind
+ * twice is two identical subagents, not two questions.
+ *
+ * The duplicate check is unreachable from the editor, which leaves a kind out of
+ * a row's picker once a sibling holds it — see `preSendOutcomeKindsForRow`. It
+ * stays because a draft can also come from a rule someone wrote by hand, and
+ * because the day that filter is loosened is the day this becomes the only thing
+ * standing between a slip and a saved rule that does its work twice.
+ *
+ * Not checked here: whether the seam accepts the kind. The editor only offers
+ * kinds the seam accepts and drops the rest when the seam changes, so a refusal
+ * at this point could only come from a rule written elsewhere — and refusing to
+ * save an edit to someone's hand-written rule is a dead end with no way out.
+ */
+function validateOutcomes(outcomes: readonly PreSendCheckOutcomeDraft[]): string | undefined {
+  if (outcomes.length === 0 || outcomes.some((outcome) => !outcome.kind.trim())) {
+    return "settings.preSendChecks.outcomeRequired";
+  }
+  const kinds = new Set(outcomes.map((outcome) => outcome.kind));
+  if (kinds.size !== outcomes.length) {
+    return "settings.preSendChecks.outcomeDuplicate";
+  }
+  return undefined;
 }
 
 /**
@@ -271,7 +297,7 @@ export function preSendCheckExampleToDraft(example: PreSendCheckExample): PreSen
       trigger: example.rule.trigger,
       operator: example.rule.operator,
       value: example.rule.value,
-      outcome: example.rule.outcome,
+      outcomes: example.rule.outcomes,
       message: example.rule.message,
       order: undefined,
       enabled: true,
@@ -388,29 +414,140 @@ export function preSendTriggerOptions(event: string): readonly string[] {
 }
 
 /**
- * What the second picker offers, which is not the list of outcome kinds.
+ * Every outcome kind one picker can offer at this seam.
  *
- * The editor asks "what should happen" and then, if that is a redirect, "where
- * to" — so every action kind a seam accepts collapses into the single word
- * `redirect` here and the action picker resolves which one. A seam with no
- * action kinds shows no redirect and no action picker.
+ * One list where there were two. The old pair asked "what should happen" and
+ * then "where to", which put the word `redirect` in the interface purely to
+ * introduce the second question — a word that named nothing in the rule and
+ * nothing a person wanted. Here `Warn` and `Ask on the side` sit in the same
+ * list, because they are the same kind of answer.
+ *
+ * A runnable kind appears only when the daemon described it: this build can
+ * name `fork` all it likes, but a daemon that cannot perform one would take the
+ * message and decline. The plain kinds need no descriptor — every version can
+ * warn — so they are offered on the seam's word alone.
+ *
+ * A seam this build has never heard of offers the composer's set rather than
+ * nothing, for the same reason `preSendTriggerOptions` does: a rule from a newer
+ * daemon should still be editable, and an empty picker is a dead end.
  */
-export function preSendDispositionOptions(event: string): readonly string[] {
+export function preSendOutcomeKindOptions(
+  event: string,
+  descriptors: readonly PreSendOutcomeDescriptor[],
+): readonly string[] {
   const definition = findPreSendEventDefinition(event);
   if (!definition) {
-    return ["warn", "block", "redirect"];
+    return ["warn", "block"];
   }
-  const plain = definition.outcomeKinds.filter((kind) => isPlainOutcomeKind(kind));
-  const hasAction = definition.outcomeKinds.some((kind) => !isPlainOutcomeKind(kind));
-  return hasAction ? [...plain, "redirect"] : plain;
+  const described = new Set(descriptors.map((descriptor) => descriptor.kind));
+  return definition.outcomeKinds.filter((kind) => isPlainOutcomeKind(kind) || described.has(kind));
 }
 
-/** The actions a seam will actually carry out, for the third picker. */
+/** The described outcomes a seam will actually carry out, for their parameters. */
 export function preSendOutcomeOptions(
   event: string,
   descriptors: readonly PreSendOutcomeDescriptor[],
 ): PreSendOutcomeDescriptor[] {
   return descriptors.filter((descriptor) => isOutcomeValidForEvent(event, descriptor.kind));
+}
+
+/**
+ * What one row's picker offers: the seam's kinds, minus the ones its siblings
+ * already hold.
+ *
+ * Removing the error state rather than reporting it. Listing the same kind twice
+ * is never something anyone wants — two asides on one condition is two identical
+ * subagents — so a picker that cannot express it beats one that can and then
+ * complains. It also means a row is uniquely identified by its kind, which is
+ * what lets the list be keyed by something stable rather than by position.
+ *
+ * The row's own current kind is always included, or the picker would have no
+ * value selected.
+ */
+export function preSendOutcomeKindsForRow(
+  draft: PreSendCheckDraft,
+  index: number,
+  descriptors: readonly PreSendOutcomeDescriptor[],
+): readonly string[] {
+  const taken = new Set(
+    draft.outcomes.filter((_, at) => at !== index).map((outcome) => outcome.kind),
+  );
+  return preSendOutcomeKindOptions(draft.event, descriptors).filter((kind) => !taken.has(kind));
+}
+
+/**
+ * The next kind to offer when someone presses the `+`.
+ *
+ * The first the seam accepts that is not already in the list, because adding a
+ * row that is immediately invalid makes the person fix the editor's guess before
+ * they can say what they meant. `null` when the seam has nothing left to add,
+ * which is what hides the button rather than showing one that does nothing.
+ */
+export function nextPreSendOutcomeKind(
+  draft: PreSendCheckDraft,
+  descriptors: readonly PreSendOutcomeDescriptor[],
+): string | null {
+  const taken = new Set(draft.outcomes.map((outcome) => outcome.kind));
+  return (
+    preSendOutcomeKindOptions(draft.event, descriptors).find((kind) => !taken.has(kind)) ?? null
+  );
+}
+
+/** Appends an outcome row. A caller with nothing to add gets the draft back. */
+export function addPreSendOutcome(
+  draft: PreSendCheckDraft,
+  kind: string | null,
+): PreSendCheckDraft {
+  if (!kind) {
+    return draft;
+  }
+  return { ...draft, outcomes: [...draft.outcomes, { kind, params: {} }] };
+}
+
+/**
+ * Drops one outcome row.
+ *
+ * Refuses to empty the list. A rule with no outcomes is one that fires and does
+ * nothing, and validation would refuse to save it — so the last `-` is disabled
+ * rather than allowed and then complained about.
+ */
+export function removePreSendOutcome(draft: PreSendCheckDraft, index: number): PreSendCheckDraft {
+  if (draft.outcomes.length <= 1) {
+    return draft;
+  }
+  return { ...draft, outcomes: draft.outcomes.filter((_, at) => at !== index) };
+}
+
+/**
+ * Changes one row's kind, keeping what was typed against the old one.
+ *
+ * The parameters are not cleared, which is deliberate: switching from `aside` to
+ * `start` and back should not lose the prompt, and only the parameters the saved
+ * kind declares are written anyway. See `buildOutcome`.
+ */
+export function setPreSendOutcomeKind(
+  draft: PreSendCheckDraft,
+  index: number,
+  kind: string,
+): PreSendCheckDraft {
+  return {
+    ...draft,
+    outcomes: draft.outcomes.map((outcome, at) => (at === index ? { ...outcome, kind } : outcome)),
+  };
+}
+
+export function setPreSendOutcomeParam(
+  draft: PreSendCheckDraft,
+  index: number,
+  id: string,
+  value: string,
+): PreSendCheckDraft {
+  return {
+    ...draft,
+    outcomes: draft.outcomes.map((outcome, at) =>
+      at === index ? { ...outcome, params: { ...outcome.params, [id]: value } } : outcome,
+    ),
+  };
 }
 
 /**
@@ -421,28 +558,27 @@ export function preSendOutcomeOptions(
  * rejects is how someone saves a rule that is stored, evaluated, and silently
  * does nothing. Each falls back to the first thing the new seam accepts, which
  * is visible in the picker rather than silent.
+ *
+ * Outcomes are filtered rather than reset, so a rule that says notify and fork
+ * keeps both when it moves between two daemon seams. Emptying the list would be
+ * saving a rule that does nothing, so a draft left with none falls back to one
+ * row of whatever the new seam offers first.
  */
 export function applyPreSendEventChange(
   draft: PreSendCheckDraft,
   event: string,
+  descriptors: readonly PreSendOutcomeDescriptor[] = [],
 ): PreSendCheckDraft {
   const triggers = preSendTriggerOptions(event);
-  const dispositions = preSendDispositionOptions(event);
   const trigger = triggers.includes(draft.trigger) ? draft.trigger : (triggers[0] ?? draft.trigger);
-  const disposition = dispositions.includes(draft.disposition)
-    ? draft.disposition
-    : (dispositions[0] ?? draft.disposition);
-  return {
-    ...draft,
-    event,
-    trigger,
-    disposition,
-    // An action only means anything behind a redirect, and a seam with none
-    // would otherwise keep a kind nobody can pick again.
-    actionKind: disposition === "redirect" ? draft.actionKind : "",
-  };
+
+  const kinds = preSendOutcomeKindOptions(event, descriptors);
+  const kept = draft.outcomes.filter((outcome) => kinds.includes(outcome.kind));
+  const outcomes =
+    kept.length > 0 ? kept : [{ kind: kinds[0] ?? "warn", params: {} as Record<string, string> }];
+
+  return { ...draft, event, trigger, outcomes };
 }
-export const PRE_SEND_DISPOSITION_OPTIONS = ["warn", "block", "redirect"] as const;
 
 // Symbols rather than words, so they need no translation and the sentence stays
 // short enough to sit on one line in a row.
@@ -509,6 +645,36 @@ export function previewPreSendCheckMessage(
     // empty rather than printed as a formatted zero.
     duration: typeof value === "number" ? formatDuration(value * 1000) : "",
   });
+}
+
+/**
+ * The row's outcome badge: one label for a list.
+ *
+ * The most severe outcome names it, because that is the one that decides what
+ * happens, and a count carries the rest — "Block +1" rather than a badge wide
+ * enough for two names, in a row that already holds a title, a message preview
+ * and a host line.
+ *
+ * A kind the daemon runs takes its label from the descriptor where there is one
+ * and falls back to the raw kind, so a rule written against a newer daemon reads
+ * as something rather than as a blank.
+ */
+export function describePreSendCheckOutcome(
+  rule: PreSendCheckRule,
+  t: PreSendTranslate,
+  descriptors: readonly PreSendOutcomeDescriptor[] = [],
+): { label: string; isBlocking: boolean } {
+  const outcomes = normalizePreSendCheckRule(rule).outcomes;
+  const principal = mostSeverePreSendOutcome(outcomes);
+  const described = descriptors.find((descriptor) => descriptor.kind === principal.kind);
+  const name = isPlainOutcomeKind(principal.kind)
+    ? t(`settings.preSendChecks.outcomeKinds.${principal.kind}`)
+    : (described?.label ?? principal.kind);
+  const extra = outcomes.length - 1;
+  return {
+    label: extra > 0 ? `${name} +${extra}` : name,
+    isBlocking: principal.kind === "block",
+  };
 }
 
 export function describePreSendCheck(rule: PreSendCheckRule, t: PreSendTranslate): string {

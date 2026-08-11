@@ -66,7 +66,10 @@ export function explainPreSendCheckStructure(
   if (!definition.triggers.includes(normalized.trigger)) {
     return { fires: false, because: "trigger-not-at-this-event" };
   }
-  if (!definition.outcomeKinds.includes(normalized.outcome.kind)) {
+  // Only when the seam refuses *every* outcome. A rule with one the seam accepts
+  // still fires, so badging it as broken would be wrong — the evaluator drops the
+  // refused half and carries out the rest.
+  if (!normalized.outcomes.some((outcome) => definition.outcomeKinds.includes(outcome.kind))) {
     return { fires: false, because: "outcome-not-at-this-event" };
   }
   return null;

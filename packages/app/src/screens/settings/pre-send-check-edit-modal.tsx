@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { Minus } from "lucide-react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField } from "@/components/ui/select-field";
 import { Switch } from "@/components/ui/switch";
 import {
+  isPlainOutcomeKind,
   isTextTrigger,
   type PreSendOutcomeDescriptor,
   type PreSendOutcomeParameter,
@@ -17,17 +19,23 @@ import { dryRunPreSendCheckSample } from "@getpaseo/protocol/pre-send-checks/dry
 import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
+  addPreSendOutcome,
   applyPreSendCheckDraft,
   applyPreSendEventChange,
+  nextPreSendOutcomeKind,
+  preSendOutcomeKindsForRow,
   preSendOutcomeOptions,
   preSendCheckOptions,
-  preSendDispositionOptions,
   preSendTriggerOptions,
+  removePreSendOutcome,
+  setPreSendOutcomeKind,
+  setPreSendOutcomeParam,
   PRE_SEND_EVENT_OPTIONS,
   PRE_SEND_OPERATOR_OPTIONS,
   type PreSendCheckDraft,
   type PreSendCheckField,
   type PreSendCheckFieldErrors,
+  type PreSendCheckOutcomeDraft,
 } from "./pre-send-check-form";
 
 export interface PreSendCheckModalHost {
@@ -48,17 +56,20 @@ interface PreSendCheckEditModalProps {
   hosts: readonly PreSendCheckModalHost[];
   initialServerIds: readonly string[];
   /**
-   * The actions this daemon can carry out, as it described them. Empty means a
-   * daemon too old to say, so the action fields stay hidden rather than showing
-   * an empty picker: there is nothing to offer and guessing would invent a kind.
+   * The outcomes this daemon can carry out, as it described them. Empty means a
+   * daemon too old to say, in which case the picker offers only the plain kinds
+   * — every version can warn, and guessing at the rest would invent a kind this
+   * daemon would decline.
    */
-  actions: readonly PreSendOutcomeDescriptor[];
+  outcomeDescriptors: readonly PreSendOutcomeDescriptor[];
   onClose: () => void;
   onSave: (draft: PreSendCheckDraft, serverIds: readonly string[]) => Promise<void>;
   testID?: string;
 }
 
-type PickerKind = "event" | "trigger" | "operator" | "disposition";
+const RemoveOutcomeIcon = withUnistyles(Minus);
+
+type PickerKind = "event" | "trigger" | "operator";
 
 // Separates server ids inside the memo key below, chosen because it cannot
 // occur in one. Written as an escape and not as the character itself: a raw
@@ -70,7 +81,6 @@ const OPTION_LABEL_PREFIX: Record<PickerKind, string> = {
   event: "settings.preSendChecks.events.",
   trigger: "settings.preSendChecks.triggers.",
   operator: "settings.preSendChecks.operators.",
-  disposition: "settings.preSendChecks.dispositions.",
 };
 
 const THRESHOLD_UNIT_KEYS: Record<string, string> = {
@@ -321,11 +331,11 @@ interface PreSendOutcomeFieldProps {
 }
 
 /**
- * One action parameter, drawn from what the daemon said it takes.
+ * One outcome parameter, drawn from what the daemon said it takes.
  *
  * The labels arrive in English, because they come from the daemon. That is the
  * trade this arrangement makes: an editor that needs no change to offer an
- * action it has never heard of cannot also translate it.
+ * outcome it has never heard of cannot also translate it.
  */
 function PreSendOutcomeField({
   parameter,
@@ -385,6 +395,214 @@ function PreSendOutcomeField({
   );
 }
 
+interface PreSendOutcomeRowProps {
+  index: number;
+  outcome: PreSendCheckOutcomeDraft;
+  /** Every kind this seam accepts and this daemon can perform. */
+  kinds: readonly string[];
+  /** What the chosen kind takes, when the daemon described it. */
+  descriptor: PreSendOutcomeDescriptor | undefined;
+  /** False on the last remaining row: a rule with no outcome does nothing. */
+  canRemove: boolean;
+  disabled: boolean;
+  resetKey: string;
+  onKindChange: (index: number, kind: string) => void;
+  onParamChange: (index: number, id: string, value: string) => void;
+  onRemove: (index: number) => void;
+  testID: string;
+}
+
+/**
+ * One outcome: what to do, and whatever that takes.
+ *
+ * One picker where the editor used to have two. The old pair asked "what should
+ * happen" and then "where to", which put the word `redirect` on screen purely to
+ * introduce the second question — a word that named nothing in the rule. `Warn`
+ * and `Ask on the side` are the same kind of answer, so they belong in the same
+ * list.
+ *
+ * The label is translated for the kinds this build knows and comes from the
+ * daemon for the ones it does not, which is the same trade the parameters make:
+ * an editor that needs no change to offer a new outcome cannot also translate
+ * it.
+ */
+function PreSendOutcomeRow({
+  index,
+  outcome,
+  kinds,
+  descriptor,
+  canRemove,
+  disabled,
+  resetKey,
+  onKindChange,
+  onParamChange,
+  onRemove,
+  testID,
+}: PreSendOutcomeRowProps) {
+  const { t } = useTranslation();
+
+  const labelFor = useCallback(
+    (kind: string) =>
+      isPlainOutcomeKind(kind)
+        ? t(`settings.preSendChecks.outcomeKinds.${kind}`)
+        : ((descriptor?.kind === kind ? descriptor.label : undefined) ?? kind),
+    [descriptor, t],
+  );
+
+  const options = useMemo(
+    () =>
+      preSendCheckOptions(kinds, outcome.kind).map((kind) => ({
+        id: kind,
+        value: kind,
+        label: labelFor(kind),
+      })),
+    [kinds, labelFor, outcome.kind],
+  );
+
+  const selectedDisplay = useMemo(
+    () => ({ label: labelFor(outcome.kind) }),
+    [labelFor, outcome.kind],
+  );
+
+  const handleKindChange = useCallback(
+    (next: string) => {
+      onKindChange(index, next);
+    },
+    [index, onKindChange],
+  );
+
+  const handleParamChange = useCallback(
+    (id: string, value: string) => {
+      onParamChange(index, id, value);
+    },
+    [index, onParamChange],
+  );
+
+  const handleRemove = useCallback(() => {
+    onRemove(index);
+  }, [index, onRemove]);
+
+  const label = t("settings.preSendChecks.outcomeLabel");
+
+  return (
+    <View style={styles.outcomeRow}>
+      <View style={styles.outcomePicker}>
+        <SelectField
+          label={label}
+          field={false}
+          value={outcome.kind}
+          selectedDisplay={selectedDisplay}
+          options={options}
+          onChange={handleKindChange}
+          placeholder={label}
+          emptyText={label}
+          disabled={disabled}
+          testID={`${testID}-select`}
+        />
+        <Button
+          variant="secondary"
+          onPress={handleRemove}
+          // Disabled rather than hidden on the last row, so the control does not
+          // move under the pointer as rows come and go.
+          disabled={disabled || !canRemove}
+          accessibilityLabel={t("settings.preSendChecks.removeOutcome")}
+          testID={`${testID}-remove`}
+        >
+          <RemoveOutcomeIcon size={16} />
+        </Button>
+      </View>
+      {descriptor?.parameters.map((parameter) => (
+        <PreSendOutcomeField
+          key={parameter.id}
+          parameter={parameter}
+          value={outcome.params[parameter.id] ?? ""}
+          disabled={disabled}
+          resetKey={`${resetKey}-${outcome.kind}`}
+          onChange={handleParamChange}
+          testID={`${testID}-${parameter.id}`}
+        />
+      ))}
+    </View>
+  );
+}
+
+interface PreSendOutcomeListProps {
+  draft: PreSendCheckDraft;
+  descriptors: readonly PreSendOutcomeDescriptor[];
+  error: string | undefined;
+  disabled: boolean;
+  resetKey: string;
+  onKindChange: (index: number, kind: string) => void;
+  onParamChange: (index: number, id: string, value: string) => void;
+  onRemove: (index: number) => void;
+  onAdd: () => void;
+  testID: string;
+}
+
+/**
+ * Everything the rule should do, as a list you add to.
+ *
+ * The `+` is absent rather than disabled when the seam has nothing left to
+ * offer, because unlike the per-row `-` it sits at the end of the list where
+ * nothing shifts under the pointer when it goes.
+ */
+function PreSendOutcomeList({
+  draft,
+  descriptors,
+  error,
+  disabled,
+  resetKey,
+  onKindChange,
+  onParamChange,
+  onRemove,
+  onAdd,
+  testID,
+}: PreSendOutcomeListProps) {
+  const { t } = useTranslation();
+  const canAdd = nextPreSendOutcomeKind(draft, descriptors) !== null;
+
+  return (
+    <Field
+      label={t("settings.preSendChecks.outcomesLabel")}
+      hint={t("settings.preSendChecks.outcomesHint")}
+      error={error}
+      testID={testID}
+    >
+      <View style={styles.outcomeList}>
+        {draft.outcomes.map((outcome, index) => (
+          <PreSendOutcomeRow
+            // Sound because no two rows can hold the same kind: each row's
+            // picker leaves out what its siblings already have.
+            key={outcome.kind}
+            index={index}
+            outcome={outcome}
+            kinds={preSendOutcomeKindsForRow(draft, index, descriptors)}
+            descriptor={descriptors.find((candidate) => candidate.kind === outcome.kind)}
+            canRemove={draft.outcomes.length > 1}
+            disabled={disabled}
+            resetKey={resetKey}
+            onKindChange={onKindChange}
+            onParamChange={onParamChange}
+            onRemove={onRemove}
+            testID={`${testID}-${index}`}
+          />
+        ))}
+        {canAdd ? (
+          <Button
+            variant="secondary"
+            onPress={onAdd}
+            disabled={disabled}
+            accessibilityLabel={t("settings.preSendChecks.addOutcome")}
+            testID={`${testID}-add`}
+          >
+            {t("settings.preSendChecks.addOutcome")}
+          </Button>
+        ) : null}
+      </View>
+    </Field>
+  );
+}
+
 /**
  * Edits one rule.
  *
@@ -399,7 +617,7 @@ export function PreSendCheckEditModal({
   initialDraft,
   hosts,
   initialServerIds,
-  actions,
+  outcomeDescriptors,
   onClose,
   onSave,
   testID,
@@ -419,9 +637,12 @@ export function PreSendCheckEditModal({
     trigger: initialTrigger,
     operator: initialOperator,
     value: initialValue,
-    disposition: initialDisposition,
     message: initialMessage,
   } = initialDraft;
+  // The outcomes as one string, for the same reason the host ids are joined
+  // below: a caller rebuilding an equal list each render must not reset the
+  // form under the person filling it in.
+  const initialOutcomeKey = initialDraft.outcomes.map((outcome) => outcome.kind).join(",");
 
   // Joined rather than used as an array, for the same reason the draft is
   // destructured below: a caller rebuilding an equal list each render must not
@@ -444,29 +665,50 @@ export function PreSendCheckEditModal({
     initialTrigger,
     initialOperator,
     initialValue,
-    initialDisposition,
+    initialOutcomeKey,
     initialMessage,
     initialServerIdKey,
   ]);
 
-  const handleActionKindChange = useCallback((next: string) => {
-    setDraft((current) => ({ ...current, actionKind: next }));
+  const clearOutcomeError = useCallback(() => {
     setFieldErrors((current) => {
-      if (!("action" in current)) {
+      if (!("outcomes" in current)) {
         return current;
       }
-      const nextErrors = { ...current };
-      delete nextErrors.action;
-      return nextErrors;
+      const next = { ...current };
+      delete next.outcomes;
+      return next;
     });
   }, []);
 
-  const handleActionParamChange = useCallback((id: string, value: string) => {
-    setDraft((current) => ({
-      ...current,
-      actionParams: { ...current.actionParams, [id]: value },
-    }));
+  const handleOutcomeKindChange = useCallback(
+    (index: number, kind: string) => {
+      setDraft((current) => setPreSendOutcomeKind(current, index, kind));
+      clearOutcomeError();
+    },
+    [clearOutcomeError],
+  );
+
+  const handleOutcomeParamChange = useCallback((index: number, id: string, value: string) => {
+    setDraft((current) => setPreSendOutcomeParam(current, index, id, value));
   }, []);
+
+  const handleOutcomeRemove = useCallback(
+    (index: number) => {
+      setDraft((current) => removePreSendOutcome(current, index));
+      clearOutcomeError();
+    },
+    [clearOutcomeError],
+  );
+
+  const handleOutcomeAdd = useCallback(() => {
+    // The kind is worked out from the draft rather than passed in, so the row
+    // that appears is one the seam accepts and the list does not already hold.
+    setDraft((current) =>
+      addPreSendOutcome(current, nextPreSendOutcomeKind(current, outcomeDescriptors)),
+    );
+    clearOutcomeError();
+  }, [clearOutcomeError, outcomeDescriptors]);
 
   const handleToggleHost = useCallback((serverId: string, selected: boolean) => {
     setServerIds((current) => {
@@ -497,15 +739,16 @@ export function PreSendCheckEditModal({
       // legal in the same breath rather than left showing something its new
       // seam would silently refuse.
       setDraft((current) =>
-        kind === "event" ? applyPreSendEventChange(current, value) : { ...current, [kind]: value },
+        kind === "event"
+          ? applyPreSendEventChange(current, value, outcomeDescriptors)
+          : { ...current, [kind]: value },
       );
       setFieldErrors((current) => ({ ...current, [kind]: undefined }));
     },
-    [setDraft, setFieldErrors],
+    [outcomeDescriptors, setDraft, setFieldErrors],
   );
 
   const triggerOptions = useMemo(() => preSendTriggerOptions(draft.event), [draft.event]);
-  const dispositionOptions = useMemo(() => preSendDispositionOptions(draft.event), [draft.event]);
 
   const handleThresholdChange = useCallback(
     (next: string) => {
@@ -553,30 +796,12 @@ export function PreSendCheckEditModal({
     onClose();
   }, [isPending, onClose]);
 
-  // Filtered by seam: the daemon describes every action it can run, and not all
-  // of them mean anything everywhere. Offering one the seam would refuse is how
-  // a rule gets saved that never fires.
-  const seamActions = useMemo(
-    () => preSendOutcomeOptions(draft.event, actions),
-    [actions, draft.event],
-  );
-  const selectedAction = seamActions.find((action) => action.kind === draft.actionKind);
-  const actionOptions = useMemo(
-    () =>
-      seamActions.map((action) => ({
-        id: action.kind,
-        value: action.kind,
-        label: action.label,
-        description: action.description,
-      })),
-    [seamActions],
-  );
-  // The daemon's own label where it knows the kind, and the raw kind where it
-  // does not — a rule written against a newer daemon must still show what it
-  // holds rather than appearing to hold nothing.
-  const selectedActionDisplay = useMemo(
-    () => ({ label: selectedAction?.label ?? draft.actionKind }),
-    [draft.actionKind, selectedAction],
+  // Filtered by seam: the daemon describes every outcome it can run, and not
+  // all of them mean anything everywhere. Offering one the seam would refuse is
+  // how a rule gets saved that never fires.
+  const seamOutcomes = useMemo(
+    () => preSendOutcomeOptions(draft.event, outcomeDescriptors),
+    [draft.event, outcomeDescriptors],
   );
 
   const header = useMemo<SheetHeader>(() => ({ title }), [title]);
@@ -661,19 +886,22 @@ export function PreSendCheckEditModal({
         />
         {comparisonFields}
 
-        <PreSendCheckPicker
-          kind="disposition"
-          known={dispositionOptions}
-          value={draft.disposition}
-          error={fieldErrors.disposition ? t(fieldErrors.disposition) : undefined}
+        <PreSendOutcomeList
+          draft={draft}
+          descriptors={seamOutcomes}
+          error={fieldErrors.outcomes ? t(fieldErrors.outcomes) : undefined}
           disabled={isPending}
-          onChange={handlePickerChange}
-          testID={`${prefix}-disposition`}
+          resetKey={resetKey}
+          onKindChange={handleOutcomeKindChange}
+          onParamChange={handleOutcomeParamChange}
+          onRemove={handleOutcomeRemove}
+          onAdd={handleOutcomeAdd}
+          testID={`${prefix}-outcomes`}
         />
 
         <PreSendCheckTryIt
           draft={draft}
-          descriptors={seamActions}
+          descriptors={seamOutcomes}
           resetKey={resetKey}
           disabled={isPending}
           testID={`${prefix}-try-it`}
@@ -699,41 +927,6 @@ export function PreSendCheckEditModal({
             testID={`${prefix}-message-input`}
           />
         </Field>
-
-        {draft.disposition === "redirect" && actions.length > 0 ? (
-          <>
-            <Field
-              label={t("settings.preSendChecks.actionLabel")}
-              error={fieldErrors.action ? t(fieldErrors.action) : undefined}
-              testID={`${prefix}-action`}
-            >
-              <SelectField
-                label={t("settings.preSendChecks.actionLabel")}
-                field={false}
-                value={draft.actionKind}
-                selectedDisplay={selectedActionDisplay}
-                options={actionOptions}
-                onChange={handleActionKindChange}
-                placeholder={t("settings.preSendChecks.actionPlaceholder")}
-                emptyText={t("settings.preSendChecks.actionPlaceholder")}
-                disabled={isPending}
-                testID={`${prefix}-action-select`}
-              />
-            </Field>
-
-            {selectedAction?.parameters.map((parameter) => (
-              <PreSendOutcomeField
-                key={parameter.id}
-                parameter={parameter}
-                value={draft.actionParams[parameter.id] ?? ""}
-                disabled={isPending}
-                resetKey={`${resetKey}-${draft.actionKind}`}
-                onChange={handleActionParamChange}
-                testID={`${prefix}-action-${parameter.id}`}
-              />
-            ))}
-          </>
-        ) : null}
 
         {preSendCheckChoosesHosts(hosts.length) ? (
           <Field
@@ -791,6 +984,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   hostList: {
     gap: theme.spacing[1],
+  },
+  outcomeList: {
+    gap: theme.spacing[3],
+  },
+  outcomeRow: {
+    gap: theme.spacing[2],
+  },
+  outcomePicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
   },
   hostRow: {
     flexDirection: "row",

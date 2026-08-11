@@ -22,7 +22,7 @@ import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
 import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registry.js";
 import type { PreSendOutcomeRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
 import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import type { PreSendCheckRule, PreSendOutcome } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
@@ -2523,21 +2523,57 @@ export class VoiceAssistantWebSocketServer {
     });
 
     for (const finding of findings) {
-      if (finding.outcome.kind === "notify") {
-        await this.broadcastAgentAttention({
-          agentId,
-          provider,
-          reason: "rule",
-          ruleMessage: finding.message ?? undefined,
-        });
-        continue;
-      }
-      await this.runAgentRuleOutcome(agentId, provider, event, finding);
+      await this.runAgentRuleFinding(agentId, provider, event, finding);
     }
   }
 
   /**
-   * Carries out a rule's action at a daemon seam.
+   * Carries out everything one tripped rule asked for.
+   *
+   * **One notification, however many outcomes ask for one.** A rule that writes
+   * the handoff and then says so is two outcomes describing a single moment, and
+   * buzzing a phone twice for it would make the list of outcomes a reason not to
+   * use the feature. So the outcomes run in order and the announcement is made
+   * once at the end — which also puts it after the work it announces, so a
+   * message reading "the handoff is under subagents" is true by the time anyone
+   * reads it.
+   */
+  private async runAgentRuleFinding(
+    agentId: string,
+    provider: AgentProvider,
+    event: string,
+    finding: PreSendEventFinding,
+  ): Promise<void> {
+    let announce = false;
+
+    for (const outcome of finding.outcomes) {
+      if (outcome.kind === "notify") {
+        announce = true;
+        continue;
+      }
+      // Deliberately not short-circuiting: one outcome declining says nothing
+      // about the next, and a fork that cannot run is no reason to skip the
+      // schedule beside it.
+      const started = await this.runAgentRuleOutcome(agentId, event, finding, outcome);
+      announce = announce || started;
+    }
+
+    if (announce) {
+      await this.broadcastAgentAttention({
+        agentId,
+        provider,
+        reason: "rule",
+        ruleMessage: finding.message ?? undefined,
+      });
+    }
+  }
+
+  /**
+   * Carries out one of a rule's outcomes at a daemon seam.
+   *
+   * Answers whether it started and leaves announcing it to the caller — a rule
+   * with several outcomes is one event to a person, however many things it set
+   * going.
    *
    * `confirmed` is false and that is the decision, not an oversight. An aside
    * takes the cheap path when the provider still holds the parent's session and
@@ -2549,44 +2585,38 @@ export class VoiceAssistantWebSocketServer {
    */
   private async runAgentRuleOutcome(
     agentId: string,
-    provider: AgentProvider,
     event: string,
     finding: PreSendEventFinding,
-  ): Promise<void> {
-    const outcome = await this.ruleOutcomeRunner.run({
+    outcome: PreSendOutcome,
+  ): Promise<boolean> {
+    const result = await this.ruleOutcomeRunner.run({
       agentId,
       // Nobody typed anything here, so the rule's own wording is the message.
-      // An action whose prompt has no {{message}} ignores it entirely.
+      // An outcome whose prompt has no {{message}} ignores it entirely.
       message: finding.message ?? "",
-      action: finding.outcome,
+      outcome,
       confirmed: false,
     });
 
-    if (outcome.status === "started") {
-      // Say so. A notify announces itself by existing; a fork, a start or a
-      // schedule happens quietly on a machine nobody is looking at, and the
-      // plan named that gap - "client-side a toast tells you; daemon-side
-      // nothing does". Attributed to the conversation that triggered it, which
-      // is where someone would go looking.
-      await this.broadcastAgentAttention({
-        agentId,
-        provider,
-        reason: "rule",
-        ruleMessage: finding.message ?? undefined,
-      });
-      return;
+    if (result.status === "started") {
+      // A fork, a start or a schedule happens quietly on a machine nobody is
+      // looking at, and the plan named that gap - "client-side a toast tells
+      // you; daemon-side nothing does". The caller announces it, attributed to
+      // the conversation that triggered it, which is where someone would look.
+      return true;
     }
     this.logger.info(
       {
         agentId,
         event,
         ruleId: finding.ruleId,
-        kind: finding.outcome.kind,
-        status: outcome.status,
-        reason: "reason" in outcome ? outcome.reason : undefined,
+        kind: outcome.kind,
+        status: result.status,
+        reason: "reason" in result ? result.reason : undefined,
       },
-      "Rule action did not run",
+      "Rule outcome did not run",
     );
+    return false;
   }
 
   private async broadcastAgentAttention(params: {

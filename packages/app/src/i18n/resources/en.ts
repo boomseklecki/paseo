@@ -1809,9 +1809,9 @@ export const en = {
             "Checked when a turn ends, and it reaches your phone rather than a screen you are not looking at.",
         },
         "handoff-before-compaction": {
-          label: "Write the handoff before a conversation compacts",
+          label: "Write the handoff before a conversation compacts, and say so",
           description:
-            "A hidden agent writes the summary you would have written yourself, so it already exists on the day you need it.",
+            "A hidden agent writes the summary you would have written yourself, and a notification tells you it is there.",
         },
         "fork-on-slash-fork": {
           label: "Fork the conversation on /fork",
@@ -1857,17 +1857,20 @@ export const en = {
       textLabel: "Value",
       textHint: "The message is compared with this, ignoring case.",
       thresholdLabel: "Value",
-      dispositionLabel: "Outcome",
+      outcomesLabel: "Outcomes",
+      outcomesHint:
+        "Everything this rule should do. Add more than one when a condition deserves more than one answer.",
+      outcomeLabel: "Outcome",
       messageLabel: "Message",
       messageHint: "Optional. Replaces the built-in wording when this rule fires.",
       messagePlaceholder: "Leave empty for the default wording",
       defaultMessageHint: "Uses the built-in wording",
       triggerRequired: "Pick a trigger",
       operatorRequired: "Pick a comparison",
-      dispositionRequired: "Pick what should happen",
-      actionLabel: "Action",
-      actionPlaceholder: "Pick an action",
-      actionRequired: "Pick what should happen",
+      outcomeRequired: "Pick at least one outcome",
+      outcomeDuplicate: "Each outcome can only be listed once",
+      addOutcome: "Add outcome",
+      removeOutcome: "Remove this outcome",
       textRequired: "Enter the text to match",
       thresholdInvalid: "Enter a number",
       unrecognisedOption: "{{value}} (not recognised)",
@@ -1899,9 +1902,8 @@ export const en = {
         lt: "Under",
         lte: "At or under",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "Notify",
-        redirect: "Redirect",
         warn: "Warn",
         block: "Block",
       },

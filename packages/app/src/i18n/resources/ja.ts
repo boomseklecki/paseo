@@ -1814,9 +1814,9 @@ export const ja: TranslationResources = {
           description: "ターン終了時に確認し、見ていない画面ではなく携帯に届きます。",
         },
         "handoff-before-compaction": {
-          label: "圧縮される前に引き継ぎを書いておく",
+          label: "会話が圧縮される前に引き継ぎを書き、知らせる",
           description:
-            "隠しエージェントが自分で書くはずだった要約を作り、必要になった日にはもう存在しています。",
+            "自分で書くはずだった要約を隠しエージェントが書き、通知がその存在を伝えます。",
         },
         "fork-on-slash-fork": {
           label: "/fork で会話を分岐する",
@@ -1860,17 +1860,20 @@ export const ja: TranslationResources = {
       textLabel: "値",
       textHint: "大文字と小文字を区別せずにメッセージと比較します。",
       thresholdLabel: "値",
-      dispositionLabel: "結果",
+      outcomesLabel: "結果",
+      outcomesHint:
+        "このルールが行うことすべて。1 つの条件に複数の応答がふさわしいときは追加してください。",
+      outcomeLabel: "結果",
       messageLabel: "メッセージ",
       messageHint: "任意。このルールが該当したときに、既定の文言を置き換えます。",
       messagePlaceholder: "空欄にすると既定の文言を使います",
       defaultMessageHint: "既定の文言を使います",
       triggerRequired: "トリガーを選んでください",
       operatorRequired: "比較方法を選んでください",
-      dispositionRequired: "どうするかを選んでください",
-      actionLabel: "アクション",
-      actionPlaceholder: "アクションを選択",
-      actionRequired: "何をするか選択してください",
+      outcomeRequired: "結果を 1 つ以上選んでください",
+      outcomeDuplicate: "同じ結果は一度しか指定できません",
+      addOutcome: "結果を追加",
+      removeOutcome: "この結果を削除",
       textRequired: "照合するテキストを入力してください",
       thresholdInvalid: "数値を入力してください",
       unrecognisedOption: "{{value}}（未対応）",
@@ -1902,9 +1905,8 @@ export const ja: TranslationResources = {
         lt: "より小さい",
         lte: "以下",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "通知",
-        redirect: "リダイレクト",
         warn: "警告",
         block: "ブロック",
       },

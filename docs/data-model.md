@@ -461,17 +461,17 @@ One file per rule. The filename **is** the id — a rule file needs no `id` fiel
 
 Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `pre_send_checks/upsert` is the only write verb for that reason.
 
-| Field      | Type                | Description                                                                             |
-| ---------- | ------------------- | --------------------------------------------------------------------------------------- |
-| `id`       | `string`            | Filename without `.json`; supplied by the store on read                                 |
-| `event`    | `string?`           | Which seam (see below). Absent means `message.send`, the only one that existed at first |
-| `trigger`  | `string`            | What is looked at, e.g. `agent.idleSeconds`, `message`                                  |
-| `operator` | `string`            | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text         |
-| `value`    | `string \| number?` | What the trigger is compared against; the type says which kind of trigger               |
-| `outcome`  | `object`            | `{ kind, ... }`. `warn`, `block` and `notify` are plain; any other kind names an action |
-| `message`  | `string?`           | Shown instead of the app's translated default                                           |
-| `order`    | `number?`           | Display position; unordered rules sort after ordered ones                               |
-| `enabled`  | `boolean?`          | Absent means enabled                                                                    |
+| Field      | Type                | Description                                                                                                                      |
+| ---------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `id`       | `string`            | Filename without `.json`; supplied by the store on read                                                                          |
+| `event`    | `string?`           | Which seam (see below). Absent means `message.send`, the only one that existed at first                                          |
+| `trigger`  | `string`            | What is looked at, e.g. `agent.idleSeconds`, `message`                                                                           |
+| `operator` | `string`            | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text                                                  |
+| `value`    | `string \| number?` | What the trigger is compared against; the type says which kind of trigger                                                        |
+| `outcomes` | `object[]`          | Each `{ kind, ... }`. `warn`, `block` and `notify` are plain; any other kind names something the daemon runs. All of them happen |
+| `message`  | `string?`           | Shown instead of the app's translated default                                                                                    |
+| `order`    | `number?`           | Display position; unordered rules sort after ordered ones                                                                        |
+| `enabled`  | `boolean?`          | Absent means enabled                                                                                                             |
 
 ### Seams, and what each accepts
 
@@ -481,17 +481,39 @@ seam — a `block` needs a send to hold, `notify` needs nobody watching, and the
 is the table; a rule asking for something its seam does not accept is skipped
 rather than half-performed.
 
-| Event            | When                                 | Evaluated by | Outcomes                   |
-| ---------------- | ------------------------------------ | ------------ | -------------------------- |
-| `message.send`   | before a message leaves the composer | the app      | `warn`, `block`, an action |
-| `turn.completed` | a turn ended                         | the daemon   | `notify`, an action        |
-| `turn.failed`    | a turn failed                        | the daemon   | `notify`, an action        |
-| `agent.idle`     | an agent has been left sitting       | the daemon   | `notify`, an action        |
+| Event            | When                                 | Evaluated by | Outcomes                  |
+| ---------------- | ------------------------------------ | ------------ | ------------------------- |
+| `message.send`   | before a message leaves the composer | the app      | `warn`, `block`, a runner |
+| `turn.completed` | a turn ended                         | the daemon   | `notify`, a runner        |
+| `turn.failed`    | a turn failed                        | the daemon   | `notify`, a runner        |
+| `agent.idle`     | an agent has been left sitting       | the daemon   | `notify`, a runner        |
 
-Actions are `aside` (answer in a hidden agent), `fork` (carry this conversation
-into a new one), `start` (open a fresh one carrying nothing) and `schedule` (come
-back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
+The runners are `aside` (answer in a hidden agent), `fork` (carry this
+conversation into a new one), `start` (open a fresh one carrying nothing) and
+`schedule` (come back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
 is the lookup, and it declines a kind it does not have rather than ignoring it.
+
+### A list, and what settles a disagreement inside it
+
+`outcomes` is a list because one condition usually deserves more than one answer:
+an `aside` that writes a handoff and a `notify` that says it is there describe a
+single moment, and writing them as two rules means keeping two copies of the
+threshold in step by hand.
+
+Nothing new has to be decided to make that safe. Where two outcomes compete — a
+`block` and an `aside` both wanting the message — it is settled the way two
+_rules_ tripping at once has always been settled: by severity, then by the
+arrangement someone chose. At a daemon seam nothing competes at all, because
+nothing is being held back, so every outcome runs. The one thing the daemon
+collapses is the announcement: a rule notifies once however many of its outcomes
+ask it to, and after the work rather than before.
+
+An outcome kind a seam refuses, or one this build cannot perform, is dropped and
+the rest of the rule still runs. Dropping the whole rule would mean an app one
+version ahead silently disarming a rule on every older host it is assigned to.
+Examples are the deliberate exception: a daemon offers one only when it can carry
+out _every_ outcome in it, because an example is a whole rule someone is agreeing
+to by its description.
 
 **A daemon-side rule fires on the crossing, not on the condition.** Once it has
 fired for an agent it stays quiet until the condition clears and holds again —
@@ -504,7 +526,9 @@ The three daemon seams ride transitions the agent manager already detects;
 happens when an agent goes on not being touched and that is the thing worth
 being told about.
 
-**Five older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition` and `action` are what `trigger`, `value`, `value`, `outcome.kind` and `outcome` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both. `packages/protocol/src/pre-send-checks/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(preSendCheckVocabulary)` tag carries the removal date.
+**Six older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition`, `action` and a singular `outcome` are what `trigger`, `value`, `value` and `outcomes` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both.
+
+The three single-outcome fields take the **most severe** entry rather than the first, so a reader that can carry out only one of them carries out the one deciding what happens to the message — a client seeing `warn` where the rule also said `aside` would send what this build would have redirected. `packages/protocol/src/pre-send-checks/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(preSendCheckVocabulary)` and `COMPAT(preSendCheckOutcomeList)` tags carry the removal dates.
 
 The schema is `.passthrough()`, so a rule written by a newer daemon survives a read by an older one rather than being dropped.
 

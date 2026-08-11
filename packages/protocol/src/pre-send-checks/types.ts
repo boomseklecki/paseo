@@ -3,14 +3,33 @@ import { z } from "zod";
 /**
  * Rules evaluated at a seam, most of them before a message leaves the input box.
  * Each names an `event`, compares a `trigger` against a `value` with an
- * `operator`, and asks for an `outcome`: `warn` toasts and sends anyway, `block`
- * toasts and holds the send so the typed text survives, and any other kind names
- * an action that takes the message instead.
+ * `operator`, and asks for one or more `outcomes`: `warn` toasts and sends
+ * anyway, `block` toasts and holds the send so the typed text survives, and any
+ * other kind names something the daemon runs with the message instead.
  *
  * Rules are stored one per file under `<PASEO_HOME>/pre-send-checks/`, read from
  * disk on every access. This module owns only what a rule *is*; `./evaluate.js`
  * owns what one means, and neither knows where they came from.
  */
+
+/**
+ * One thing a rule asks for.
+ *
+ * Passthrough, so an outcome's parameters ride alongside its kind, and a kind
+ * this build has never heard of is read rather than dropped and then skipped by
+ * the evaluator. Declared once and used for all three of the fields that carry
+ * an outcome, which is what stops the new list and the two compat singulars
+ * drifting apart field by field.
+ */
+const PreSendOutcomeSchema = z
+  .object({
+    kind: z.string(),
+    /** Wraps the triggering text; `{{message}}` is replaced with it. */
+    prompt: z.string().optional(),
+    /** What the resulting subagent is called in the panel. */
+    title: z.string().optional(),
+  })
+  .passthrough();
 
 // `event`, `trigger`, `operator` and `outcome.kind` are plain strings rather than enums
 // on purpose. Narrowing them here would make an older client drop a whole rule it merely
@@ -64,35 +83,36 @@ export const PreSendCheckRuleSchema = z
     text: z.string().optional(),
     /**
      * COMPAT(preSendCheckVocabulary): added in v0.3.2, remove after 2027-02-10
-     * once daemon floor >= v0.3.2. `disposition` is the old name for
-     * `outcome.kind` and stays required, written as a projection of it. A rule
-     * whose outcome is an action projects to `"redirect"` here, which is what
-     * the old field called that case.
+     * once daemon floor >= v0.3.2. `disposition` is the old name for the kind of
+     * the most severe outcome and stays required, written as a projection of it.
+     * A rule whose outcome is one the daemon runs projects to `"redirect"` here,
+     * which is what the old field called that case.
      */
     disposition: z.string(),
     /**
      * What happens instead of, or alongside, sending.
      *
-     * One field where `disposition` and `action` were two, and the pair could
-     * disagree: `redirect` with no action named nowhere to go, and an action
-     * beside `warn` was ignored. A kind is `warn`, `block`, or the name of an
-     * action — so naming an action *is* the redirect, and the invalid state
-     * stops being representable.
+     * A list because the things a rule asks for do not compete: warning about a
+     * stale context and asking the question on the side are two answers to one
+     * condition, and making them two rules means writing the condition twice and
+     * keeping the copies in step by hand. Where they *do* compete — a `block`
+     * and an `aside` both wanting the message — the evaluator settles it the
+     * same way it settles two rules tripping at once, by severity and then by
+     * the arrangement someone chose. So there is no new invariant here: nothing
+     * about a list of outcomes is a state the single field could not already
+     * reach with two rules.
      *
-     * Passthrough, so an action's parameters ride alongside its kind, and a kind
-     * this build has never heard of is read rather than dropped and then skipped
-     * by the evaluator.
+     * Optional so a rule predating it still loads, in which case the singular
+     * `outcome` below carries the answer.
      */
-    outcome: z
-      .object({
-        kind: z.string(),
-        /** Wraps the triggering text; `{{message}}` is replaced with it. */
-        prompt: z.string().optional(),
-        /** What the resulting subagent is called in the panel. */
-        title: z.string().optional(),
-      })
-      .passthrough()
-      .optional(),
+    outcomes: z.array(PreSendOutcomeSchema).optional(),
+    /**
+     * COMPAT(preSendCheckOutcomeList): added in v0.3.2, remove after 2027-02-10
+     * once daemon floor >= v0.3.2. The single-outcome field `outcomes`
+     * superseded, written as a projection of the most severe entry — which is
+     * what a reader that can only carry out one of them should carry out.
+     */
+    outcome: PreSendOutcomeSchema.optional(),
     message: z.string().optional(),
     /**
      * COMPAT(preSendCheckVocabulary): added in v0.3.2, remove after 2027-02-10
@@ -100,16 +120,7 @@ export const PreSendCheckRuleSchema = z
      * is an action, written as a projection of it. Stays optional, because it
      * always was and a `warn` never had one.
      */
-    action: z
-      .object({
-        kind: z.string(),
-        /** Wraps the triggering text; `{{message}}` is replaced with it. */
-        prompt: z.string().optional(),
-        /** What the resulting subagent is called in the panel. */
-        title: z.string().optional(),
-      })
-      .passthrough()
-      .optional(),
+    action: PreSendOutcomeSchema.optional(),
     /**
      * Where the rule sits in a list, and nothing more.
      *
@@ -209,7 +220,10 @@ export const PRE_SEND_RUNNABLE_OUTCOME_KINDS = ["aside", "fork", "start", "sched
 
 export type PreSendRunnableOutcomeKind = (typeof PRE_SEND_RUNNABLE_OUTCOME_KINDS)[number];
 
-export type PreSendOutcomeSpec = NonNullable<PreSendCheckRule["action"]>;
+export type PreSendOutcome = z.infer<typeof PreSendOutcomeSchema>;
+
+/** One outcome as a runner is asked to carry it out. Structurally a `PreSendOutcome`. */
+export type PreSendOutcomeSpec = PreSendOutcome;
 
 export function isPreSendRunnableOutcomeKind(kind: string): boolean {
   return (PRE_SEND_RUNNABLE_OUTCOME_KINDS as readonly string[]).includes(kind);
@@ -239,7 +253,56 @@ export function isPlainOutcomeKind(kind: string): boolean {
   return (PRE_SEND_PLAIN_OUTCOME_KINDS as readonly string[]).includes(kind);
 }
 
-export type PreSendOutcome = NonNullable<PreSendCheckRule["outcome"]>;
+/**
+ * How much of a rule one outcome speaks for, when only one of them fits.
+ *
+ * Needed in exactly two places, and both are places where a list has to become
+ * a single answer: the compat projection, which writes one `disposition` for a
+ * reader that predates the list, and the composer, which has one message and
+ * has to decide where it goes. Everywhere else runs every outcome and never
+ * asks.
+ *
+ * An unrecognised kind ranks below every known one rather than above. It is the
+ * direction that matters: a rule saying `warn` alongside something this build
+ * has never heard of should warn, not fall silent because the unknown half won
+ * a comparison it could not act on afterwards.
+ */
+export function preSendOutcomeSeverity(kind: string): number {
+  if (kind === "warn") {
+    return 1;
+  }
+  if (kind === "block") {
+    return 2;
+  }
+  // `notify` sits here with the runnable kinds rather than below `block`. The
+  // two never meet — the events table gives `notify` to the daemon seams and
+  // `block` to the composer — so the rank between them is unobservable, and
+  // grouping them is what lets the old `disposition` projection stay a single
+  // "is this something to carry out" question.
+  return isPreSendRunnableOutcomeKind(kind) || kind === "notify" ? 3 : 0;
+}
+
+/**
+ * The outcome that speaks for the rule when only one can.
+ *
+ * Throws on an empty list rather than inventing a default: the editor refuses to
+ * save a rule with no outcome and the normaliser always produces at least one,
+ * so an empty list here is a programming error, and a quiet `warn` standing in
+ * for it would be a rule that fires and says nothing anyone asked for.
+ */
+export function mostSeverePreSendOutcome(outcomes: readonly PreSendOutcome[]): PreSendOutcome {
+  const [first] = outcomes;
+  if (!first) {
+    throw new Error("A pre-send check rule needs at least one outcome");
+  }
+  return outcomes.reduce(
+    (worst, candidate) =>
+      preSendOutcomeSeverity(candidate.kind) > preSendOutcomeSeverity(worst.kind)
+        ? candidate
+        : worst,
+    first,
+  );
+}
 
 /**
  * The measured values, assembled by the caller at send time. `null` means the
@@ -286,8 +349,17 @@ export interface PreSendFinding {
   operand: number | string;
   /** The rule's own message, raw and uninterpolated. `null` falls back to a translated default. */
   message: string | null;
-  /** The outcome to carry out, and `null` for the plain kinds that need nothing carried out. */
-  outcome: PreSendOutcome | null;
+  /**
+   * Everything this rule asked for that this build can carry out, in the order
+   * the rule listed them.
+   *
+   * Every outcome, not only the ones needing a runner: a finding is a faithful
+   * record of what tripped, and the composer already has to know that a rule
+   * said `warn` as well as `aside` to decide what to put in the toast. Outcome
+   * kinds this build cannot perform are dropped here rather than reported and
+   * declined later — see `readOutcomeDisposition`.
+   */
+  outcomes: readonly PreSendOutcome[];
 }
 
 export interface PreSendEvaluation {
@@ -298,7 +370,7 @@ export interface PreSendEvaluation {
 }
 
 /**
- * A parameter an action takes, in the shape the app already renders.
+ * A parameter an outcome takes, in the shape the app already renders.
  *
  * Deliberately the same vocabulary as `AgentFeature`, which providers use to
  * describe their own controls and which the composer already draws by switching
@@ -307,7 +379,7 @@ export interface PreSendEvaluation {
  *
  * Labels come from the daemon, so they arrive in one language. That is already
  * true of provider feature labels; it is new for the settings screen, and it is
- * the price of an editor that needs no change to offer an action it has never
+ * the price of an editor that needs no change to offer an outcome it has never
  * heard of.
  */
 export const PreSendOutcomeParameterSchema = z.discriminatedUnion("type", [
@@ -329,7 +401,7 @@ export const PreSendOutcomeParameterSchema = z.discriminatedUnion("type", [
 
 export type PreSendOutcomeParameter = z.infer<typeof PreSendOutcomeParameterSchema>;
 
-/** What one action is and what it takes, as the daemon describes itself. */
+/** What one outcome is and what it takes, as the daemon describes itself. */
 export const PreSendOutcomeDescriptorSchema = z.object({
   kind: z.string(),
   label: z.string(),
@@ -344,7 +416,7 @@ export type PreSendOutcomeDescriptor = z.infer<typeof PreSendOutcomeDescriptorSc
  *
  * Nothing evaluates these. They exist because the interesting rules are the ones
  * nobody would think to write — `/btw` in particular, which is a redirect to an
- * action, and which was very nearly shipped as a default before it became clear
+ * outcome, and which was very nearly shipped as a default before it became clear
  * that a rule silently intercepting what you type is not something to switch on
  * for people who did not ask.
  *
@@ -352,9 +424,10 @@ export type PreSendOutcomeDescriptor = z.infer<typeof PreSendOutcomeDescriptorSc
  * install, which is what lets the same example be added twice, and what keeps
  * one id per rule across the hosts it is assigned to.
  *
- * Standalone rather than hanging off an action descriptor, because most of what
- * is worth showing has no action at all — a warning at 80% context is a rule with
- * nothing to redirect to. The daemon drops any example naming an action it cannot
+ * Standalone rather than hanging off an outcome descriptor, because most of what
+ * is worth showing needs no runner at all — a warning at 80% context is a rule
+ * with nothing to redirect to. The daemon drops any example naming an outcome it
+ * cannot
  * perform, so being standalone costs nothing in capability terms.
  */
 export const PreSendCheckExampleSchema = z.object({
@@ -380,7 +453,7 @@ export const PreSendCheckExampleSchema = z.object({
       trigger: z.string(),
       operator: z.string(),
       value: z.union([z.string(), z.number()]).optional(),
-      outcome: z.object({ kind: z.string() }).passthrough(),
+      outcomes: z.array(PreSendOutcomeSchema).min(1),
       message: z.string().optional(),
     })
     .passthrough(),

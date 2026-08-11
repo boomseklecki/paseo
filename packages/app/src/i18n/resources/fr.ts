@@ -1851,9 +1851,9 @@ export const fr: TranslationResources = {
             "Vérifié en fin de tour, et envoyé sur votre téléphone plutôt qu'à un écran que vous ne regardez pas.",
         },
         "handoff-before-compaction": {
-          label: "Rédiger la passation avant la compaction",
+          label: "Écrire la passation avant que la conversation ne se compacte, et le dire",
           description:
-            "Un agent masqué écrit le résumé que vous auriez dû écrire, pour qu'il existe déjà le jour où il vous faut.",
+            "Un agent masqué écrit le résumé que vous auriez écrit vous-même, et une notification vous prévient qu'il existe.",
         },
         "fork-on-slash-fork": {
           label: "Bifurquer la conversation sur /fork",
@@ -1898,17 +1898,20 @@ export const fr: TranslationResources = {
       textLabel: "Valeur",
       textHint: "Le message est comparé à ceci, sans tenir compte de la casse.",
       thresholdLabel: "Valeur",
-      dispositionLabel: "Résultat",
+      outcomesLabel: "Résultats",
+      outcomesHint:
+        "Tout ce que cette règle doit faire. Ajoutez-en plusieurs quand une condition mérite plusieurs réponses.",
+      outcomeLabel: "Résultat",
       messageLabel: "Message",
       messageHint: "Facultatif. Remplace le texte par défaut quand cette règle se déclenche.",
       messagePlaceholder: "Laissez vide pour le texte par défaut",
       defaultMessageHint: "Utilise le texte par défaut",
       triggerRequired: "Choisissez un déclencheur",
       operatorRequired: "Choisissez une comparaison",
-      dispositionRequired: "Choisissez ce qui doit se passer",
-      actionLabel: "Action",
-      actionPlaceholder: "Choisissez une action",
-      actionRequired: "Choisissez ce qui doit se passer",
+      outcomeRequired: "Choisissez au moins un résultat",
+      outcomeDuplicate: "Chaque résultat ne peut figurer qu'une fois",
+      addOutcome: "Ajouter un résultat",
+      removeOutcome: "Retirer ce résultat",
       textRequired: "Saisissez le texte à comparer",
       thresholdInvalid: "Saisissez un nombre",
       unrecognisedOption: "{{value}} (non reconnu)",
@@ -1940,9 +1943,8 @@ export const fr: TranslationResources = {
         lt: "En dessous de",
         lte: "Égal ou en dessous",
       },
-      dispositions: {
+      outcomeKinds: {
         notify: "Notifier",
-        redirect: "Rediriger",
         warn: "Avertir",
         block: "Bloquer",
       },

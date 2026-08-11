@@ -3,10 +3,10 @@ import type { PreSendOutcomeDescriptor } from "@getpaseo/protocol/pre-send-check
 /**
  * What this daemon can do, described well enough for an editor to draw it.
  *
- * Lives beside the action rather than in the app so that adding one is a server
+ * Lives beside the runner rather than in the app so that adding one is a server
  * change: the editor renders whatever arrives and needs no knowledge of the
  * kinds. That is the whole point of sending these — an older app offering a
- * newer daemon's action is what this buys.
+ * newer daemon's outcome is what this buys.
  *
  * The strings are English and not translated. Provider feature labels already
  * work this way, and the alternative is that the daemon cannot describe anything

@@ -35,7 +35,7 @@ export class AsideOutcome {
 
   constructor(options: AsideOutcomeOptions) {
     this.manager = options.manager;
-    this.logger = options.logger.child({ module: "pre-send-checks", action: "aside" });
+    this.logger = options.logger.child({ module: "pre-send-checks", outcome: "aside" });
     this.onSettled = options.onSettled;
   }
 
@@ -64,7 +64,7 @@ export class AsideOutcome {
     }
 
     const subagentId = `aside-${Date.now().toString(36)}`;
-    const title = request.action.title?.trim() || DEFAULT_TITLE;
+    const title = request.outcome.title?.trim() || DEFAULT_TITLE;
     const question = buildQuestion(request);
 
     this.manager.applyProviderSubagentEvent(request.agentId, parent.provider, {
@@ -197,11 +197,11 @@ function asideConfig(parent: AgentSessionConfig): AgentSessionConfig {
  * What to ask.
  *
  * The trigger prefix is left on the message. Stripping it needs the rule's
- * trigger text, which the action is not given and should not have to know, and
+ * trigger text, which the runner is not given and should not have to know, and
  * a model reading `/btw what does this flag do` understands it perfectly well.
  */
 function buildQuestion(request: PreSendOutcomeRequest): string {
-  const template = request.action.prompt?.trim();
+  const template = request.outcome.prompt?.trim();
   const message = request.message.trim();
   if (!template) {
     return message;

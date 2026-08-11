@@ -21,15 +21,12 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckGroup } from "./pre-send-check-groups";
-import {
-  isPlainOutcomeKind,
-  type PreSendCheckExample,
-} from "@getpaseo/protocol/pre-send-checks/types";
-import { normalizePreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/vocabulary";
+import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
 import { preSendCheckNeverFires } from "@getpaseo/protocol/pre-send-checks/dry-run";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
+  describePreSendCheckOutcome,
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckExampleToDraft,
@@ -181,11 +178,7 @@ function PreSendCheckRow({
   // hand-editable by design, so a rule written into a file never met the
   // editor. This is the only thing that would tell someone it can never fire.
   const neverFires = preSendCheckNeverFires(rule);
-  const outcomeKind = normalizePreSendCheckRule(rule).outcome.kind;
-  const isBlocking = outcomeKind === "block";
-  const badgeLabel = isPlainOutcomeKind(outcomeKind)
-    ? t(`settings.preSendChecks.dispositions.${outcomeKind}`)
-    : t("settings.preSendChecks.dispositions.redirect");
+  const { label: badgeLabel, isBlocking } = describePreSendCheckOutcome(rule, t);
 
   return (
     <View style={rowStyle} testID={`pre-send-check-row-${group.id}`}>
@@ -441,7 +434,7 @@ export function PreSendChecksPage() {
   const showHosts = hosts.length > 1;
   // Both come from one host: they describe the daemon build rather than the
   // machine, and a rule assigned to several is written identically to each.
-  const { actions, examples } = usePreSendCheckCatalog(usableServerIds[0] ?? null);
+  const { outcomes, examples } = usePreSendCheckCatalog(usableServerIds[0] ?? null);
 
   const handleOpenCreate = useCallback(() => {
     setForm({ kind: "create" });
@@ -463,7 +456,7 @@ export function PreSendChecksPage() {
         existing: existing?.rule ?? null,
         draft,
         id: existing?.id ?? generateRuleId(),
-        descriptors: actions,
+        descriptors: outcomes,
       });
       await saveRule({
         rule,
@@ -473,7 +466,7 @@ export function PreSendChecksPage() {
         targetServerIds: serverIds.length > 0 ? serverIds : usableServerIds,
       });
     },
-    [actions, form, saveRule, usableServerIds],
+    [form, outcomes, saveRule, usableServerIds],
   );
 
   const handleRemove = useCallback(
@@ -666,7 +659,7 @@ export function PreSendChecksPage() {
         initialDraft={initialDraft}
         hosts={modalHosts}
         initialServerIds={initialServerIds}
-        actions={actions}
+        outcomeDescriptors={outcomes}
         onClose={handleCloseForm}
         onSave={handleSave}
         testID="pre-send-check-modal"

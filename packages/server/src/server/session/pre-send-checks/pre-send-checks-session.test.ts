@@ -42,7 +42,7 @@ function makeSession(
 }
 
 describe("PreSendChecksSession", () => {
-  it("answers a list with the rules and the actions this daemon can run", async () => {
+  it("answers a list with the rules and the outcomes this daemon can run", async () => {
     const { session, emitted } = makeSession({ list: async () => [RULE] });
 
     await session.handlePreSendChecksListRequest({
@@ -53,8 +53,8 @@ describe("PreSendChecksSession", () => {
     const response = findByType(emitted, "rules.list.response");
     expect(response?.payload.checks).toEqual([RULE]);
     expect(response?.payload.error).toBeNull();
-    expect(response?.payload.actions?.map((action) => action.kind)).toContain("aside");
-    // Examples ride the same response as the actions, so one screen is one round
+    expect(response?.payload.outcomes?.map((outcome) => outcome.kind)).toContain("aside");
+    // Examples ride the same response as the outcomes, so one screen is one round
     // trip rather than two.
     expect(response?.payload.examples?.length).toBeGreaterThan(0);
   });
@@ -183,7 +183,7 @@ describe("PreSendChecksSession", () => {
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw what does this flag do",
-      action: { kind: "aside" },
+      outcome: { kind: "aside" },
       confirmed: true,
     });
 
@@ -191,7 +191,7 @@ describe("PreSendChecksSession", () => {
       {
         agentId: "agent-1",
         message: "/btw what does this flag do",
-        action: { kind: "aside" },
+        outcome: { kind: "aside" },
         confirmed: true,
       },
     ]);
@@ -215,7 +215,7 @@ describe("PreSendChecksSession", () => {
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
-      action: { kind: "aside" },
+      outcome: { kind: "aside" },
     });
 
     const response = findByType(emitted, "rules.run_outcome.response");
@@ -233,8 +233,8 @@ describe("PreSendChecksSession", () => {
     const { session, emitted } = makeSession(
       {},
       runner(async (request) => {
-        seen.push(request.action.kind);
-        return { status: "declined", reason: `Unknown action '${request.action.kind}'` };
+        seen.push(request.outcome.kind);
+        return { status: "declined", reason: `Unknown outcome '${request.outcome.kind}'` };
       }),
     );
 
@@ -243,13 +243,13 @@ describe("PreSendChecksSession", () => {
       requestId: "r1",
       agentId: "agent-1",
       message: "hello",
-      action: { kind: "teleport" },
+      outcome: { kind: "teleport" },
     });
 
     expect(seen).toEqual(["teleport"]);
     const response = findByType(emitted, "rules.run_outcome.response");
     expect(response?.payload.status).toBe("declined");
-    expect(response?.payload.reason).toBe("Unknown action 'teleport'");
+    expect(response?.payload.reason).toBe("Unknown outcome 'teleport'");
   });
 
   // Failed rather than declined, and never an rpc_error: the caller must not
@@ -267,7 +267,7 @@ describe("PreSendChecksSession", () => {
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
-      action: { kind: "aside" },
+      outcome: { kind: "aside" },
     });
 
     const response = findByType(emitted, "rules.run_outcome.response");
@@ -288,7 +288,7 @@ describe("PreSendChecksSession", () => {
       requestId: "r1",
       agentId: "gone",
       message: "/btw",
-      action: { kind: "aside" },
+      outcome: { kind: "aside" },
     });
 
     const response = findByType(emitted, "rules.run_outcome.response");

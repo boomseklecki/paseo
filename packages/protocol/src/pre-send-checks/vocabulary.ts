@@ -1,4 +1,4 @@
-import { isTextTrigger } from "./types.js";
+import { isTextTrigger, mostSeverePreSendOutcome } from "./types.js";
 import type { PreSendCheckRule, PreSendOutcome } from "./types.js";
 
 /**
@@ -10,7 +10,8 @@ import type { PreSendCheckRule, PreSendOutcome } from "./types.js";
  * and `text` were one operand pretending to be two fields, never both set.
  * `disposition` and `action` were one outcome pretending to be two, and could
  * contradict each other. And `action` collided with a bare verb enum in
- * twenty-one other protocol files.
+ * twenty-one other protocol files. Then the one outcome became `outcomes`,
+ * because a condition worth writing down usually deserves more than one answer.
  *
  * WebSocket schemas are append-only (`docs/architecture.md`), so the rename is
  * not a rename: the new names were added optional, the old ones stay required
@@ -33,7 +34,8 @@ export interface NormalizedPreSendCheckRule {
   operator: string;
   /** `undefined` for a rule that named no operand, which the evaluator skips. */
   value: string | number | undefined;
-  outcome: PreSendOutcome;
+  /** Never empty: a rule that named none reads as one, from whichever field carried it. */
+  outcomes: readonly PreSendOutcome[];
   message: string | undefined;
   order: number | undefined;
   enabled: boolean;
@@ -57,7 +59,7 @@ export function normalizePreSendCheckRule(rule: PreSendCheckRule): NormalizedPre
     trigger,
     operator: rule.operator,
     value: readValue(rule, trigger),
-    outcome: readOutcome(rule),
+    outcomes: readOutcomes(rule),
     message: rule.message,
     // Explicitly `false`, not falsy: absent means enabled, so a rule that
     // predates the field or was written by hand is live without saying so.
@@ -76,7 +78,13 @@ function readValue(rule: PreSendCheckRule, trigger: string): string | number | u
 }
 
 /**
- * The outcome, from whichever vocabulary carried it.
+ * The outcomes, from whichever vocabulary carried them.
+ *
+ * Three tiers, newest first, and each is what the one below it grew out of. An
+ * empty `outcomes` array is treated as absent rather than as "this rule asks for
+ * nothing": a rule that reached disk with an empty list was written by something
+ * broken, and reading its older fields is more likely to recover what was meant
+ * than reporting a rule that fires and does nothing.
  *
  * `redirect` is the one word with no counterpart: it meant "the action field
  * says where", so it resolves to that action's kind. A `redirect` naming no
@@ -84,26 +92,36 @@ function readValue(rule: PreSendCheckRule, trigger: string): string | number | u
  * evaluator therefore skips — which is the same refusal the old
  * `readRuleDisposition` made, arrived at without a special case.
  */
-function readOutcome(rule: PreSendCheckRule): PreSendOutcome {
+function readOutcomes(rule: PreSendCheckRule): readonly PreSendOutcome[] {
+  if (rule.outcomes && rule.outcomes.length > 0) {
+    return rule.outcomes;
+  }
   if (rule.outcome) {
-    return rule.outcome;
+    return [rule.outcome];
   }
   if (rule.disposition === "redirect" && rule.action) {
-    return rule.action;
+    return [rule.action];
   }
-  return { kind: rule.disposition };
+  return [{ kind: rule.disposition }];
 }
 
 /**
- * Writes a rule in both vocabularies.
+ * Writes a rule in every vocabulary.
  *
  * The old half is what an older client reads, and it is required rather than
  * optional precisely so that half can never be forgotten: a rule missing it
  * fails to parse here rather than arriving somewhere older as a rule with no
  * measurement at all.
+ *
+ * The three older outcome fields all take the *most severe* entry rather than
+ * the first. A reader that can carry out only one of them should carry out the
+ * one that decides what happens to the message — a client seeing `warn` where
+ * the rule also said `aside` would send a message this build would have
+ * redirected, which is the one disagreement between versions worth avoiding.
  */
 export function projectPreSendCheckRule(rule: NormalizedPreSendCheckRule): PreSendCheckRule {
-  const isAction = rule.outcome.kind !== "warn" && rule.outcome.kind !== "block";
+  const principal = mostSeverePreSendOutcome(rule.outcomes);
+  const isAction = principal.kind !== "warn" && principal.kind !== "block";
   return {
     id: rule.id,
     event: rule.event,
@@ -115,9 +133,10 @@ export function projectPreSendCheckRule(rule: NormalizedPreSendCheckRule): PreSe
     // and a numeric one is a number, so the value says which field it is.
     ...(typeof rule.value === "string" ? { text: rule.value } : {}),
     ...(typeof rule.value === "number" ? { threshold: rule.value } : {}),
-    outcome: rule.outcome,
-    disposition: isAction ? "redirect" : rule.outcome.kind,
-    ...(isAction ? { action: rule.outcome } : {}),
+    outcomes: [...rule.outcomes],
+    outcome: principal,
+    disposition: isAction ? "redirect" : principal.kind,
+    ...(isAction ? { action: principal } : {}),
     ...(rule.message === undefined ? {} : { message: rule.message }),
     ...(rule.order === undefined ? {} : { order: rule.order }),
     // Absent means enabled, so only an explicit off is written. A rule that

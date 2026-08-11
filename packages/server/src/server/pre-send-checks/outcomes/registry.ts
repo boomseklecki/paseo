@@ -8,11 +8,11 @@ import { StartOutcome } from "./start.js";
 import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
 
 /**
- * Every action this daemon can carry out, by kind.
+ * Every outcome this daemon can carry out, by kind.
  *
  * A lookup rather than the `if (kind !== "aside")` it replaces, now that there
  * is a second row. What matters more than the dispatch is the default: a kind
- * this build has never heard of is *declined*, not ignored. An action consumes
+ * this build has never heard of is *declined*, not ignored. A redirect consumes
  * the message instead of sending it, so silently doing nothing would swallow
  * what somebody typed on the way to a destination that does not exist.
  */
@@ -23,7 +23,7 @@ export function createPreSendOutcomeRegistry(options: {
 }): {
   run: (request: PreSendOutcomeRequest) => Promise<PreSendOutcomeResult>;
 } {
-  const actions: Record<
+  const runners: Record<
     string,
     { run: (r: PreSendOutcomeRequest) => Promise<PreSendOutcomeResult> }
   > = {
@@ -35,11 +35,11 @@ export function createPreSendOutcomeRegistry(options: {
 
   return {
     run: async (request) => {
-      const action = actions[request.action.kind];
-      if (!action) {
-        return { status: "declined", reason: `Unknown action '${request.action.kind}'` };
+      const runner = runners[request.outcome.kind];
+      if (!runner) {
+        return { status: "declined", reason: `Unknown outcome '${request.outcome.kind}'` };
       }
-      return action.run(request);
+      return runner.run(request);
     },
   };
 }

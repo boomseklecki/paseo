@@ -95,8 +95,11 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
-import { evaluatePreSendChecks } from "@getpaseo/protocol/pre-send-checks/evaluate";
-import type { PreSendFinding } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  evaluatePreSendChecks,
+  firstRunnablePreSendOutcome,
+} from "@getpaseo/protocol/pre-send-checks/evaluate";
+import type { PreSendOutcome } from "@getpaseo/protocol/pre-send-checks/types";
 import { useRouter } from "expo-router";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
@@ -297,7 +300,7 @@ function readPreSendMeasurements(
  * than a side question.
  */
 async function runPreSendRedirect(input: {
-  finding: PreSendFinding | undefined;
+  outcome: PreSendOutcome | null;
   serverId: string;
   agentId: string;
   /** Where to go when the action made somewhere to go. See below. */
@@ -307,11 +310,11 @@ async function runPreSendRedirect(input: {
   toast: ReturnType<typeof useToast>;
   toastError: (message: string) => void;
 }): Promise<"allow" | "block" | "redirected"> {
-  const action = input.finding?.outcome;
+  const outcome = input.outcome;
   const client = getHostRuntimeStore().getSnapshot(input.serverId)?.client;
   // Nothing to route with, or nowhere to route it: send normally rather than
   // swallowing the message.
-  if (!action || !client) {
+  if (!outcome || !client) {
     return "allow";
   }
 
@@ -319,7 +322,7 @@ async function runPreSendRedirect(input: {
     const result = await client.preSendChecksRunOutcome({
       agentId: input.agentId,
       message: input.message,
-      action: action as { kind: string } & Record<string, unknown>,
+      outcome: outcome as { kind: string } & Record<string, unknown>,
     });
 
     if (result.status === "started") {
@@ -1582,7 +1585,10 @@ export function Composer({
       // a send back have nothing to act on once the send is not happening.
       if (evaluation.disposition === "redirect") {
         return await runPreSendRedirect({
-          finding: evaluation.findings.find((candidate) => candidate.disposition === "redirect"),
+          // One message goes one place, so one outcome gets it - the first, in
+          // the arrangement someone chose. A rule can list several and the rest
+          // of them still surfaced in the toast above.
+          outcome: firstRunnablePreSendOutcome(evaluation.findings),
           serverId,
           agentId: targetAgentId,
           message,

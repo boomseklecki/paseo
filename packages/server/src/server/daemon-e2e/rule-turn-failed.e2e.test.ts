@@ -248,6 +248,91 @@ describe("daemon E2E (rule on turn.failed)", () => {
     }
   }, 60_000);
 
+  /**
+   * The reason outcomes are a list, end to end.
+   *
+   * The shipped `handoff-before-compaction` example is exactly this pair, and
+   * two things about it can only be seen with a real daemon: that both outcomes
+   * run from one crossing, and that the phone is buzzed **once** rather than
+   * once per outcome. The second is what a list of outcomes could easily have
+   * cost, and no unit test covers it — the announcement is collapsed in the
+   * websocket server, above everything the evaluator knows about.
+   */
+  test("runs both of a rule's outcomes and notifies once", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-both-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "handoff-and-tell-me",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcomes: [
+        { kind: "aside", title: "Handoff", prompt: "Write the handoff." },
+        { kind: "notify" },
+      ],
+      message: "The handoff is under subagents.",
+    });
+
+    // By reason, because the built-in "your agent finished" notification is
+    // push-eligible and lands here too. What is being counted is the rule's.
+    const pushed: Array<{ reason: unknown; body: string }> = [];
+    const pushNotificationSender: PushNotificationSender = {
+      send: async (notification) => {
+        pushed.push({ reason: notification.data?.reason, body: notification.body });
+      },
+    };
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      pushNotificationSender,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    const attention: string[] = [];
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-both-e2e" } });
+      client.onAgentAttentionRequired((payload) => {
+        attention.push(payload.reason);
+      });
+
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Working",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+
+      let subagents: Awaited<ReturnType<typeof client.listProviderSubagents>>["subagents"] = [];
+      const rulePushes = () => pushed.filter((entry) => entry.reason === "rule");
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && (subagents.length === 0 || rulePushes().length === 0)) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        subagents = (await client.listProviderSubagents(agent.id)).subagents;
+      }
+      // A second notification would arrive after the first, so waiting only for
+      // the first would pass whether or not there is another behind it.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // The aside half.
+      expect(subagents).toHaveLength(1);
+      expect(subagents[0]?.title).toBe("Handoff");
+
+      // The notify half, in the rule's own words, exactly once - not once for
+      // the aside starting and again for the notify.
+      expect(rulePushes().map((entry) => entry.body)).toEqual(["The handoff is under subagents."]);
+      expect(attention.filter((reason) => reason === "rule")).toHaveLength(1);
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
+
   // Fork exists in Paseo as a button on a conversation you are looking at. As an
   // outcome it becomes something a rule can ask for - which is what makes it a
   // shortcut rather than a click.

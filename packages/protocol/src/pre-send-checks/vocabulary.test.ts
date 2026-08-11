@@ -33,7 +33,7 @@ describe("normalizePreSendCheckRule", () => {
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: 3600,
-      outcome: { kind: "block" },
+      outcomes: [{ kind: "block" }],
       message: undefined,
       order: undefined,
       enabled: true,
@@ -47,7 +47,7 @@ describe("normalizePreSendCheckRule", () => {
 
     expect(normalized.trigger).toBe("message");
     expect(normalized.value).toBe("/btw");
-    expect(normalized.outcome).toEqual({ kind: "aside", title: "Aside" });
+    expect(normalized.outcomes).toEqual([{ kind: "aside", title: "Aside" }]);
   });
 
   // Neither build can perform a kind of "redirect", so the evaluator skips it -
@@ -55,7 +55,7 @@ describe("normalizePreSendCheckRule", () => {
   it("leaves an old redirect that named no action unperformable", () => {
     const { action: _action, ...withoutAction } = OLD_REDIRECT;
 
-    expect(normalizePreSendCheckRule(withoutAction).outcome).toEqual({ kind: "redirect" });
+    expect(normalizePreSendCheckRule(withoutAction).outcomes).toEqual([{ kind: "redirect" }]);
   });
 
   it("prefers the new fields when a rule carries both", () => {
@@ -63,12 +63,32 @@ describe("normalizePreSendCheckRule", () => {
       ...OLD_NUMERIC,
       trigger: "agent.contextUsedPercent",
       value: 80,
-      outcome: { kind: "warn" },
+      outcomes: [{ kind: "warn" }],
     });
 
     expect(normalized.trigger).toBe("agent.contextUsedPercent");
     expect(normalized.value).toBe(80);
-    expect(normalized.outcome).toEqual({ kind: "warn" });
+    expect(normalized.outcomes).toEqual([{ kind: "warn" }]);
+  });
+
+  // The tier above the singular: a rule carrying both was written by something
+  // that knows about the list, so the list is what it meant.
+  it("prefers the outcome list over the singular outcome", () => {
+    const normalized = normalizePreSendCheckRule({
+      ...OLD_NUMERIC,
+      outcome: { kind: "block" },
+      outcomes: [{ kind: "block" }, { kind: "aside", title: "Aside" }],
+    });
+
+    expect(normalized.outcomes).toEqual([{ kind: "block" }, { kind: "aside", title: "Aside" }]);
+  });
+
+  // An empty list reached disk from something broken, and the older fields are
+  // more likely to hold what was meant than a rule that fires and does nothing.
+  it("falls through an empty outcome list to the older fields", () => {
+    expect(normalizePreSendCheckRule({ ...OLD_NUMERIC, outcomes: [] }).outcomes).toEqual([
+      { kind: "block" },
+    ]);
   });
 
   it("defaults the event, since every rule predating it meant the send", () => {
@@ -93,7 +113,7 @@ describe("projectPreSendCheckRule", () => {
     trigger: "agent.idleSeconds",
     operator: "gte",
     value: 3600,
-    outcome: { kind: "block" },
+    outcomes: [{ kind: "block" }],
     message: undefined,
     order: undefined,
     enabled: true,
@@ -110,6 +130,7 @@ describe("projectPreSendCheckRule", () => {
       operator: "gte",
       value: 3600,
       threshold: 3600,
+      outcomes: [{ kind: "block" }],
       outcome: { kind: "block" },
       disposition: "block",
     });
@@ -126,17 +147,49 @@ describe("projectPreSendCheckRule", () => {
   it("writes an action outcome as a redirect with the action beside it", () => {
     const projected = projectPreSendCheckRule({
       ...numeric,
-      outcome: { kind: "aside", title: "Aside" },
+      outcomes: [{ kind: "aside", title: "Aside" }],
     });
 
     expect(projected.disposition).toBe("redirect");
     expect(projected.action).toEqual({ kind: "aside", title: "Aside" });
   });
 
-  it("writes no action for a plain outcome", () => {
-    expect(projectPreSendCheckRule({ ...numeric, outcome: { kind: "warn" } })).not.toHaveProperty(
-      "action",
+  // The one disagreement between versions worth avoiding: a reader that can
+  // carry out only one outcome must get the one deciding what happens to the
+  // message, or it sends what this build would have redirected.
+  it("projects the most severe outcome into the three older fields", () => {
+    const projected = projectPreSendCheckRule({
+      ...numeric,
+      outcomes: [{ kind: "warn" }, { kind: "aside", title: "Aside" }],
+    });
+
+    expect(projected.outcomes).toEqual([{ kind: "warn" }, { kind: "aside", title: "Aside" }]);
+    expect(projected.outcome).toEqual({ kind: "aside", title: "Aside" });
+    expect(projected.disposition).toBe("redirect");
+    expect(projected.action).toEqual({ kind: "aside", title: "Aside" });
+  });
+
+  // Ranked below every known kind, so the half this build understands is the
+  // half an older reader is told about.
+  it("prefers a known outcome over one nothing can carry out", () => {
+    const projected = projectPreSendCheckRule({
+      ...numeric,
+      outcomes: [{ kind: "teleport" }, { kind: "warn" }],
+    });
+
+    expect(projected.disposition).toBe("warn");
+  });
+
+  it("refuses a rule with no outcomes rather than inventing one", () => {
+    expect(() => projectPreSendCheckRule({ ...numeric, outcomes: [] })).toThrow(
+      /at least one outcome/,
     );
+  });
+
+  it("writes no action for a plain outcome", () => {
+    expect(
+      projectPreSendCheckRule({ ...numeric, outcomes: [{ kind: "warn" }] }),
+    ).not.toHaveProperty("action");
   });
 
   // A rule that always wrote enabled: true would be noise in every hand-edited
@@ -154,9 +207,9 @@ describe("projectPreSendCheckRule", () => {
   });
 
   it("produces something the rule schema accepts", () => {
-    for (const outcome of [{ kind: "warn" }, { kind: "block" }, { kind: "aside" }]) {
+    for (const outcomes of [[{ kind: "warn" }], [{ kind: "block" }], [{ kind: "aside" }]]) {
       expect(() =>
-        PreSendCheckRuleSchema.parse(projectPreSendCheckRule({ ...numeric, outcome })),
+        PreSendCheckRuleSchema.parse(projectPreSendCheckRule({ ...numeric, outcomes })),
       ).not.toThrow();
     }
   });
@@ -183,7 +236,7 @@ describe("the two together", () => {
       operator: "gte",
       value: 80,
       disposition: "warn",
-      outcome: { kind: "warn" },
+      outcomes: [{ kind: "warn" }],
       message: "Nearly full.",
       order: 2,
     };

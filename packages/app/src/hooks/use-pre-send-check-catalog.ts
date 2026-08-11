@@ -10,12 +10,12 @@ import { getHostRuntimeStore } from "@/runtime/host-runtime";
 
 export interface PreSendCheckCatalog {
   /** What the daemon can carry out, so the editor can offer it untaught. */
-  actions: PreSendOutcomeDescriptor[];
+  outcomes: PreSendOutcomeDescriptor[];
   /** Rules the daemon suggests, none of them installed. */
   examples: PreSendCheckExample[];
 }
 
-const EMPTY: PreSendCheckCatalog = { actions: [], examples: [] };
+const EMPTY: PreSendCheckCatalog = { outcomes: [], examples: [] };
 
 /**
  * What one host offers, as opposed to what it has.
@@ -26,7 +26,7 @@ const EMPTY: PreSendCheckCatalog = { actions: [], examples: [] };
  * mean touching the send path to add a settings-screen feature, and the two have
  * nothing to do with each other.
  *
- * Actions and examples share this one because they answer the same question and
+ * Outcomes and examples share this one because they answer the same question and
  * arrive in the same message — splitting them would be two round trips for one
  * screen. Neither changes unless the daemon does, so this is a plain fetch with
  * a long stale time rather than anything push-driven.
@@ -49,7 +49,7 @@ export function usePreSendCheckCatalog(serverId: string | null): PreSendCheckCat
       const result = await client.preSendChecksList();
       // A daemon too old to describe either sends neither, and empty is what the
       // editor reads as "offer nothing" rather than "offer wrongly".
-      return { actions: result.actions ?? [], examples: result.examples ?? [] };
+      return { outcomes: result.outcomes ?? [], examples: result.examples ?? [] };
     },
   });
 

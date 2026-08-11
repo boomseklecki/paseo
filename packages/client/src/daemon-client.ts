@@ -5125,7 +5125,7 @@ export class DaemonClient {
   }
 
   /**
-   * Carries out a rule's action instead of sending the message.
+   * Carries out one of a rule's outcomes instead of sending the message.
    *
    * A `declined` status is the normal answer for anything the daemon will not
    * do, and means the message was not consumed — the caller should send it the
@@ -5135,7 +5135,7 @@ export class DaemonClient {
     input: {
       agentId: string;
       message: string;
-      action: { kind: string } & Record<string, unknown>;
+      outcome: { kind: string } & Record<string, unknown>;
       confirmed?: boolean;
     },
     requestId?: string,
@@ -5146,7 +5146,7 @@ export class DaemonClient {
         type: "rules.run_outcome.request",
         agentId: input.agentId,
         message: input.message,
-        action: input.action,
+        outcome: input.outcome,
         confirmed: input.confirmed === true,
       },
       responseType: "rules.run_outcome.response",
