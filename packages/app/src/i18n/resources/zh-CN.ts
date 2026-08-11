@@ -1819,7 +1819,7 @@ export const zhCN: TranslationResources = {
       outcomesHint: "这条规则要做的全部事情。一个条件值得多种响应时可以添加多个。",
       outcomeLabel: "结果",
       messageLabel: "提示语",
-      messageHint: "可选。该规则命中时用它替代内置文案。",
+      messageHint: "可选，并由上面所有结果共用——警告提示、通知正文，以及提示词收到的 {{message}}。",
       messagePlaceholder: "留空则使用默认文案",
       defaultMessageHint: "使用内置文案",
       triggerRequired: "请选择触发条件",

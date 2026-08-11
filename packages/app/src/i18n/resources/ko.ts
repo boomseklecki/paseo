@@ -1854,7 +1854,8 @@ export const ko: TranslationResources = {
       outcomesHint: "이 규칙이 할 일 전부입니다. 하나의 조건에 여러 응답이 필요하면 추가하세요.",
       outcomeLabel: "결과",
       messageLabel: "메시지",
-      messageHint: "선택 사항. 이 규칙이 걸렸을 때 기본 문구를 대신합니다.",
+      messageHint:
+        "선택 사항이며 위의 모든 결과가 공유합니다 — 경고 토스트, 알림 본문, 프롬프트가 받는 {{message}}입니다.",
       messagePlaceholder: "비워 두면 기본 문구를 사용합니다",
       defaultMessageHint: "기본 문구를 사용합니다",
       triggerRequired: "트리거를 고르세요",

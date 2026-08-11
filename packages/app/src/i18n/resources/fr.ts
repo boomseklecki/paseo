@@ -1903,7 +1903,8 @@ export const fr: TranslationResources = {
         "Tout ce que cette règle doit faire. Ajoutez-en plusieurs quand une condition mérite plusieurs réponses.",
       outcomeLabel: "Résultat",
       messageLabel: "Message",
-      messageHint: "Facultatif. Remplace le texte par défaut quand cette règle se déclenche.",
+      messageHint:
+        "Facultatif, et partagé par tous les résultats ci-dessus : le message d'alerte, le corps de la notification et le {{message}} que reçoit une invite.",
       messagePlaceholder: "Laissez vide pour le texte par défaut",
       defaultMessageHint: "Utilise le texte par défaut",
       triggerRequired: "Choisissez un déclencheur",

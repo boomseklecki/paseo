@@ -1865,7 +1865,8 @@ export const ja: TranslationResources = {
         "このルールが行うことすべて。1 つの条件に複数の応答がふさわしいときは追加してください。",
       outcomeLabel: "結果",
       messageLabel: "メッセージ",
-      messageHint: "任意。このルールが該当したときに、既定の文言を置き換えます。",
+      messageHint:
+        "任意。上のすべての結果で共有されます — 警告のトースト、通知の本文、プロンプトが受け取る {{message}} です。",
       messagePlaceholder: "空欄にすると既定の文言を使います",
       defaultMessageHint: "既定の文言を使います",
       triggerRequired: "トリガーを選んでください",

@@ -1862,7 +1862,8 @@ export const en = {
         "Everything this rule should do. Add more than one when a condition deserves more than one answer.",
       outcomeLabel: "Outcome",
       messageLabel: "Message",
-      messageHint: "Optional. Replaces the built-in wording when this rule fires.",
+      messageHint:
+        "Optional, and shared by every outcome above — the toast a warning raises, the body of a notification, and the {{message}} a prompt receives.",
       messagePlaceholder: "Leave empty for the default wording",
       defaultMessageHint: "Uses the built-in wording",
       triggerRequired: "Pick a trigger",

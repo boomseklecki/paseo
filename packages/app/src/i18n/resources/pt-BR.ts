@@ -1880,7 +1880,8 @@ export const ptBR: TranslationResources = {
         "Tudo o que esta regra deve fazer. Adicione mais de um quando uma condição merecer mais de uma resposta.",
       outcomeLabel: "Resultado",
       messageLabel: "Mensagem",
-      messageHint: "Opcional. Substitui o texto padrão quando esta regra é acionada.",
+      messageHint:
+        "Opcional, e compartilhado por todos os resultados acima: o aviso, o corpo da notificação e o {{message}} que um prompt recebe.",
       messagePlaceholder: "Deixe vazio para usar o texto padrão",
       defaultMessageHint: "Usa o texto padrão",
       triggerRequired: "Escolha um gatilho",

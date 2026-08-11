@@ -899,14 +899,12 @@ export function PreSendCheckEditModal({
           testID={`${prefix}-outcomes`}
         />
 
-        <PreSendCheckTryIt
-          draft={draft}
-          descriptors={seamOutcomes}
-          resetKey={resetKey}
-          disabled={isPending}
-          testID={`${prefix}-try-it`}
-        />
-
+        {/* Directly under the outcomes, because it is their wording and nothing
+            else's. One per rule rather than one per outcome, and deliberately:
+            the same sentence is the toast a `warn` raises, the body of a
+            `notify`, and the `{{message}}` a daemon-side runner interpolates
+            into its prompt. Nesting it inside a row would claim it belongs to
+            that row. */}
         <Field
           label={messageLabel}
           hint={t("settings.preSendChecks.messageHint")}
@@ -947,6 +945,19 @@ export function PreSendCheckEditModal({
             </View>
           </Field>
         ) : null}
+
+        {/* Last, because it answers for the whole rule rather than for any one
+            field: its verdict covers the seam, the trigger, the comparison and
+            whether the outcomes can happen there. Sitting between the outcomes
+            and the message, it separated two things that belong together and
+            interrupted the rule halfway through being written. */}
+        <PreSendCheckTryIt
+          draft={draft}
+          descriptors={seamOutcomes}
+          resetKey={resetKey}
+          disabled={isPending}
+          testID={`${prefix}-try-it`}
+        />
 
         {submitError ? (
           <Text style={styles.submitError} testID="pre-send-check-submit-error">

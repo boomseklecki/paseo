@@ -1844,7 +1844,8 @@ export const ar: TranslationResources = {
         "كل ما ينبغي أن تفعله هذه القاعدة. أضف أكثر من واحدة عندما يستحق الشرط أكثر من استجابة.",
       outcomeLabel: "النتيجة",
       messageLabel: "الرسالة",
-      messageHint: "اختياري. يحل محل النص المدمج عند تطبيق هذه القاعدة.",
+      messageHint:
+        "اختياري، ومشترك بين كل النتائج أعلاه — نص التنبيه، ومتن الإشعار، و{{message}} الذي يتلقاه الموجّه.",
       messagePlaceholder: "اتركه فارغًا لاستخدام النص الافتراضي",
       defaultMessageHint: "يستخدم النص المدمج",
       triggerRequired: "اختر مشغّلًا",

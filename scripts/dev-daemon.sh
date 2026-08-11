@@ -25,8 +25,22 @@ echo "════════════════════════�
 export PASEO_CORS_ORIGINS="${PASEO_CORS_ORIGINS:-*}"
 export PASEO_NODE_INSPECT="${PASEO_NODE_INSPECT:---inspect=0}"
 
-if [ "${PASEO_SKIP_DEV_SERVER_BUILD:-0}" = "1" ]; then
-  exec npm run dev:server:watch
+# The server leg does not reload on a source change by default: `dev:server:raw`
+# runs the daemon under plain tsx, so it compiles once at boot and then holds
+# what it compiled. That is deliberate for a daemon holding ports and child
+# processes, and it is also how a dev box ends up serving yesterday's code for a
+# day without saying so. PASEO_DEV_SERVER_RELOAD=1 swaps in `tsx watch`.
+#
+# It does nothing for the web UI, which is a built Expo bundle either way - run
+# `npm run build:daemon-web-ui` for app changes.
+DEV_SERVER_TARGET="dev:server:watch"
+if [ "${PASEO_DEV_SERVER_RELOAD:-0}" = "1" ]; then
+  DEV_SERVER_TARGET="dev:server:watch:reload"
+  echo "  Reload:  server restarts on source changes (web UI still needs build:daemon-web-ui)"
 fi
 
-exec sh -c 'npm run build:server-deps && npm run dev:server:watch'
+if [ "${PASEO_SKIP_DEV_SERVER_BUILD:-0}" = "1" ]; then
+  exec npm run "$DEV_SERVER_TARGET"
+fi
+
+exec sh -c "npm run build:server-deps && npm run $DEV_SERVER_TARGET"
