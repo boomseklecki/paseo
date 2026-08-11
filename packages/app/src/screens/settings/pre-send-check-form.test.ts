@@ -20,9 +20,9 @@ import {
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckOptions,
-  preSendEventSuppliesTypedMessage,
   PRE_SEND_OPERATOR_OPTIONS,
   toPreSendCheckDraft,
+  withDefaultPreSendWording,
   validatePreSendCheckDraft,
   type PreSendCheckDraft,
 } from "./pre-send-check-form";
@@ -48,7 +48,7 @@ const t = (key: string) => key;
 const ASIDE_DESCRIPTORS = [{ kind: "aside", label: "Ask on the side", parameters: [] }];
 
 describe("toPreSendCheckDraft", () => {
-  it("renders the threshold as a string and a missing message as empty", () => {
+  it("renders the threshold as a string and carries no rule-level message", () => {
     expect(toPreSendCheckDraft(RULE)).toEqual({
       // A rule written before `event` existed meant the send.
       event: "message.send",
@@ -56,7 +56,6 @@ describe("toPreSendCheckDraft", () => {
       operator: "gte",
       value: "3600",
       outcomes: [{ kind: "block", params: {} }],
-      message: "",
     });
   });
 
@@ -90,11 +89,13 @@ describe("applyPreSendCheckDraft", () => {
     expect(saved.value).toBe(60);
   });
 
-  it("drops an emptied message rather than storing a blank one", () => {
-    const withMessage = { ...RULE, message: "old" };
+  // The rule-level field is a projection now, so an outcome with nothing to say
+  // writes no message at all - which is the case the field used to sit on screen
+  // for, doing nothing.
+  it("writes no rule message when no outcome shows one", () => {
     const saved = applyPreSendCheckDraft({
-      existing: withMessage,
-      draft: draft({ message: "   " }),
+      existing: RULE,
+      draft: draft({ outcomes: [{ kind: "aside", params: {} }] }),
       id: RULE.id,
     });
     expect(saved).not.toHaveProperty("message");
@@ -422,7 +423,6 @@ describe("preSendCheckExampleToDraft", () => {
       outcomes: [
         { kind: "aside", params: { title: "Aside", prompt: "Answer this.\n\n{{message}}" } },
       ],
-      message: "",
     });
   });
 
@@ -440,8 +440,9 @@ describe("preSendCheckExampleToDraft", () => {
     });
 
     expect(built.value).toBe("80");
-    expect(built.message).toBe("Nearly full.");
-    expect(built.outcomes).toEqual([{ kind: "warn", params: {} }]);
+    // The retiring rule-level message lands as the wording of the outcome that
+    // would have displayed it, so opening an old rule keeps its sentence.
+    expect(built.outcomes).toEqual([{ kind: "warn", params: { wording: "Nearly full." } }]);
   });
 
   // The template's id names the example, not the rule: a rule gets its own at
@@ -590,56 +591,6 @@ describe("preSendOutcomeKindOptions", () => {
   });
 });
 
-/**
- * The token means two things and the interface used to claim it meant one. At a
- * daemon seam nobody types anything, so a prompt asking for `{{message}}` with
- * no rule message renders a hole - the rule fires, the agent gets a prompt with
- * a gap in it, and nothing anywhere says a word.
- */
-describe("the {{message}} token", () => {
-  const daemonSeam = (params: Record<string, string>, message = ""): PreSendCheckDraft =>
-    draft({
-      event: "turn.failed",
-      trigger: "always",
-      value: "1",
-      message,
-      outcomes: [{ kind: "aside", params }],
-    });
-
-  it("knows which seams have someone typing", () => {
-    expect(preSendEventSuppliesTypedMessage("message.send")).toBe(true);
-    expect(preSendEventSuppliesTypedMessage("turn.failed")).toBe(false);
-  });
-
-  it("refuses a daemon-seam prompt that interpolates nothing", () => {
-    expect(validatePreSendCheckDraft(daemonSeam({ prompt: "Explain: {{message}}" })).message).toBe(
-      "settings.preSendChecks.messageNeededForToken",
-    );
-  });
-
-  it("accepts it once the rule has a message to interpolate", () => {
-    expect(
-      validatePreSendCheckDraft(daemonSeam({ prompt: "Explain: {{message}}" }, "That turn failed."))
-        .message,
-    ).toBeUndefined();
-  });
-
-  it("says nothing about a prompt that does not use the token", () => {
-    expect(validatePreSendCheckDraft(daemonSeam({ prompt: "Write the handoff." })).message).toBe(
-      undefined,
-    );
-  });
-
-  // At the composer the composer supplies it, so an empty message is fine.
-  it("leaves a send rule alone", () => {
-    expect(
-      validatePreSendCheckDraft(
-        draft({ outcomes: [{ kind: "aside", params: { prompt: "Answer {{message}}" } }] }),
-      ).message,
-    ).toBeUndefined();
-  });
-});
-
 describe("describePreSendCheckOutcome", () => {
   const t2 = (key: string) => (key.endsWith(".block") ? "Block" : key);
 
@@ -761,5 +712,94 @@ describe("editing the outcome list", () => {
       { kind: "aside", params: {} },
       { kind: "start", params: { title: "Continued" } },
     ]);
+  });
+});
+
+/**
+ * Wording moved onto the outcome because on the rule it was shared by outcomes
+ * that do not all use it. The concrete symptom: a rule whose only outcome was an
+ * aside still showed a Message box, and the composer redirects before it renders
+ * one, so whatever you typed there did nothing at all.
+ */
+describe("wording lives on the outcome", () => {
+  it("gives each plain outcome its own sentence", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: null,
+      draft: draft({
+        outcomes: [
+          { kind: "warn", params: { wording: "Careful." } },
+          { kind: "aside", params: {} },
+        ],
+      }),
+      id: "r",
+    });
+
+    expect(saved.outcomes).toEqual([{ kind: "warn", wording: "Careful." }, { kind: "aside" }]);
+  });
+
+  // The case the old field existed for and did nothing in.
+  it("writes no rule-level message when nothing shows one", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: null,
+      draft: draft({ outcomes: [{ kind: "aside", params: { prompt: "Ask." } }] }),
+      id: "r",
+    });
+
+    expect(saved).not.toHaveProperty("message");
+  });
+
+  // An older build reads one message per rule, so it gets the first sentence
+  // anything would have shown.
+  it("projects the first wording into the retiring rule-level field", () => {
+    const saved = applyPreSendCheckDraft({
+      existing: null,
+      draft: draft({
+        outcomes: [
+          { kind: "block", params: { wording: "Held." } },
+          { kind: "aside", params: {} },
+        ],
+      }),
+      id: "r",
+    });
+
+    expect(saved.message).toBe("Held.");
+  });
+
+  it("carries an old rule's single message onto the outcome that displayed it", () => {
+    const built = toPreSendCheckDraft({ ...RULE, message: "Too cold." });
+
+    expect(built.outcomes).toEqual([{ kind: "block", params: { wording: "Too cold." } }]);
+  });
+});
+
+describe("withDefaultPreSendWording", () => {
+  // "Leave empty for the default wording" asked people to accept text they had
+  // no way of reading. The box now opens holding the sentence that would fire.
+  it("fills a plain outcome with the sentence that would fire", () => {
+    const filled = withDefaultPreSendWording(
+      draft({ outcomes: [{ kind: "block", params: {} }] }),
+      t,
+    );
+
+    expect(filled.outcomes[0]?.params.wording).toBe("composer.preSendChecks.idleSeconds");
+  });
+
+  it("leaves a sentence someone wrote alone", () => {
+    const filled = withDefaultPreSendWording(
+      draft({ outcomes: [{ kind: "warn", params: { wording: "Mine." } }] }),
+      t,
+    );
+
+    expect(filled.outcomes[0]?.params.wording).toBe("Mine.");
+  });
+
+  // A runnable outcome shows nobody a sentence; it takes a prompt instead.
+  it("adds nothing to an outcome that shows no wording", () => {
+    const filled = withDefaultPreSendWording(
+      draft({ outcomes: [{ kind: "aside", params: {} }] }),
+      t,
+    );
+
+    expect(filled.outcomes[0]?.params).toEqual({});
   });
 });

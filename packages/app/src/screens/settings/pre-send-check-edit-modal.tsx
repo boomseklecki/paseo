@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { Minus } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { Field, FormTextInput } from "@/components/ui/form-field";
@@ -11,6 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import {
   isPlainOutcomeKind,
   isTextTrigger,
+  preSendTokensForPrompt,
+  preSendTokensForWording,
   type PreSendOutcomeDescriptor,
   type PreSendOutcomeParameter,
 } from "@getpaseo/protocol/pre-send-checks/types";
@@ -19,9 +22,10 @@ import { dryRunPreSendCheckSample } from "@getpaseo/protocol/pre-send-checks/dry
 import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
-  preSendEventSuppliesTypedMessage,
   addPreSendOutcome,
   applyPreSendCheckDraft,
+  withDefaultPreSendWording,
+  PRE_SEND_WORDING_PARAM,
   applyPreSendEventChange,
   nextPreSendOutcomeKind,
   preSendOutcomeKindsForRow,
@@ -69,6 +73,39 @@ interface PreSendCheckEditModalProps {
 }
 
 const RemoveOutcomeIcon = withUnistyles(Minus);
+
+/**
+ * Which tokens a field may use here, spelled out rather than described.
+ *
+ * The old hint named `{{message}}` at every seam, including the ones where
+ * nobody types anything and it renders as a hole. Listing what is live is the
+ * difference between a field you can use and one you have to guess at.
+ */
+/**
+ * Drops the sentence a daemon wrote about tokens, keeping the rest of its text.
+ *
+ * Its description is one or more sentences and only the token one is wrong here,
+ * so replacing the whole thing would throw away "Sent to the new conversation as
+ * its first message" along with it.
+ */
+function stripTokenSentence(description: string): string {
+  return description
+    .split(/(?<=\.)\s+/)
+    .filter((sentence) => !sentence.includes("{{"))
+    .join(" ")
+    .trim();
+}
+
+function tokenHelp(tokens: readonly string[], t: TFunction): string {
+  const names: Record<string, string> = {
+    "{{message}}": t("settings.preSendChecks.tokenMessage"),
+    "{{value}}": t("settings.preSendChecks.tokenValue"),
+    "{{threshold}}": t("settings.preSendChecks.tokenThreshold"),
+    "{{duration}}": t("settings.preSendChecks.tokenDuration"),
+  };
+  const lines = tokens.map((token) => `${token} ${names[token] ?? ""}`.trim());
+  return `${t("settings.preSendChecks.tokensLabel")} ${lines.join("   ")}`;
+}
 
 type PickerKind = "event" | "trigger" | "operator";
 
@@ -324,8 +361,6 @@ function PreSendCheckHostRow({ host, selected, disabled, onToggle }: PreSendChec
 
 interface PreSendOutcomeFieldProps {
   parameter: PreSendOutcomeParameter;
-  /** The seam, because `{{message}}` means something different at each one. */
-  event: string;
   value: string;
   disabled: boolean;
   resetKey: string;
@@ -342,15 +377,12 @@ interface PreSendOutcomeFieldProps {
  */
 function PreSendOutcomeField({
   parameter,
-  event,
   value,
   disabled,
   resetKey,
   onChange,
   testID,
 }: PreSendOutcomeFieldProps) {
-  const { t } = useTranslation();
-
   const handleChangeText = useCallback(
     (next: string) => {
       onChange(parameter.id, next);
@@ -364,15 +396,6 @@ function PreSendOutcomeField({
   // token takes the rule's own Message instead. Only the app knows which, so
   // only the app can say. Anything not mentioning the token keeps the daemon's
   // wording, so an outcome this build has never heard of still describes itself.
-  const hint =
-    parameter.description?.includes("{{message}}") === true
-      ? t(
-          preSendEventSuppliesTypedMessage(event)
-            ? "settings.preSendChecks.messageTokenTyped"
-            : "settings.preSendChecks.messageTokenFromRule",
-        )
-      : parameter.description;
-
   const handleToggle = useCallback(
     (next: boolean) => {
       onChange(parameter.id, next ? "true" : "");
@@ -398,7 +421,7 @@ function PreSendOutcomeField({
   }
 
   return (
-    <Field label={parameter.label} hint={hint} testID={testID + "-field"}>
+    <Field label={parameter.label} hint={parameter.description} testID={testID + "-field"}>
       <FormTextInput
         initialValue={value}
         value={value}
@@ -418,8 +441,10 @@ function PreSendOutcomeField({
 
 interface PreSendOutcomeRowProps {
   index: number;
-  /** The seam, for the parameter hints that depend on it. */
+  /** The seam, which decides whether a prompt has `{{message}}` to interpolate. */
   event: string;
+  /** The trigger, which decides which tokens a wording can render. */
+  trigger: string;
   outcome: PreSendCheckOutcomeDraft;
   /** Every kind this seam accepts and this daemon can perform. */
   kinds: readonly string[];
@@ -452,6 +477,7 @@ interface PreSendOutcomeRowProps {
 function PreSendOutcomeRow({
   index,
   event,
+  trigger,
   outcome,
   kinds,
   descriptor,
@@ -508,6 +534,47 @@ function PreSendOutcomeRow({
 
   const label = t("settings.preSendChecks.outcomeLabel");
 
+  // Declared here rather than beside the daemon's descriptors: `warn`, `block`
+  // and `notify` are fixed in the protocol, so nothing describes them and the
+  // editor has to know what they take. Shaped like a daemon-supplied parameter
+  // so it renders through the same component, but translated, which the
+  // daemon's own never are.
+  const wordingParameter = useMemo<PreSendOutcomeParameter>(
+    () => ({
+      type: "text",
+      id: PRE_SEND_WORDING_PARAM,
+      label: t("settings.preSendChecks.wordingLabel"),
+      description: `${t("settings.preSendChecks.wordingHint")} ${tokenHelp(
+        preSendTokensForWording(trigger),
+        t,
+      )}`,
+      multiline: true,
+    }),
+    [t, trigger],
+  );
+
+  // A daemon describes its own parameters and cannot know the seam, so its
+  // sentence about tokens names one that may not exist here. Rewritten by the
+  // row rather than by the field, because only the row knows it is looking at a
+  // prompt — the field cannot tell a prompt from a wording, and guessing from
+  // the text is exactly how the wording ended up advertising `{{message}}`,
+  // which no wording has ever interpolated. Everything not mentioning a token
+  // keeps the daemon's own words, so an unknown outcome still describes itself.
+  const promptParameters = useMemo(() => {
+    const tokens = tokenHelp(preSendTokensForPrompt(event), t);
+    const rewritten: PreSendOutcomeParameter[] = [];
+    for (const parameter of descriptor?.parameters ?? []) {
+      if (parameter.description?.includes("{{") !== true) {
+        rewritten.push(parameter);
+        continue;
+      }
+      const described = { ...parameter };
+      described.description = `${stripTokenSentence(parameter.description)} ${tokens}`.trim();
+      rewritten.push(described);
+    }
+    return rewritten;
+  }, [descriptor, event, t]);
+
   return (
     <View style={styles.outcomeRow}>
       <View style={styles.outcomePicker}>
@@ -535,11 +602,20 @@ function PreSendOutcomeRow({
           <RemoveOutcomeIcon size={16} />
         </Button>
       </View>
-      {descriptor?.parameters.map((parameter) => (
+      {isPlainOutcomeKind(outcome.kind) ? (
+        <PreSendOutcomeField
+          parameter={wordingParameter}
+          value={outcome.params[PRE_SEND_WORDING_PARAM] ?? ""}
+          disabled={disabled}
+          resetKey={`${resetKey}-${outcome.kind}`}
+          onChange={handleParamChange}
+          testID={`${testID}-${PRE_SEND_WORDING_PARAM}`}
+        />
+      ) : null}
+      {promptParameters.map((parameter) => (
         <PreSendOutcomeField
           key={parameter.id}
           parameter={parameter}
-          event={event}
           value={outcome.params[parameter.id] ?? ""}
           disabled={disabled}
           resetKey={`${resetKey}-${outcome.kind}`}
@@ -601,6 +677,7 @@ function PreSendOutcomeList({
             key={outcome.kind}
             index={index}
             event={draft.event}
+            trigger={draft.trigger}
             outcome={outcome}
             kinds={preSendOutcomeKindsForRow(draft, index, descriptors)}
             descriptor={descriptors.find((candidate) => candidate.kind === outcome.kind)}
@@ -659,12 +736,7 @@ export function PreSendCheckEditModal({
   const initialDraftRef = useRef(initialDraft);
   initialDraftRef.current = initialDraft;
 
-  const {
-    trigger: initialTrigger,
-    operator: initialOperator,
-    value: initialValue,
-    message: initialMessage,
-  } = initialDraft;
+  const { trigger: initialTrigger, operator: initialOperator, value: initialValue } = initialDraft;
   // The outcomes as one string, for the same reason the host ids are joined
   // below: a caller rebuilding an equal list each render must not reset the
   // form under the person filling it in.
@@ -682,7 +754,7 @@ export function PreSendCheckEditModal({
       setIsPending(false);
       return;
     }
-    setDraft(initialDraftRef.current);
+    setDraft(withDefaultPreSendWording(initialDraftRef.current, t));
     setServerIds(initialServerIdKey ? initialServerIdKey.split(SERVER_ID_KEY_SEPARATOR) : []);
     setFieldErrors({});
     setSubmitError(null);
@@ -692,24 +764,9 @@ export function PreSendCheckEditModal({
     initialOperator,
     initialValue,
     initialOutcomeKey,
-    initialMessage,
     initialServerIdKey,
+    t,
   ]);
-
-  // `setField` only clears an error keyed by the field being typed in, and the
-  // token complaint is raised against `message` but caused by an outcome's
-  // prompt. Editing either has to clear it, or it sits there contradicting a
-  // form that is now valid.
-  const clearMessageError = useCallback(() => {
-    setFieldErrors((current) => {
-      if (!("message" in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next.message;
-      return next;
-    });
-  }, []);
 
   const clearOutcomeError = useCallback(() => {
     setFieldErrors((current) => {
@@ -730,13 +787,9 @@ export function PreSendCheckEditModal({
     [clearOutcomeError],
   );
 
-  const handleOutcomeParamChange = useCallback(
-    (index: number, id: string, value: string) => {
-      setDraft((current) => setPreSendOutcomeParam(current, index, id, value));
-      clearMessageError();
-    },
-    [clearMessageError],
-  );
+  const handleOutcomeParamChange = useCallback((index: number, id: string, value: string) => {
+    setDraft((current) => setPreSendOutcomeParam(current, index, id, value));
+  }, []);
 
   const handleOutcomeRemove = useCallback(
     (index: number) => {
@@ -750,10 +803,13 @@ export function PreSendCheckEditModal({
     // The kind is worked out from the draft rather than passed in, so the row
     // that appears is one the seam accepts and the list does not already hold.
     setDraft((current) =>
-      addPreSendOutcome(current, nextPreSendOutcomeKind(current, outcomeDescriptors)),
+      withDefaultPreSendWording(
+        addPreSendOutcome(current, nextPreSendOutcomeKind(current, outcomeDescriptors)),
+        t,
+      ),
     );
     clearOutcomeError();
-  }, [clearOutcomeError, outcomeDescriptors]);
+  }, [clearOutcomeError, outcomeDescriptors, t]);
 
   const handleToggleHost = useCallback((serverId: string, selected: boolean) => {
     setServerIds((current) => {
@@ -798,13 +854,6 @@ export function PreSendCheckEditModal({
   const handleThresholdChange = useCallback(
     (next: string) => {
       setField("value", next);
-    },
-    [setField],
-  );
-
-  const handleMessageChange = useCallback(
-    (next: string) => {
-      setField("message", next);
     },
     [setField],
   );
@@ -861,7 +910,6 @@ export function PreSendCheckEditModal({
     isTextRule ? "settings.preSendChecks.textLabel" : "settings.preSendChecks.thresholdLabel",
   );
   const thresholdHint = isTextRule ? t("settings.preSendChecks.textHint") : undefined;
-  const messageLabel = t("settings.preSendChecks.messageLabel");
 
   // One ternary rather than two guards, which is also what keeps this function
   // under the complexity ceiling. `always` is the trigger with no comparison in
@@ -943,34 +991,6 @@ export function PreSendCheckEditModal({
           onAdd={handleOutcomeAdd}
           testID={`${prefix}-outcomes`}
         />
-
-        {/* Directly under the outcomes, because it is their wording and nothing
-            else's. One per rule rather than one per outcome, and deliberately:
-            the same sentence is the toast a `warn` raises, the body of a
-            `notify`, and the `{{message}}` a daemon-side runner interpolates
-            into its prompt. Nesting it inside a row would claim it belongs to
-            that row. */}
-        <Field
-          label={messageLabel}
-          hint={t("settings.preSendChecks.messageHint")}
-          error={fieldErrors.message ? t(fieldErrors.message) : undefined}
-          testID={`${prefix}-message`}
-        >
-          <FormTextInput
-            initialValue={draft.message}
-            value={draft.message}
-            resetKey={resetKey}
-            onChangeText={handleMessageChange}
-            placeholder={t("settings.preSendChecks.messagePlaceholder")}
-            autoCapitalize="sentences"
-            autoCorrect={false}
-            editable={!isPending}
-            returnKeyType="done"
-            onSubmitEditing={handleSave}
-            accessibilityLabel={messageLabel}
-            testID={`${prefix}-message-input`}
-          />
-        </Field>
 
         {preSendCheckChoosesHosts(hosts.length) ? (
           <Field

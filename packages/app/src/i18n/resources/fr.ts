@@ -1902,15 +1902,13 @@ export const fr: TranslationResources = {
       outcomesHint:
         "Tout ce que cette règle doit faire. Ajoutez-en plusieurs quand une condition mérite plusieurs réponses.",
       outcomeLabel: "Résultat",
-      messageLabel: "Message",
-      messageTokenTyped: "{{message}} est remplacé par ce que vous avez tapé.",
-      messageTokenFromRule:
-        "{{message}} est remplacé par le Message ci-dessous — personne ne tape quoi que ce soit à ce moment. Ne laissez Message vide que si l'invite n'utilise pas le jeton.",
-      messageNeededForToken:
-        "Cette invite utilise {{message}}, et personne ne tape rien à ce moment. Écrivez un message, ou retirez {{message}} de l'invite.",
-      messageHint:
-        "Facultatif, et partagé par tous les résultats ci-dessus : le message d'alerte, le corps de la notification et le {{message}} que reçoit une invite.",
-      messagePlaceholder: "Laissez vide pour le texte par défaut",
+      wordingLabel: "Formulation",
+      wordingHint: "Ce qui vous est dit quand la règle se déclenche.",
+      tokensLabel: "Jetons :",
+      tokenMessage: "ce que vous avez tapé",
+      tokenValue: "la valeur mesurée",
+      tokenThreshold: "la valeur à laquelle la règle compare",
+      tokenDuration: "la durée, pour une règle de temps",
       defaultMessageHint: "Utilise le texte par défaut",
       triggerRequired: "Choisissez un déclencheur",
       operatorRequired: "Choisissez une comparaison",

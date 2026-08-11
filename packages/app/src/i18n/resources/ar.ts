@@ -1843,15 +1843,13 @@ export const ar: TranslationResources = {
       outcomesHint:
         "كل ما ينبغي أن تفعله هذه القاعدة. أضف أكثر من واحدة عندما يستحق الشرط أكثر من استجابة.",
       outcomeLabel: "النتيجة",
-      messageLabel: "الرسالة",
-      messageTokenTyped: "يُستبدل {{message}} بما كتبته.",
-      messageTokenFromRule:
-        "يُستبدل {{message}} بحقل الرسالة أدناه — لا أحد يكتب شيئًا في هذه اللحظة. اترك الرسالة فارغة فقط إذا كان الموجّه لا يستخدم الرمز.",
-      messageNeededForToken:
-        "هذا الموجّه يستخدم {{message}}، ولا أحد يكتب شيئًا في هذه اللحظة. اكتب رسالة أو أزل {{message}} من الموجّه.",
-      messageHint:
-        "اختياري، ومشترك بين كل النتائج أعلاه — نص التنبيه، ومتن الإشعار، و{{message}} الذي يتلقاه الموجّه.",
-      messagePlaceholder: "اتركه فارغًا لاستخدام النص الافتراضي",
+      wordingLabel: "الصياغة",
+      wordingHint: "ما الذي يُقال لك عند تشغيل هذه القاعدة.",
+      tokensLabel: "الرموز:",
+      tokenMessage: "ما كتبته",
+      tokenValue: "القيمة المقيسة",
+      tokenThreshold: "القيمة التي تقارنها القاعدة",
+      tokenDuration: "المدة، في قاعدة زمنية",
       defaultMessageHint: "يستخدم النص المدمج",
       triggerRequired: "اختر مشغّلًا",
       operatorRequired: "اختر طريقة المقارنة",

@@ -24,7 +24,23 @@ import { z } from "zod";
 const PreSendOutcomeSchema = z
   .object({
     kind: z.string(),
-    /** Wraps the triggering text; `{{message}}` is replaced with it. */
+    /**
+     * What a person is told: the toast a `warn` or `block` raises, the body of a
+     * `notify`. Absent falls back to a translated sentence built from the
+     * trigger.
+     *
+     * On the outcome rather than on the rule, and that is the point. It lived on
+     * the rule and was therefore shared by outcomes that do not all use it — a
+     * rule whose only outcome was an `aside` still offered a Message box that
+     * nothing read, because the composer redirects before it renders one. A
+     * field only exists where something consumes it.
+     */
+    wording: z.string().optional(),
+    /**
+     * What a runner is told. `{{message}}` is what someone typed and is only
+     * filled at `message.send`; `{{value}}` is the measured value and is filled
+     * everywhere.
+     */
     prompt: z.string().optional(),
     /** What the resulting subagent is called in the panel. */
     title: z.string().optional(),
@@ -251,6 +267,55 @@ export const PRE_SEND_OUTCOME_KINDS = [
 
 export function isPlainOutcomeKind(kind: string): boolean {
   return (PRE_SEND_PLAIN_OUTCOME_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * The tokens a text field may interpolate, and where each is filled.
+ *
+ * Declared rather than documented in prose, so an editor can list exactly what
+ * is live at the seam being edited instead of naming a token that quietly
+ * renders as nothing. `{{message}}` is the one with a condition on it: it is
+ * what a person typed, and nobody types anything at a daemon seam.
+ */
+export const PRE_SEND_VALUE_TOKEN = "{{value}}";
+export const PRE_SEND_THRESHOLD_TOKEN = "{{threshold}}";
+export const PRE_SEND_DURATION_TOKEN = "{{duration}}";
+export const PRE_SEND_MESSAGE_TOKEN = "{{message}}";
+
+/**
+ * What a **prompt** may use: text handed to an agent.
+ *
+ * `{{message}}` is what a person typed, so it exists only where a person typed
+ * something. A prompt does not interpolate `{{threshold}}` or `{{duration}}` —
+ * those are rendered by the wording path, and listing them here would name two
+ * more tokens that quietly resolve to nothing.
+ */
+export function preSendTokensForPrompt(event: string): readonly string[] {
+  return event === "message.send"
+    ? [PRE_SEND_MESSAGE_TOKEN, PRE_SEND_VALUE_TOKEN]
+    : [PRE_SEND_VALUE_TOKEN];
+}
+
+/**
+ * What a **wording** may use: the sentence a person is shown.
+ *
+ * Never `{{message}}`, at any seam. A wording says what happened, and what was
+ * typed is not that — the composer interpolates value, threshold and duration
+ * into it and nothing else, so offering the fourth would be inviting someone to
+ * write a sentence with a hole in it.
+ *
+ * `{{duration}}` only where the value is a duration. On a cost rule it renders
+ * empty, and a token that resolves to nothing should not be advertised.
+ */
+export function preSendTokensForWording(trigger: string): readonly string[] {
+  const tokens = [PRE_SEND_VALUE_TOKEN, PRE_SEND_THRESHOLD_TOKEN];
+  return trigger === "agent.idleSeconds" ? [...tokens, PRE_SEND_DURATION_TOKEN] : tokens;
+}
+
+/** What one outcome says, or `undefined` to fall back to a translated default. */
+export function preSendOutcomeWording(outcome: PreSendOutcome): string | undefined {
+  const wording = outcome.wording;
+  return typeof wording === "string" && wording.trim() ? wording : undefined;
 }
 
 /**

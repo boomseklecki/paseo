@@ -1,4 +1,9 @@
-import { isPreSendRunnableOutcomeKind, isTextTrigger, PRE_SEND_ALWAYS_TRIGGER } from "./types.js";
+import {
+  isPreSendRunnableOutcomeKind,
+  isTextTrigger,
+  preSendOutcomeWording,
+  PRE_SEND_ALWAYS_TRIGGER,
+} from "./types.js";
 import type {
   PreSendCheckRule,
   PreSendDisposition,
@@ -156,13 +161,18 @@ function evaluateRule(
       SEVERITY[candidate.disposition] > SEVERITY[worst] ? candidate.disposition : worst,
     readable[0]?.disposition ?? "warn",
   );
+  // The sentence belongs to the outcome that decided the disposition, because
+  // that is the outcome the person will see the result of. `rule.message` behind
+  // it is the retiring rule-level field, kept readable so a rule written before
+  // wording moved still says what its author wrote.
+  const deciding = readable.find((candidate) => candidate.disposition === disposition);
   return {
     ruleId: rule.id,
     trigger: rule.trigger,
     disposition,
     value: tripped.value,
     operand: tripped.operand,
-    message: rule.message ?? null,
+    message: (deciding && preSendOutcomeWording(deciding.outcome)) ?? rule.message ?? null,
     outcomes: readable.map((candidate) => candidate.outcome),
   };
 }

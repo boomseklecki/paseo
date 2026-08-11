@@ -48,8 +48,9 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.sessionCostUsd",
       operator: "gte",
       value: 25,
-      outcomes: [{ kind: "notify" }],
-      message: "A turn failed on a session that has already cost {{value}}.",
+      outcomes: [
+        { kind: "notify", wording: "A turn failed on a session that has already cost {{value}}." },
+      ],
     },
   },
   {
@@ -113,8 +114,12 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 80,
-      outcomes: [{ kind: "notify" }],
-      message: "This conversation is {{value}} full. Wrap up or hand off before it compacts.",
+      outcomes: [
+        {
+          kind: "notify",
+          wording: "This conversation is {{value}} full. Wrap up or hand off before it compacts.",
+        },
+      ],
     },
   },
   {
@@ -127,8 +132,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: 3600,
-      outcomes: [{ kind: "notify" }],
-      message: "This agent has been idle for {{duration}}.",
+      outcomes: [{ kind: "notify", wording: "This agent has been idle for {{duration}}." }],
     },
   },
   {
@@ -151,9 +155,11 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
           prompt:
             "This conversation is nearly full and will compact soon. Write a handoff for whoever picks it up: what we were doing, what is decided, what is still open, and which files matter. Be specific and do not go looking - use what you already have.",
         },
-        { kind: "notify" },
+        {
+          kind: "notify",
+          wording: "This conversation is {{value}} full. The handoff is under subagents.",
+        },
       ],
-      message: "This conversation is {{value}} full. The handoff is under subagents.",
     },
   },
   {
@@ -165,8 +171,9 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.contextUsedPercent",
       operator: "gte",
       value: 80,
-      outcomes: [{ kind: "warn" }],
-      message: "This conversation is {{value}}% full and will compact soon.",
+      outcomes: [
+        { kind: "warn", wording: "This conversation is {{value}}% full and will compact soon." },
+      ],
     },
   },
   {
@@ -178,8 +185,7 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
       trigger: "agent.sessionCostUsd",
       operator: "gte",
       value: 10,
-      outcomes: [{ kind: "warn" }],
-      message: "This session has cost {{value}} so far.",
+      outcomes: [{ kind: "warn", wording: "This session has cost {{value}} so far." }],
     },
   },
   {

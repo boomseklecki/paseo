@@ -63,18 +63,23 @@ This file is not a rule. Only \`*.json\` is read.
   "trigger": "agent.idleSeconds",
   "operator": "gte",
   "value": 3600,
-  "outcomes": [{ "kind": "block" }],
-  "message": "Optional. Overrides the built-in wording."
+  "outcomes": [{ "kind": "block", "wording": "Optional. Replaces the built-in sentence." }]
 }
 \`\`\`
 
 The filename is the id — a rule needs no \`id\` field, and one that disagrees is
-read under its filename anyway. \`message\` may use \`{{value}}\` and, for a
-duration trigger, \`{{duration}}\`.
+read under its filename anyway.
+
+\`wording\` is what a person is told, and it belongs to the outcome that tells
+them: \`warn\`, \`block\` and \`notify\` each carry their own. It may use
+\`{{value}}\`, \`{{threshold}}\` and, for a duration trigger, \`{{duration}}\`.
+A runnable outcome has no \`wording\` — it takes a \`prompt\`, which may use
+\`{{value}}\` anywhere and \`{{message}}\` only at \`message.send\`, since
+nobody types anything at the other seams.
 
 The seeded files also carry \`measurement\`, \`threshold\`, \`disposition\`,
-\`action\` and a singular \`outcome\`, which are the older names for
-\`trigger\`, \`value\` and \`outcomes\`. They are written so a Paseo older than
+\`action\`, a singular \`outcome\` and a rule-level \`message\`, which are the
+older names for \`trigger\`, \`value\`, \`outcomes\` and \`wording\`. They are written so a Paseo older than
 0.3.2 can still read these rules, and either name works if you write one by
 hand. The newer name wins where both appear, and where an older Paseo can carry
 out only one outcome it gets the one that decides what happens to the message.

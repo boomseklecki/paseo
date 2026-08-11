@@ -4,6 +4,7 @@ import {
   isPlainOutcomeKind,
   isTextTrigger,
   mostSeverePreSendOutcome,
+  preSendOutcomeWording,
   type PreSendOutcomeDescriptor,
   type PreSendCheckRule,
   type PreSendCheckExample,
@@ -19,7 +20,11 @@ import {
   isOutcomeValidForEvent,
   PRE_SEND_EVENT_DEFINITIONS,
 } from "@getpaseo/protocol/pre-send-checks/events";
-import { formatTriggerValue, type PreSendTranslate } from "@/composer/pre-send-checks";
+import {
+  defaultPreSendWording,
+  formatTriggerValue,
+  type PreSendTranslate,
+} from "@/composer/pre-send-checks";
 import { formatDuration } from "@/utils/time";
 
 /**
@@ -74,31 +79,20 @@ export interface PreSendCheckDraft {
   value: string;
   /** Never empty on a saveable draft: a rule with no outcome does nothing. */
   outcomes: PreSendCheckOutcomeDraft[];
-  message: string;
 }
 
-export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes" | "message";
+export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes";
 
 /**
- * Whether this seam has a person typing something for `{{message}}` to be.
+ * The parameter a plain outcome's sentence lives under.
  *
- * The token means two different things and that is the honest reading of it: at
- * the composer it is the text in the box, and at a daemon seam nobody typed
- * anything, so what fills it is the rule's own `message`. Everything that has to
- * explain or validate the token asks this first.
+ * `warn`, `block` and `notify` are a closed set in the protocol rather than a
+ * daemon-described registry, so the app supplies this field itself instead of
+ * waiting to be told about it. That is the difference between the two halves of
+ * an outcome row: a runnable kind describes its own parameters because a newer
+ * daemon can add one, and a plain kind cannot.
  */
-export function preSendEventSuppliesTypedMessage(event: string): boolean {
-  return event === DEFAULT_PRE_SEND_EVENT;
-}
-
-/** Whether any of a draft's outcomes interpolates the token. */
-export function preSendDraftUsesMessageToken(draft: PreSendCheckDraft): boolean {
-  return draft.outcomes.some((outcome) =>
-    Object.values(outcome.params).some((value) => value.includes(MESSAGE_TOKEN)),
-  );
-}
-
-const MESSAGE_TOKEN = "{{message}}";
+export const PRE_SEND_WORDING_PARAM = "wording";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
@@ -108,7 +102,6 @@ export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
   operator: "gte",
   value: "",
   outcomes: [{ kind: "block", params: {} }],
-  message: "",
 };
 
 export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
@@ -118,8 +111,10 @@ export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
     trigger: normalized.trigger,
     operator: normalized.operator,
     value: normalized.value === undefined ? "" : String(normalized.value),
-    outcomes: normalized.outcomes.map(toOutcomeDraft),
-    message: normalized.message ?? "",
+    // The retiring rule-level message becomes the wording of whichever outcome
+    // would have shown it, so opening an old rule shows its sentence where the
+    // sentence now lives rather than losing it.
+    outcomes: normalized.outcomes.map((outcome) => toOutcomeDraft(outcome, normalized.message)),
   };
 }
 
@@ -131,14 +126,21 @@ export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
  * anything else came from a daemon this build cannot draw a control for — and
  * an input showing `[object Object]` is worse than one showing nothing.
  */
-function toOutcomeDraft(outcome: PreSendOutcome): PreSendCheckOutcomeDraft {
+function toOutcomeDraft(
+  outcome: PreSendOutcome,
+  ruleMessage: string | undefined,
+): PreSendCheckOutcomeDraft {
   const { kind, ...params } = outcome;
-  return {
-    kind,
-    params: Object.fromEntries(
-      Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
-    ),
-  };
+  const drafted: Record<string, string> = Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [key, typeof value === "string" ? value : ""]),
+  );
+  // Only where the outcome shows a sentence, and only when it has none of its
+  // own: a rule that predates the move carried one message for the whole rule,
+  // and the plain outcomes are what displayed it.
+  if (isPlainOutcomeKind(kind) && !drafted[PRE_SEND_WORDING_PARAM] && ruleMessage) {
+    drafted[PRE_SEND_WORDING_PARAM] = ruleMessage;
+  }
+  return { kind, params: drafted };
 }
 
 /**
@@ -191,8 +193,8 @@ export function applyPreSendCheckDraft(input: {
   descriptors?: readonly PreSendOutcomeDescriptor[];
 }): PreSendCheckRule {
   const previous = input.existing ? normalizePreSendCheckRule(input.existing) : null;
-  const message = input.draft.message.trim();
   const operand = input.draft.value.trim();
+  const outcomes = input.draft.outcomes.map((outcome) => buildOutcome(outcome, input.descriptors));
   return {
     ...carryUnknownFields(input.existing),
     ...projectPreSendCheckRule({
@@ -204,8 +206,11 @@ export function applyPreSendCheckDraft(input: {
       // stays a string and a numeric one is parsed. Nothing has to write both
       // and nothing has to delete the other.
       value: isTextTrigger(input.draft.trigger) ? operand : Number(operand),
-      outcomes: input.draft.outcomes.map((outcome) => buildOutcome(outcome, input.descriptors)),
-      message: message || undefined,
+      outcomes,
+      // The rule-level field is written as a projection of the wording that
+      // would have filled it, so a build that predates the move still says
+      // something rather than falling silent. See `projectPreSendCheckRule`.
+      message: retiringRuleMessage(outcomes),
       order: previous?.order,
       enabled: previous?.enabled ?? true,
     }),
@@ -239,6 +244,24 @@ function buildOutcome(
   return { ...params, kind: outcome.kind };
 }
 
+/**
+ * What the retiring rule-level `message` is written as.
+ *
+ * The wording of the first outcome that shows one, because that is the sentence
+ * an older build would have displayed. `undefined` when no outcome shows one at
+ * all — a rule whose only outcome is an aside has nothing to say to a person,
+ * which is exactly the case where the old field sat on screen doing nothing.
+ */
+function retiringRuleMessage(outcomes: readonly PreSendOutcome[]): string | undefined {
+  for (const outcome of outcomes) {
+    const wording = preSendOutcomeWording(outcome);
+    if (wording) {
+      return wording;
+    }
+  }
+  return undefined;
+}
+
 export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendCheckFieldErrors {
   const errors: PreSendCheckFieldErrors = {};
   if (!draft.trigger.trim()) {
@@ -250,17 +273,6 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
   const outcomeError = validateOutcomes(draft.outcomes);
   if (outcomeError) {
     errors.outcomes = outcomeError;
-  }
-  // A prompt asking for `{{message}}` where nothing supplies one renders a hole.
-  // The rule still fires, so nothing else would ever say a word about it: the
-  // agent just receives a prompt with a gap where the question should be. This
-  // is the only place that catches it.
-  if (
-    !preSendEventSuppliesTypedMessage(draft.event) &&
-    !draft.message.trim() &&
-    preSendDraftUsesMessageToken(draft)
-  ) {
-    errors.message = "settings.preSendChecks.messageNeededForToken";
   }
   // A text rule compares against a string, so any non-empty value is usable and
   // only a numeric one has to parse.
@@ -523,6 +535,40 @@ export function nextPreSendOutcomeKind(
   return (
     preSendOutcomeKindOptions(draft.event, descriptors).find((kind) => !taken.has(kind)) ?? null
   );
+}
+
+/**
+ * Fills in the default sentence wherever an outcome shows one and has none.
+ *
+ * Prefilled rather than described. The field used to say "leave empty for the
+ * default wording" without ever showing what that wording was, which asked
+ * someone to accept text they could not read. Now the box opens holding the
+ * sentence that would fire, and clearing it puts the fallback back.
+ *
+ * Pure and applied when a draft is opened or a row is added, rather than inside
+ * `toPreSendCheckDraft`: only a caller with a translator can render the default,
+ * and the conversion has no business needing one.
+ */
+export function withDefaultPreSendWording(
+  draft: PreSendCheckDraft,
+  t: PreSendTranslate,
+): PreSendCheckDraft {
+  const operand = isTextTrigger(draft.trigger) ? draft.value : Number(draft.value);
+  return {
+    ...draft,
+    outcomes: draft.outcomes.map((outcome) => {
+      if (!isPlainOutcomeKind(outcome.kind) || outcome.params[PRE_SEND_WORDING_PARAM]?.trim()) {
+        return outcome;
+      }
+      return {
+        ...outcome,
+        params: {
+          ...outcome.params,
+          [PRE_SEND_WORDING_PARAM]: defaultPreSendWording(draft.trigger, operand, t),
+        },
+      };
+    }),
+  };
 }
 
 /** Appends an outcome row. A caller with nothing to add gets the draft back. */

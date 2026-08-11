@@ -134,12 +134,16 @@ export class PreSendChecksSession {
       const outcome = await this.outcomeRunner.run({
         agentId: msg.agentId,
         message: msg.message,
+        // The client measured it, so the client formats it: only the app has
+        // the rule's trigger to hand at this point, and a daemon re-deriving it
+        // from the message would be guessing.
+        value: msg.value ?? "",
         outcome: msg.outcome,
         confirmed: msg.confirmed === true,
       });
       this.respondToRunOutcome(msg.requestId, outcome);
     } catch (error) {
-      this.logger.warn({ err: error }, "Pre-send action failed");
+      this.logger.warn({ err: error }, "Pre-send outcome failed");
       this.respondToRunOutcome(msg.requestId, {
         status: "failed",
         reason: error instanceof Error ? error.message : String(error),

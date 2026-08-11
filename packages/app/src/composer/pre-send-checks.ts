@@ -93,31 +93,14 @@ const MESSAGE_KEY_BY_MEASUREMENT: Record<string, string> = {
 };
 
 /**
- * Exported so the settings list describes a threshold in the same units the toast
- * reports the measured value in. Two formatters would drift, and the first anyone
- * would notice is a rule that reads "3600" in the editor and "1 hour" when it fires.
+ * Re-exported rather than implemented, because the daemon renders this too now:
+ * `{{value}}` is a token a prompt can interpolate, so the same number reaches an
+ * agent through the server. `@getpaseo/protocol` owns it so the editor, the
+ * toast and the prompt cannot disagree about what 3600 means.
  */
-export function formatTriggerValue(
-  measurement: string,
-  value: number | string | undefined,
-): string {
-  // A text rule's value is the message itself and a trigger carries no
-  // threshold, so anything that is not a number is shown as itself rather than
-  // run through a unit formatter that would print it as a duration.
-  if (typeof value !== "number") {
-    return value ?? "";
-  }
-  switch (measurement) {
-    case "agent.idleSeconds":
-      return formatDuration(value * 1000);
-    case "agent.contextUsedPercent":
-      return `${Math.round(value)}%`;
-    case "agent.sessionCostUsd":
-      return `$${value.toFixed(2)}`;
-    default:
-      return String(value);
-  }
-}
+import { formatPreSendTriggerValue } from "@getpaseo/protocol/pre-send-checks/format";
+
+export { formatPreSendTriggerValue as formatTriggerValue };
 
 /**
  * The sentence shown in the toast.
@@ -126,10 +109,32 @@ export function formatTriggerValue(
  * whoever wrote it gets the wording they asked for. Only the shipped rules —
  * which carry no message — fall through to a translated default.
  */
+/**
+ * The sentence a rule would say if nobody wrote one.
+ *
+ * Exported so the editor can *show* it rather than name it. "Leave empty for the
+ * default wording" asked people to accept text they had no way of reading; this
+ * is that text, rendered against the rule's own threshold because there is no
+ * measured value at settings time and the threshold is the boundary at which the
+ * sentence first appears.
+ */
+export function defaultPreSendWording(
+  trigger: string,
+  operand: number | string | undefined,
+  t: PreSendTranslate,
+): string {
+  const rendered = formatPreSendTriggerValue(trigger, operand);
+  return t(MESSAGE_KEY_BY_MEASUREMENT[trigger] ?? "composer.preSendChecks.generic", {
+    value: rendered,
+    threshold: rendered,
+    duration: typeof operand === "number" ? formatDuration(operand * 1000) : "",
+  });
+}
+
 export function formatPreSendFinding(finding: PreSendFinding, t: PreSendTranslate): string {
   const values = {
-    value: formatTriggerValue(finding.trigger, finding.value),
-    threshold: formatTriggerValue(finding.trigger, finding.operand),
+    value: formatPreSendTriggerValue(finding.trigger, finding.value),
+    threshold: formatPreSendTriggerValue(finding.trigger, finding.operand),
     // Only a numeric finding has a duration to render; a text trigger's value is
     // the message, and there is nothing to convert.
     duration: typeof finding.value === "number" ? formatDuration(finding.value * 1000) : "",

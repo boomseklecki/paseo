@@ -354,3 +354,59 @@ describe("firstRunnablePreSendOutcome", () => {
     expect(firstRunnablePreSendOutcome(evaluation.findings)).toBeNull();
   });
 });
+
+/**
+ * Wording moved onto the outcome because on the rule it was shared by outcomes
+ * that do not all use it: a rule whose only outcome was an `aside` still offered
+ * a Message box, and the composer redirects before it ever renders one.
+ */
+describe("wording on the outcome", () => {
+  it("takes the sentence from the outcome that decided the disposition", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ outcomes: [{ kind: "block", wording: "Too cold." }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.findings[0]?.message).toBe("Too cold.");
+  });
+
+  // Not the first outcome, and not any outcome: the one whose result is what a
+  // person will actually see.
+  it("ignores the wording of an outcome that did not decide", () => {
+    const evaluation = evaluatePreSendChecks(
+      [
+        rule({
+          outcomes: [
+            { kind: "warn", wording: "Only a warning." },
+            { kind: "block", wording: "Held." },
+          ],
+        }),
+      ],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.disposition).toBe("block");
+    expect(evaluation.findings[0]?.message).toBe("Held.");
+  });
+
+  // A rule written before wording moved still says what its author wrote.
+  it("falls back to the retiring rule-level message", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ message: "From the old field.", outcomes: [{ kind: "block" }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.findings[0]?.message).toBe("From the old field.");
+  });
+
+  // Blank is absent: a field someone cleared should fall through to the
+  // translated default rather than firing an empty toast.
+  it("treats blank wording as none", () => {
+    const evaluation = evaluatePreSendChecks(
+      [rule({ outcomes: [{ kind: "block", wording: "   " }] })],
+      context({ idleSeconds: 250 }),
+    );
+
+    expect(evaluation.findings[0]?.message).toBeNull();
+  });
+});

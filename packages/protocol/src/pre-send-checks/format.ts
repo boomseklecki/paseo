@@ -1,0 +1,86 @@
+/**
+ * How a measured value reads.
+ *
+ * Here rather than in the app because both sides render it now. The composer
+ * puts it in a toast, the settings list describes a threshold with it, and — now
+ * that `{{value}}` is a token a prompt can interpolate — the daemon substitutes
+ * it into text an agent receives. Three copies of "3600 means one hour" would
+ * drift, and the first anyone would notice is a rule reading `3600` in the
+ * editor and `1h` when it fires.
+ *
+ * Deliberately locale-free. The daemon has no locale to format in, and a token
+ * substituted into a prompt is read by a model rather than by a person, so a
+ * stable rendering matters more than a localised one.
+ */
+
+/** `90s` / `2m 30s` / `3h` — the same shape the app's own duration helper produces. */
+export function formatPreSendDuration(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return "0s";
+  }
+  const totalSeconds = durationMs / 1000;
+
+  if (totalSeconds < 60) {
+    return `${Math.floor(totalSeconds)}s`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    const seconds = Math.floor(totalSeconds) % 60;
+    return seconds === 0 ? `${totalMinutes}m` : `${totalMinutes}m ${seconds}s`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return remainingMinutes === 0 ? `${hours}h` : `${hours}h ${remainingMinutes}m`;
+}
+
+/**
+ * One measured value, in the units its trigger is about.
+ *
+ * Anything that is not a number is shown as itself: a text rule's value is the
+ * message, and `always` carries no operand at all, so running either through a
+ * unit formatter would print a message as a duration.
+ */
+export function formatPreSendTriggerValue(
+  trigger: string,
+  value: number | string | undefined,
+): string {
+  if (typeof value !== "number") {
+    return value ?? "";
+  }
+  switch (trigger) {
+    case "agent.idleSeconds":
+      return formatPreSendDuration(value * 1000);
+    case "agent.contextUsedPercent":
+      return `${Math.round(value)}%`;
+    case "agent.sessionCostUsd":
+      return `$${value.toFixed(2)}`;
+    default:
+      return String(value);
+  }
+}
+
+/**
+ * Fills the tokens a wording may carry.
+ *
+ * The composer gets this for free — it runs a rule's wording through i18next,
+ * which interpolates as it translates. The daemon has no translator: it hands
+ * the sentence to a push notification as-is, so `{{value}}` reached a phone
+ * looking exactly like `{{value}}`. This is that missing half, and it is here
+ * rather than in the server so the two sides substitute the same names.
+ *
+ * `{{duration}}` renders only for a numeric trigger. A text rule's value is the
+ * message itself, and printing it as a formatted zero would be worse than
+ * leaving the token empty.
+ */
+export function renderPreSendWording(
+  text: string,
+  input: { trigger: string; value: number | string; operand: number | string },
+): string {
+  return text
+    .replaceAll("{{value}}", formatPreSendTriggerValue(input.trigger, input.value))
+    .replaceAll("{{threshold}}", formatPreSendTriggerValue(input.trigger, input.operand))
+    .replaceAll(
+      "{{duration}}",
+      typeof input.value === "number" ? formatPreSendDuration(input.value * 1000) : "",
+    );
+}

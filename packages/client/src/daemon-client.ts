@@ -5135,6 +5135,8 @@ export class DaemonClient {
     input: {
       agentId: string;
       message: string;
+      /** The measured value, already formatted. Fills `{{value}}` in a prompt. */
+      value?: string;
       outcome: { kind: string } & Record<string, unknown>;
       confirmed?: boolean;
     },
@@ -5146,6 +5148,7 @@ export class DaemonClient {
         type: "rules.run_outcome.request",
         agentId: input.agentId,
         message: input.message,
+        ...(input.value === undefined ? {} : { value: input.value }),
         outcome: input.outcome,
         confirmed: input.confirmed === true,
       },

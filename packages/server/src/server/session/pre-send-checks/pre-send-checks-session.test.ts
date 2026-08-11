@@ -168,7 +168,7 @@ describe("PreSendChecksSession", () => {
     expect(response?.payload.error).toBe("write failed");
   });
 
-  it("passes a run_action through to the runner and reports what it started", async () => {
+  it("passes a run_outcome through to the runner and reports what it started", async () => {
     const seen: unknown[] = [];
     const { session, emitted } = makeSession(
       {},
@@ -191,6 +191,9 @@ describe("PreSendChecksSession", () => {
       {
         agentId: "agent-1",
         message: "/btw what does this flag do",
+        // A client that predates `{{value}}` sends none, and the token then
+        // substitutes to nothing - which is what it did before it existed.
+        value: "",
         outcome: { kind: "aside" },
         confirmed: true,
       },

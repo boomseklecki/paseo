@@ -43,8 +43,18 @@ export type PreSendOutcomeResult =
 export interface PreSendOutcomeRequest {
   /** The conversation the message was typed into. */
   agentId: string;
-  /** The full text, trigger prefix and all. Trimming it is the outcome's business. */
+  /**
+   * What someone typed, trigger prefix and all. Empty at a daemon seam, where
+   * nobody typed anything — which is why `{{message}}` is only offered in the
+   * editor at `message.send`.
+   */
   message: string;
+  /**
+   * The measured value that tripped the rule, already formatted for reading:
+   * `80%`, `$25.00`, `2 hours`. Filled at every seam, which is what makes
+   * `{{value}}` the token a daemon-side prompt can actually use.
+   */
+  value: string;
   outcome: PreSendOutcomeSpec;
   /** True on a second attempt, after the caller answered a `needs_confirmation`. */
   confirmed: boolean;
@@ -63,6 +73,23 @@ export interface PreSendOutcomeRequest {
  * legitimate chain anyone has wanted is one hop — fork on a failure, start when
  * full — and the second hop is always the runaway rather than a use case.
  */
+/**
+ * Fills a prompt's tokens.
+ *
+ * One function because three runners were each doing their own half of it, and
+ * the halves had already drifted: the aside appended the message when the
+ * template named no token and the others silently dropped it. Appending is the
+ * aside's own behaviour and stays there; what is shared is the substitution.
+ */
+export function renderPreSendPrompt(template: string, request: PreSendOutcomeRequest): string {
+  return template.replaceAll("{{message}}", request.message).replaceAll("{{value}}", request.value);
+}
+
+/** Whether a template asks for anything that has to be substituted. */
+export function promptUsesPreSendToken(template: string): boolean {
+  return template.includes("{{message}}") || template.includes("{{value}}");
+}
+
 export const RULE_CREATED_AGENT_LABEL = "paseo.created-by-rule";
 
 export function wasCreatedByRule(labels: Record<string, string> | undefined): boolean {

@@ -1853,15 +1853,13 @@ export const ko: TranslationResources = {
       outcomesLabel: "결과",
       outcomesHint: "이 규칙이 할 일 전부입니다. 하나의 조건에 여러 응답이 필요하면 추가하세요.",
       outcomeLabel: "결과",
-      messageLabel: "메시지",
-      messageTokenTyped: "{{message}}는 입력한 내용으로 바뀝니다.",
-      messageTokenFromRule:
-        "{{message}}는 아래 메시지로 바뀝니다 — 이 순간에는 아무도 입력하지 않습니다. 프롬프트가 토큰을 쓰지 않을 때만 메시지를 비워 두세요.",
-      messageNeededForToken:
-        "이 프롬프트는 {{message}}를 쓰는데 이 순간에는 아무도 입력하지 않습니다. 메시지를 쓰거나 프롬프트에서 {{message}}를 빼세요.",
-      messageHint:
-        "선택 사항이며 위의 모든 결과가 공유합니다 — 경고 토스트, 알림 본문, 프롬프트가 받는 {{message}}입니다.",
-      messagePlaceholder: "비워 두면 기본 문구를 사용합니다",
+      wordingLabel: "문구",
+      wordingHint: "이 규칙이 발동할 때 전달되는 내용입니다.",
+      tokensLabel: "토큰:",
+      tokenMessage: "입력한 내용",
+      tokenValue: "측정된 값",
+      tokenThreshold: "규칙이 비교하는 값",
+      tokenDuration: "얼마나 오래인지, 시간 규칙에서",
       defaultMessageHint: "기본 문구를 사용합니다",
       triggerRequired: "트리거를 고르세요",
       operatorRequired: "비교 방식을 고르세요",

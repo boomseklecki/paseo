@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import type { ScheduleService } from "../../schedule/service.js";
 import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
+import { promptUsesPreSendToken, renderPreSendPrompt } from "./types.js";
 
 /**
  * Says the one thing no other outcome can say: later.
@@ -116,5 +117,5 @@ function readPrompt(request: PreSendOutcomeRequest): string {
   if (!template) {
     return message;
   }
-  return template.includes("{{message}}") ? template.replaceAll("{{message}}", message) : template;
+  return promptUsesPreSendToken(template) ? renderPreSendPrompt(template, request) : template;
 }

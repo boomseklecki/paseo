@@ -3,6 +3,7 @@ import type { AgentManager } from "../../agent/agent-manager.js";
 import type { AgentSessionConfig, AgentTimelineItem } from "../../agent/agent-sdk-types.js";
 import { planAside, type AsideRoute } from "./aside-plan.js";
 import type { PreSendOutcomeResult, PreSendOutcomeRequest } from "./types.js";
+import { promptUsesPreSendToken, renderPreSendPrompt } from "./types.js";
 
 /**
  * Answers a question about the current work without the conversation taking a
@@ -206,8 +207,8 @@ function buildQuestion(request: PreSendOutcomeRequest): string {
   if (!template) {
     return message;
   }
-  if (template.includes("{{message}}")) {
-    return template.replaceAll("{{message}}", message);
+  if (promptUsesPreSendToken(template)) {
+    return renderPreSendPrompt(template, request);
   }
   // Nothing to append at a daemon seam: nobody typed anything, so the template
   // is the whole question. Appending an empty line and a blank would leave the

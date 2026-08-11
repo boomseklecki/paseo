@@ -23,6 +23,11 @@ import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registr
 import type { PreSendOutcomeRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
 import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
 import type { PreSendCheckRule, PreSendOutcome } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  formatPreSendTriggerValue,
+  renderPreSendWording,
+} from "@getpaseo/protocol/pre-send-checks/format";
+import { preSendOutcomeWording } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
@@ -2545,10 +2550,17 @@ export class VoiceAssistantWebSocketServer {
     finding: PreSendEventFinding,
   ): Promise<void> {
     let announce = false;
+    // The notification says what the `notify` outcome says, falling back to the
+    // rule-level message a rule written before wording moved still carries.
+    // Interpolated here because nothing downstream will: the composer runs a
+    // wording through i18next, which substitutes as it translates, and the push
+    // path has no translator - so `{{value}}` reached a phone verbatim.
+    let announcement = finding.message ?? undefined;
 
     for (const outcome of finding.outcomes) {
       if (outcome.kind === "notify") {
         announce = true;
+        announcement = preSendOutcomeWording(outcome) ?? announcement;
         continue;
       }
       // Deliberately not short-circuiting: one outcome declining says nothing
@@ -2563,7 +2575,14 @@ export class VoiceAssistantWebSocketServer {
         agentId,
         provider,
         reason: "rule",
-        ruleMessage: finding.message ?? undefined,
+        ruleMessage:
+          announcement === undefined
+            ? undefined
+            : renderPreSendWording(announcement, {
+                trigger: finding.trigger,
+                value: finding.value,
+                operand: finding.operand,
+              }),
       });
     }
   }
@@ -2591,9 +2610,12 @@ export class VoiceAssistantWebSocketServer {
   ): Promise<boolean> {
     const result = await this.ruleOutcomeRunner.run({
       agentId,
-      // Nobody typed anything here, so the rule's own wording is the message.
-      // An outcome whose prompt has no {{message}} ignores it entirely.
-      message: finding.message ?? "",
+      // Empty on purpose. `{{message}}` is what a person typed and nobody typed
+      // anything here, so the editor does not offer the token at this seam and
+      // filling it with something else would be inventing a question. What a
+      // daemon-side prompt has instead is `{{value}}`.
+      message: "",
+      value: formatPreSendTriggerValue(finding.trigger, finding.value),
       outcome,
       confirmed: false,
     });

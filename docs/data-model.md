@@ -461,17 +461,17 @@ One file per rule. The filename **is** the id — a rule file needs no `id` fiel
 
 Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `pre_send_checks/upsert` is the only write verb for that reason.
 
-| Field      | Type                | Description                                                                                                                      |
-| ---------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `id`       | `string`            | Filename without `.json`; supplied by the store on read                                                                          |
-| `event`    | `string?`           | Which seam (see below). Absent means `message.send`, the only one that existed at first                                          |
-| `trigger`  | `string`            | What is looked at, e.g. `agent.idleSeconds`, `message`                                                                           |
-| `operator` | `string`            | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text                                                  |
-| `value`    | `string \| number?` | What the trigger is compared against; the type says which kind of trigger                                                        |
-| `outcomes` | `object[]`          | Each `{ kind, ... }`. `warn`, `block` and `notify` are plain; any other kind names something the daemon runs. All of them happen |
-| `message`  | `string?`           | Shown instead of the app's translated default                                                                                    |
-| `order`    | `number?`           | Display position; unordered rules sort after ordered ones                                                                        |
-| `enabled`  | `boolean?`          | Absent means enabled                                                                                                             |
+| Field      | Type                | Description                                                                                                                                                                   |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`       | `string`            | Filename without `.json`; supplied by the store on read                                                                                                                       |
+| `event`    | `string?`           | Which seam (see below). Absent means `message.send`, the only one that existed at first                                                                                       |
+| `trigger`  | `string`            | What is looked at, e.g. `agent.idleSeconds`, `message`                                                                                                                        |
+| `operator` | `string`            | `gt` \| `gte` \| `lt` \| `lte` for numbers, `startsWith` \| `contains` for text                                                                                               |
+| `value`    | `string \| number?` | What the trigger is compared against; the type says which kind of trigger                                                                                                     |
+| `outcomes` | `object[]`          | Each `{ kind, ... }`. `warn`, `block` and `notify` are plain and carry a `wording`; any other kind names something the daemon runs and carries a `prompt`. All of them happen |
+| `message`  | `string?`           | Retiring. The rule-level sentence, now written as a projection of the first outcome's `wording`                                                                               |
+| `order`    | `number?`           | Display position; unordered rules sort after ordered ones                                                                                                                     |
+| `enabled`  | `boolean?`          | Absent means enabled                                                                                                                                                          |
 
 ### Seams, and what each accepts
 
@@ -492,6 +492,27 @@ The runners are `aside` (answer in a hidden agent), `fork` (carry this
 conversation into a new one), `start` (open a fresh one carrying nothing) and
 `schedule` (come back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
 is the lookup, and it declines a kind it does not have rather than ignoring it.
+
+### Wording belongs to the outcome that says it
+
+`warn`, `block` and `notify` each carry their own `wording`; the runnable kinds
+carry a `prompt` instead. There is no rule-level text field, and its absence is
+the point. One shared `message` was offered by the editor on every rule, but the
+composer redirects before it renders one — so a rule whose only outcome was an
+`aside` showed a box that nothing read, and whatever you typed in it did nothing.
+A field exists where something consumes it.
+
+The tokens differ by field, because what is available differs. A `prompt` may use
+`{{message}}` — what a person typed — and therefore only at `message.send`;
+nobody types anything at a daemon seam, where the token used to resolve to an
+empty string and hand an agent a prompt with a hole in it. A `wording` never uses
+`{{message}}` at any seam: it uses `{{value}}`, `{{threshold}}` and, for a
+duration trigger, `{{duration}}`. The editor lists which are live rather than
+describing them in prose.
+
+Both sides substitute through `packages/protocol/src/pre-send-checks/format.ts`.
+The composer got this free from i18next, which interpolates as it translates; the
+daemon has no translator and was sending `{{value}}` to a phone verbatim.
 
 ### A list, and what settles a disagreement inside it
 

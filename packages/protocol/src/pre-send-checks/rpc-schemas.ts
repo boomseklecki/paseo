@@ -118,6 +118,16 @@ export const PreSendChecksRunOutcomeRequestSchema = z.object({
   requestId: z.string(),
   agentId: z.string(),
   message: z.string(),
+  /**
+   * The measured value that tripped the rule, already formatted for reading.
+   *
+   * Sent rather than re-derived, because only the caller has the rule's trigger
+   * at this point and a daemon working it back out of the message would be
+   * guessing. Optional so a client that predates `{{value}}` still runs an
+   * outcome; the token then substitutes to nothing, which is what it did before
+   * the token existed.
+   */
+  value: z.string().optional(),
   outcome: z.object({ kind: z.string() }).passthrough(),
   confirmed: z.boolean().optional(),
 });

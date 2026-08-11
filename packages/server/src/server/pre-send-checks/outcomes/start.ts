@@ -6,6 +6,7 @@ import {
   type PreSendOutcomeResult,
   type PreSendOutcomeRequest,
 } from "./types.js";
+import { promptUsesPreSendToken, renderPreSendPrompt } from "./types.js";
 
 /**
  * Starts a fresh conversation beside this one.
@@ -94,9 +95,8 @@ export class StartOutcome {
  */
 function readOpening(request: PreSendOutcomeRequest): string {
   const template = request.outcome.prompt?.trim();
-  const message = request.message.trim();
   if (!template) {
     return "";
   }
-  return template.includes("{{message}}") ? template.replaceAll("{{message}}", message) : template;
+  return promptUsesPreSendToken(template) ? renderPreSendPrompt(template, request) : template;
 }
