@@ -3,6 +3,7 @@ import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types"
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
+  describePreSendCheckOutcome,
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
   preSendCheckExampleToDraft,
@@ -585,6 +586,40 @@ describe("preSendOutcomeKindOptions", () => {
 
     expect(kinds).toContain("notify");
     expect(kinds).not.toContain("block");
+  });
+});
+
+describe("describePreSendCheckOutcome", () => {
+  const t2 = (key: string) => (key.endsWith(".block") ? "Block" : key);
+
+  it("translates a plain kind", () => {
+    expect(describePreSendCheckOutcome(RULE, t2).label).toBe("Block");
+    expect(describePreSendCheckOutcome(RULE, t2).isBlocking).toBe(true);
+  });
+
+  // Caught by a screenshot rather than a test: the badge read a lowercase
+  // `aside` beside `Block` and `Warn`, because the page had the descriptors and
+  // did not hand them over.
+  it("uses the daemon's label for a kind it described", () => {
+    const aside = { ...RULE, disposition: "redirect", action: { kind: "aside" } };
+
+    expect(describePreSendCheckOutcome(aside, t2, ASIDE_DESCRIPTORS).label).toBe("Ask on the side");
+  });
+
+  it("falls back to the raw kind when nothing described it", () => {
+    const aside = { ...RULE, disposition: "redirect", action: { kind: "aside" } };
+
+    expect(describePreSendCheckOutcome(aside, t2, []).label).toBe("aside");
+  });
+
+  // The badge names the outcome that decides, and counts the rest - a row also
+  // holds a title, a message preview and a host line.
+  it("names the most severe outcome and counts the others", () => {
+    const both = { ...RULE, outcomes: [{ kind: "block" }, { kind: "aside" }] };
+
+    expect(describePreSendCheckOutcome(both, t2, ASIDE_DESCRIPTORS).label).toBe(
+      "Ask on the side +1",
+    );
   });
 });
 

@@ -21,7 +21,10 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckGroup } from "./pre-send-check-groups";
-import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
+import type {
+  PreSendCheckExample,
+  PreSendOutcomeDescriptor,
+} from "@getpaseo/protocol/pre-send-checks/types";
 import { preSendCheckNeverFires } from "@getpaseo/protocol/pre-send-checks/dry-run";
 import {
   applyPreSendCheckDraft,
@@ -117,6 +120,14 @@ function listStateMessageKey(state: PreSendChecksListState): string {
 
 interface PreSendCheckRowProps {
   group: PreSendCheckGroup;
+  /**
+   * What the daemon says it can run, so the badge can use its label.
+   *
+   * Without these a runnable outcome badges as its raw wire kind — `aside`
+   * beside `Block` and `Warn`, lowercase and in a vocabulary nobody chose. The
+   * plain kinds are translated here; only the daemon can name the rest.
+   */
+  outcomeDescriptors: readonly PreSendOutcomeDescriptor[];
   isFirst: boolean;
   isLast: boolean;
   showHosts: boolean;
@@ -129,6 +140,7 @@ interface PreSendCheckRowProps {
 
 function PreSendCheckRow({
   group,
+  outcomeDescriptors,
   isFirst,
   isLast,
   showHosts,
@@ -178,7 +190,11 @@ function PreSendCheckRow({
   // hand-editable by design, so a rule written into a file never met the
   // editor. This is the only thing that would tell someone it can never fire.
   const neverFires = preSendCheckNeverFires(rule);
-  const { label: badgeLabel, isBlocking } = describePreSendCheckOutcome(rule, t);
+  const { label: badgeLabel, isBlocking } = describePreSendCheckOutcome(
+    rule,
+    t,
+    outcomeDescriptors,
+  );
 
   return (
     <View style={rowStyle} testID={`pre-send-check-row-${group.id}`}>
@@ -606,6 +622,7 @@ export function PreSendChecksPage() {
             <PreSendCheckRow
               key={group.id}
               group={group}
+              outcomeDescriptors={outcomes}
               isFirst={index === 0}
               isLast={index === groups.length - 1}
               showHosts={showHosts}
