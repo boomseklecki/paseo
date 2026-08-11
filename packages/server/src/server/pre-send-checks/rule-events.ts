@@ -87,3 +87,30 @@ export function firePreSendRuleEvent(
   const findings = evaluatePreSendEvent(input.rules, input.event, input.context);
   return tracker.fired(input.agentId, findings);
 }
+
+/**
+ * The measurements a daemon-side seam can take, from what the manager already
+ * holds.
+ *
+ * Thinner than the composer's context, and honestly so. `message` is empty
+ * because the text was sent a turn ago and the events table does not offer that
+ * trigger here. `idleSeconds` is measured from the turn that just ended, which
+ * at a failure is approximately zero — a rule triggering on idle time at
+ * `turn.failed` is asking the wrong question, and gets a truthful answer rather
+ * than a fabricated one.
+ */
+export function buildAgentRuleContext(input: {
+  contextWindowUsedTokens: number | null | undefined;
+  contextWindowMaxTokens: number | null | undefined;
+  totalCostUsd: number | null | undefined;
+  idleSeconds: number | null;
+}): PreSendMeasurementContext {
+  const used = input.contextWindowUsedTokens ?? null;
+  const max = input.contextWindowMaxTokens ?? null;
+  return {
+    idleSeconds: input.idleSeconds,
+    contextUsedPercent: used === null || max === null || max <= 0 ? null : (used / max) * 100,
+    sessionCostUsd: input.totalCostUsd ?? null,
+    message: "",
+  };
+}

@@ -711,7 +711,11 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("attention_required"),
     provider: AgentProviderSchema,
-    reason: z.enum(["finished", "error", "permission"]),
+    // COMPAT(ruleAttention): "rule" added in v0.3.2, remove the gate after
+    // 2027-02-10 once the client floor is >= v0.3.2. Widened, never narrowed -
+    // but a client older than this still has the three-value enum, so the
+    // daemon withholds the message rather than sending one it would reject.
+    reason: z.enum(["finished", "error", "permission", "rule"]),
     timestamp: z.string(),
     shouldNotify: z.boolean(),
     notification: z
@@ -722,7 +726,9 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
           serverId: z.string(),
           workspaceId: z.string().optional(),
           agentId: z.string(),
-          reason: z.enum(["finished", "error", "permission"]),
+          // COMPAT(ruleAttention): widened with the reason above, so the payload
+          // is one shape rather than two that agree by coincidence.
+          reason: z.enum(["finished", "error", "permission", "rule"]),
         }),
       })
       .optional(),
@@ -3952,7 +3958,11 @@ export const AgentAttentionRequiredMessageSchema = z.object({
   type: z.literal("agent_attention_required"),
   payload: z.object({
     agentId: z.string(),
-    reason: z.enum(["finished", "error", "permission"]),
+    // COMPAT(ruleAttention): "rule" added in v0.3.2, remove the gate after
+    // 2027-02-10 once the client floor is >= v0.3.2. Widened, never narrowed -
+    // but a client older than this still has the three-value enum, so the
+    // daemon withholds the message rather than sending one it would reject.
+    reason: z.enum(["finished", "error", "permission", "rule"]),
     timestamp: z.string(),
     shouldNotify: z.boolean(),
     notification: z
@@ -3963,7 +3973,9 @@ export const AgentAttentionRequiredMessageSchema = z.object({
           serverId: z.string(),
           workspaceId: z.string().optional(),
           agentId: z.string(),
-          reason: z.enum(["finished", "error", "permission"]),
+          // COMPAT(ruleAttention): widened with the reason above, so the payload
+          // is one shape rather than two that agree by coincidence.
+          reason: z.enum(["finished", "error", "permission", "rule"]),
         }),
       })
       .optional(),

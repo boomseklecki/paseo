@@ -473,6 +473,10 @@ function createDefaultDeps(): HostRuntimeControllerDeps {
     : undefined;
   const appCapabilities = {
     [CLIENT_CAPS.selectiveAgentTimeline]: true,
+    // COMPAT(ruleAttention): this build understands `reason: "rule"` on
+    // agent_attention_required. Without it the daemon withholds rule-fired
+    // notifications, because an older client rejects the whole message.
+    [CLIENT_CAPS.ruleAttention]: true,
     ...browserAutomationCapabilities,
   };
 

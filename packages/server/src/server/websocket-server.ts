@@ -13,6 +13,11 @@ import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { ScheduleService } from "./schedule/service.js";
 import type { PreSendChecksService } from "./pre-send-checks/service.js";
+import {
+  buildAgentRuleContext,
+  firePreSendRuleEvent,
+  PreSendRuleEventTracker,
+} from "./pre-send-checks/rule-events.js";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -64,6 +69,7 @@ import {
 } from "./agent-attention-policy.js";
 import {
   buildAgentAttentionNotificationPayload,
+  type AgentAttentionReason,
   findLatestPermissionRequest,
 } from "@getpaseo/protocol/agent-attention-notification";
 import { createGitHubService } from "../services/github-service.js";
@@ -537,6 +543,8 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly scheduleService: ScheduleService;
   private readonly preSendChecksService: PreSendChecksService;
+  /** Per-agent memory of which rules are already tripping. See rule-events.ts. */
+  private readonly ruleEventTracker = new PreSendRuleEventTracker();
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
   private readonly workspaceGitService: WorkspaceGitService;
@@ -714,6 +722,20 @@ export class VoiceAssistantWebSocketServer {
       void this.broadcastAgentAttention(params).catch((err) => {
         this.logger.warn({ err, agentId: params.agentId }, "Failed to broadcast agent attention");
       });
+      // A failed turn is what puts an agent into error, so this is the seam.
+      // Separate from the built-in notification above rather than replacing it:
+      // that one says the agent stopped, a rule says something its author asked
+      // to be told about, and only the second is conditional.
+      if (params.reason === "error") {
+        void this.fireAgentRuleEvent(params.agentId, params.provider, "turn.failed").catch(
+          (err) => {
+            this.logger.warn(
+              { err, agentId: params.agentId },
+              "Failed to evaluate rules for turn.failed",
+            );
+          },
+        );
+      }
     });
 
     this.providerUsageService = new ProviderUsageService({
@@ -2397,10 +2419,61 @@ export class VoiceAssistantWebSocketServer {
     };
   }
 
+  /**
+   * Evaluates one daemon-side seam for one agent and notifies for what newly
+   * tripped.
+   *
+   * Reads the rules fresh rather than caching them, which is what the whole
+   * store is arranged around — a rule edited on disk takes effect here without a
+   * restart. The tracker is what keeps a condition that stays true from
+   * notifying on every turn; see `rule-events.ts`.
+   */
+  private async fireAgentRuleEvent(
+    agentId: string,
+    provider: AgentProvider,
+    event: string,
+  ): Promise<void> {
+    const agent = this.agentManager.getAgent(agentId);
+    if (!agent?.workspaceId) {
+      // No workspace means no deep link and no attention, the same rule the
+      // built-in notification follows. An internal agent's failures are its
+      // parent's business, not a notification of their own.
+      return;
+    }
+
+    const rules = await this.preSendChecksService.list();
+    const findings = firePreSendRuleEvent(this.ruleEventTracker, {
+      agentId,
+      event,
+      rules,
+      context: buildAgentRuleContext({
+        contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens,
+        contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens,
+        totalCostUsd: agent.lastUsage?.totalCostUsd,
+        // The turn ended at this moment, so nothing has been idle yet.
+        idleSeconds: 0,
+      }),
+    });
+
+    for (const finding of findings) {
+      if (finding.outcome.kind !== "notify") {
+        continue;
+      }
+      await this.broadcastAgentAttention({
+        agentId,
+        provider,
+        reason: "rule",
+        ruleMessage: finding.message ?? undefined,
+      });
+    }
+  }
+
   private async broadcastAgentAttention(params: {
     agentId: string;
     provider: AgentProvider;
-    reason: "finished" | "error" | "permission";
+    reason: AgentAttentionReason;
+    /** Present only for `reason: "rule"`, and becomes the notification body. */
+    ruleMessage?: string;
   }): Promise<void> {
     const clientEntries: Array<{
       ws: WebSocketLike;
@@ -2426,6 +2499,7 @@ export class VoiceAssistantWebSocketServer {
     const assistantMessage = await this.agentManager.getLastAssistantMessage(params.agentId);
     const notification = buildAgentAttentionNotificationPayload({
       reason: params.reason,
+      ruleMessage: params.ruleMessage,
       serverId: this.serverId,
       workspaceId: agent.workspaceId,
       agentId: params.agentId,
@@ -2457,8 +2531,32 @@ export class VoiceAssistantWebSocketServer {
         shouldNotify,
         notification,
       };
+      const supportsSelective = connection?.session.supportsForSource(
+        CLIENT_CAPS.selectiveAgentTimeline,
+        ws,
+      );
+
+      // COMPAT(ruleAttention): a client older than v0.3.2 validates `reason`
+      // against a three-value enum, so sending it a rule would have it drop the
+      // whole message. Withholding costs that client a notification it could not
+      // have rendered; sending costs it the message it was reading.
+      //
+      // Always as agent_attention_required, whatever the client's timeline mode:
+      // advertising this capability means having the widened enum, which lives
+      // in the same package as both message shapes, so there is no client that
+      // understands the reason on one and not the other.
+      if (params.reason === "rule") {
+        if (connection?.session.supportsForSource(CLIENT_CAPS.ruleAttention, ws)) {
+          this.sendToClient(
+            ws,
+            wrapSessionMessage({ type: "agent_attention_required", payload: attentionPayload }),
+          );
+        }
+        continue;
+      }
+
       const message = wrapSessionMessage(
-        connection?.session.supportsForSource(CLIENT_CAPS.selectiveAgentTimeline, ws)
+        supportsSelective
           ? {
               type: "agent_attention_required",
               payload: attentionPayload,

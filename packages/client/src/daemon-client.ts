@@ -336,7 +336,9 @@ export interface SendMessageOptions {
 
 export interface AgentAttentionRequiredNotification {
   agentId: string;
-  reason: "finished" | "error" | "permission";
+  // COMPAT(ruleAttention): "rule" added in v0.3.2. Spelled out rather than
+  // imported so this stays the one place a consumer of this library reads.
+  reason: "finished" | "error" | "permission" | "rule";
   timestamp: string;
   shouldNotify: boolean;
   notification?: AgentAttentionNotificationPayload;
@@ -5330,6 +5332,9 @@ export class DaemonClient {
           [CLIENT_CAPS.providerSubagents]: true,
           [CLIENT_CAPS.projectUpdates]: true,
           [CLIENT_CAPS.compactProviderSnapshots]: true,
+          // COMPAT(ruleAttention): this library forwards the payload whatever
+          // the reason, so every client built against it can render a rule.
+          [CLIENT_CAPS.ruleAttention]: true,
           ...this.config.capabilities,
         },
         ...(this.config.appVersion ? { appVersion: this.config.appVersion } : {}),

@@ -24,6 +24,13 @@ export const CLIENT_CAPS = {
   // provider catalogs with shared thinking sets and may revalidate by content hash.
   // Remove the legacy snapshot encoding after 2027-02-04.
   compactProviderSnapshots: "compact_provider_snapshots",
+  // COMPAT(ruleAttention): added in v0.3.2, remove after 2027-02-10 once the
+  // supported client floor is >= v0.3.2. `agent_attention_required.reason` is a
+  // closed enum on the client, so an old one rejects the whole message rather
+  // than the field it does not know. The daemon therefore withholds rule-fired
+  // attention from clients that have not advertised this, which costs them a
+  // notification they could not have rendered anyway.
+  ruleAttention: "rule_attention",
   browserHost: "browser_host",
 } as const;
 

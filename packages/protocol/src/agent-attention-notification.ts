@@ -1,6 +1,11 @@
 const NOTIFICATION_PREVIEW_LIMIT = 220;
 
-export type AgentAttentionReason = "finished" | "error" | "permission";
+/**
+ * COMPAT(ruleAttention): `rule` added in v0.3.2. Gated by CLIENT_CAPS on the way
+ * out, because the wire schema narrows this to a closed enum and an old client
+ * rejects the whole message on an unknown value.
+ */
+export type AgentAttentionReason = "finished" | "error" | "permission" | "rule";
 
 export interface AgentAttentionNotificationData {
   [key: string]: unknown;
@@ -18,6 +23,11 @@ export interface AgentAttentionNotificationPayload {
 
 interface BuildAgentAttentionNotificationPayloadInput {
   reason: AgentAttentionReason;
+  /**
+   * What a rule had to say, already interpolated. Becomes the body, because a
+   * rule's whole point is that its author chose the wording.
+   */
+  ruleMessage?: string | null;
   serverId: string;
   workspaceId: string;
   agentId: string;
@@ -170,6 +180,10 @@ export function findLatestPermissionRequest(
 }
 
 function resolveAgentAttentionTitle(reason: AgentAttentionReason): string {
+  // One title for every rule rather than one per seam. What distinguishes two
+  // rule notifications is what the rule says, and that is the body - which its
+  // author wrote and which no title derived from an enum could improve on.
+  if (reason === "rule") return "A rule fired";
   if (reason === "permission") return "Agent needs permission";
   if (reason === "error") return "Agent needs attention";
   return "Agent finished";
@@ -184,10 +198,14 @@ function resolveAgentAttentionPreview(
   if (input.reason === "permission") {
     return buildNotificationPreview(buildPermissionDetails(input.permissionRequest));
   }
+  if (input.reason === "rule") {
+    return buildNotificationPreview(input.ruleMessage);
+  }
   return null;
 }
 
 function resolveAgentAttentionFallbackBody(reason: AgentAttentionReason): string {
+  if (reason === "rule") return "A rule matched on this agent.";
   if (reason === "permission") return "Permission requested.";
   if (reason === "error") return "Encountered an error.";
   return "Finished working.";

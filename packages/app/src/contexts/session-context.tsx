@@ -423,7 +423,8 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
   const notifyAgentAttention = useCallback(
     (params: {
       agentId: string;
-      reason: "finished" | "error" | "permission";
+      // COMPAT(ruleAttention): "rule" added in v0.3.2.
+      reason: "finished" | "error" | "permission" | "rule";
       timestamp: string;
       notification?: AgentAttentionNotificationPayload;
     }) => {
