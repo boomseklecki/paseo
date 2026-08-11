@@ -1784,7 +1784,7 @@ export const fr: TranslationResources = {
       general: "Général",
       appearance: "Apparence",
       editor: "Éditeur",
-      preSendChecks: "Vérifications avant envoi",
+      preSendChecks: "Règles",
       shortcuts: "Raccourcis",
       integrations: "Intégrations",
       notifications: "Notifications",
@@ -1793,9 +1793,9 @@ export const fr: TranslationResources = {
       about: "À propos",
     },
     preSendChecks: {
-      sectionTitle: "Vérifications avant envoi",
+      sectionTitle: "Règles",
       sectionHint:
-        "Règles vérifiées avant qu'un message quitte le champ de saisie. Un avertissement laisse partir le message ; un blocage le retient pour que vous gardiez ce que vous avez tapé.",
+        "Les règles s'exécutent aux moments que vous choisissez : avant l'envoi d'un message, à la fin ou à l'échec d'un tour, ou quand un agent reste inactif.",
       hostsLabel: "Hôtes",
       hostsHint:
         "Les machines où cette règle s'applique. Elle est enregistrée séparément sur chacune.",
@@ -1804,14 +1804,14 @@ export const fr: TranslationResources = {
       hostsSucceeded: "Enregistrée sur {{hosts}}.",
       hostFailed: "{{host}} : {{reason}}",
       hostUnreachable: "Non connecté.",
-      featureToggleHost: "Vérifier les messages avant envoi sur {{host}}",
+      featureToggleHost: "Exécuter les règles sur {{host}}",
       differs: "Diverge",
       loading: "Chargement des règles...",
       emptyState: "Aucune règle. Les envois ne sont jamais retenus.",
       unavailableDisconnected: "Non connecté à cet hôte.",
       unavailableUnsupported:
         "Cet hôte exécute une version de Paseo qui ne peut pas enregistrer de règles.",
-      featureToggleTitle: "Vérifier les messages avant envoi",
+      featureToggleTitle: "Exécuter les règles",
       addRule: "Ajouter une règle",
       editRule: "Modifier la règle",
       toggleRule: "Activer ou désactiver cette règle",

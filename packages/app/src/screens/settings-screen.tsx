@@ -152,7 +152,7 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "appearance", labelKey: "settings.sections.appearance", icon: Palette },
   { id: "editor", labelKey: "settings.sections.editor", icon: Code2 },
   {
-    id: "pre-send-checks",
+    id: "rules",
     labelKey: "settings.sections.preSendChecks",
     icon: ShieldAlert,
   },
@@ -1438,7 +1438,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
           return <AppearanceSection />;
         case "editor":
           return <EditorSection />;
-        case "pre-send-checks":
+        case "rules":
           return <PreSendChecksPage />;
         case "shortcuts":
           return isDesktopApp ? <KeyboardShortcutsSection /> : null;
