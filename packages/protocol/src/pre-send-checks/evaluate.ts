@@ -1,4 +1,9 @@
-import { isPlainOutcomeKind, isPreSendActionKind, isTextTrigger } from "./types.js";
+import {
+  isPlainOutcomeKind,
+  isPreSendActionKind,
+  isTextTrigger,
+  PRE_SEND_ALWAYS_TRIGGER,
+} from "./types.js";
 import type {
   PreSendCheckRule,
   PreSendDisposition,
@@ -8,7 +13,13 @@ import type {
   PreSendNumericOperator,
   PreSendTextOperator,
 } from "./types.js";
-import { normalizePreSendCheckRule, type NormalizedPreSendCheckRule } from "./vocabulary.js";
+import {
+  DEFAULT_PRE_SEND_EVENT,
+  normalizePreSendCheckRule,
+  type NormalizedPreSendCheckRule,
+} from "./vocabulary.js";
+import { isOutcomeValidForEvent, rulesForPreSendEvent } from "./events.js";
+import type { PreSendOutcome } from "./types.js";
 
 /**
  * What a rule means. Deliberately pure and string-free: the app supplies the
@@ -115,9 +126,7 @@ function evaluateRule(
   if (!disposition) {
     return null;
   }
-  const tripped = isTextTrigger(rule.trigger)
-    ? evaluateTextRule(rule, context)
-    : evaluateNumericRule(rule, context);
+  const tripped = tripRule(rule, context);
   if (!tripped) {
     return null;
   }
@@ -135,6 +144,30 @@ function evaluateRule(
 interface TrippedComparison {
   value: number | string;
   operand: number | string;
+}
+
+/**
+ * Whether a rule's condition holds, with no opinion about what that means.
+ *
+ * Split out because the two sides want different things from the same answer:
+ * the composer turns it into a disposition it can hold a send with, the daemon
+ * into an outcome it carries out. Sharing the comparison and not the conclusion
+ * is what keeps a rule meaning the same thing at either seam.
+ */
+function tripRule(
+  rule: NormalizedPreSendCheckRule,
+  context: PreSendMeasurementContext,
+): TrippedComparison | null {
+  // The trigger with no comparison in it: the event was the condition, so there
+  // is nothing to read and nothing to compare. Reported as itself on both sides
+  // rather than as an empty value, so a message interpolating {{value}} says
+  // something rather than nothing.
+  if (rule.trigger === PRE_SEND_ALWAYS_TRIGGER) {
+    return { value: PRE_SEND_ALWAYS_TRIGGER, operand: PRE_SEND_ALWAYS_TRIGGER };
+  }
+  return isTextTrigger(rule.trigger)
+    ? evaluateTextRule(rule, context)
+    : evaluateNumericRule(rule, context);
 }
 
 function evaluateNumericRule(
@@ -198,7 +231,9 @@ export function evaluatePreSendChecks(
 ): PreSendEvaluation {
   const findings: PreSendFinding[] = [];
 
-  for (const rule of rules) {
+  // Only the seam this function is named after. A `turn.failed` rule evaluated
+  // here would hold a send over a condition about a turn that already failed.
+  for (const rule of rulesForPreSendEvent(rules, DEFAULT_PRE_SEND_EVENT)) {
     const finding = evaluateRule(normalizePreSendCheckRule(rule), context);
     if (finding) {
       findings.push(finding);
@@ -212,4 +247,59 @@ export function evaluatePreSendChecks(
   );
 
   return { disposition, findings };
+}
+
+/**
+ * What one rule asked for at a daemon-side seam.
+ *
+ * Deliberately not a `PreSendFinding`: that carries a `disposition`, which is
+ * the composer's three-way severity and means nothing where there is no send to
+ * warn about or hold. What a daemon-side rule produces is the outcome itself.
+ */
+export interface PreSendEventFinding {
+  ruleId: string;
+  trigger: string;
+  value: number | string;
+  operand: number | string;
+  /** The rule's own message, raw and uninterpolated. */
+  message: string | null;
+  outcome: PreSendOutcome;
+}
+
+/**
+ * Evaluates the rules belonging to one daemon-side seam.
+ *
+ * Skips a rule whose outcome the seam cannot carry out, rather than carrying it
+ * out anyway. That check duplicates what the editor already prevents, and it is
+ * worth repeating: rules are hand-editable files that also arrive from newer
+ * apps, so the only way a `block` reaches `turn.failed` is a route the editor
+ * never travelled.
+ */
+export function evaluatePreSendEvent(
+  rules: readonly PreSendCheckRule[],
+  event: string,
+  context: PreSendMeasurementContext,
+): PreSendEventFinding[] {
+  const findings: PreSendEventFinding[] = [];
+
+  for (const rule of rulesForPreSendEvent(rules, event)) {
+    const normalized = normalizePreSendCheckRule(rule);
+    if (!normalized.enabled || !isOutcomeValidForEvent(event, normalized.outcome.kind)) {
+      continue;
+    }
+    const tripped = tripRule(normalized, context);
+    if (!tripped) {
+      continue;
+    }
+    findings.push({
+      ruleId: normalized.id,
+      trigger: normalized.trigger,
+      value: tripped.value,
+      operand: tripped.operand,
+      message: normalized.message ?? null,
+      outcome: normalized.outcome,
+    });
+  }
+
+  return findings;
 }

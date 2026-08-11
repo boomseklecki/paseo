@@ -150,9 +150,22 @@ export const PRE_SEND_TRIGGERS = [
   "agent.contextUsedPercent",
   "agent.sessionCostUsd",
   "message",
+  "always",
 ] as const;
 
 export type PreSendTrigger = (typeof PRE_SEND_TRIGGERS)[number];
+
+/**
+ * The trigger with no comparison in it.
+ *
+ * A rule needs a trigger, an operator and a value, which is the right shape for
+ * "when the context is over 80%" and the wrong one for "when a turn fails" -
+ * where the event *is* the condition and there is nothing to compare. `always`
+ * is how that is said: its operator and value are ignored. Without it, a rule
+ * that just wants to fire on an event has to invent a comparison that is always
+ * true, and every reader then has to work out that that is what it meant.
+ */
+export const PRE_SEND_ALWAYS_TRIGGER = "always";
 
 /** The triggers compared as text rather than as numbers. */
 export const PRE_SEND_TEXT_TRIGGERS = ["message"] as const;
@@ -200,13 +213,16 @@ export function isPreSendActionKind(kind: string): boolean {
 }
 
 /**
- * Outcome kinds that are not actions.
+ * Outcome kinds the daemon and app carry out themselves, as opposed to action
+ * kinds, which are a registry an editor is told about.
  *
- * The rest of the namespace is action kinds, which is what lets naming an action
- * be the whole of asking for one. `allow` is absent on purpose: it is what comes
- * back when nothing tripped, not something a rule can ask for.
+ * `warn` and `block` only mean something where there is a send to comment on or
+ * hold; `notify` only means something where there is not, since a person looking
+ * at the composer does not need their phone buzzed. Which of them an event
+ * accepts is `./events.js`, not this list. `allow` is absent on purpose: it is
+ * what comes back when nothing tripped, not something a rule can ask for.
  */
-export const PRE_SEND_PLAIN_OUTCOME_KINDS = ["warn", "block"] as const;
+export const PRE_SEND_PLAIN_OUTCOME_KINDS = ["warn", "block", "notify"] as const;
 
 export type PreSendPlainOutcomeKind = (typeof PRE_SEND_PLAIN_OUTCOME_KINDS)[number];
 
