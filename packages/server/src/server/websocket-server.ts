@@ -18,6 +18,7 @@ import {
   firePreSendRuleEvent,
   PreSendRuleEventTracker,
 } from "./pre-send-checks/rule-events.js";
+import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -555,6 +556,8 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly scheduleService: ScheduleService;
   private readonly preSendChecksService: PreSendChecksService;
+  /** The one seam that needs a clock rather than a transition. See idle-watcher.ts. */
+  private readonly ruleIdleWatcher: PreSendRuleIdleWatcher;
   /** Per-agent memory of which rules are already tripping. See rule-events.ts. */
   private readonly ruleEventTracker = new PreSendRuleEventTracker();
   private readonly checkoutDiffManager: CheckoutDiffManager;
@@ -753,6 +756,31 @@ export class VoiceAssistantWebSocketServer {
         });
       }
     });
+
+    this.ruleIdleWatcher = new PreSendRuleIdleWatcher({
+      listAgents: () =>
+        this.agentManager.listAgents().map((agent) => ({
+          agentId: agent.id,
+          provider: agent.provider,
+          workspaceId: agent.workspaceId,
+          lifecycle: agent.lifecycle,
+          // `updatedAt` rather than a turn-end timestamp, because that is the
+          // clock the manager actually keeps: it is bumped monotonically on
+          // every state change. So this measures "since anything about this
+          // agent last moved", which is a shade broader than "since its last
+          // turn ended" and is the honest signal available here.
+          lastActivityAtMs: agent.updatedAt.getTime(),
+        })),
+      onIdle: (agent, idleSeconds) =>
+        this.fireAgentRuleEvent(
+          agent.agentId,
+          agent.provider as AgentProvider,
+          "agent.idle",
+          idleSeconds,
+        ),
+      logger: this.logger,
+    });
+    this.ruleIdleWatcher.start();
 
     this.providerUsageService = new ProviderUsageService({
       logger: this.logger,
@@ -2448,6 +2476,12 @@ export class VoiceAssistantWebSocketServer {
     agentId: string,
     provider: AgentProvider,
     event: string,
+    /**
+     * Seconds since the agent last did anything. Zero at a turn boundary, where
+     * the turn just ended; a real measurement only at `agent.idle`, which is the
+     * seam that exists to ask about it.
+     */
+    idleSeconds = 0,
   ): Promise<void> {
     const agent = this.agentManager.getAgent(agentId);
     if (!agent?.workspaceId) {
@@ -2466,8 +2500,7 @@ export class VoiceAssistantWebSocketServer {
         contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens,
         contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens,
         totalCostUsd: agent.lastUsage?.totalCostUsd,
-        // The turn ended at this moment, so nothing has been idle yet.
-        idleSeconds: 0,
+        idleSeconds,
       }),
     });
 

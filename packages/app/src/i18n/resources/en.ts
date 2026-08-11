@@ -1788,6 +1788,15 @@ export const en = {
           label: "Tell me when a turn fails after a costly session",
           description: "Only once the session has passed a cost worth interrupting you for.",
         },
+        "notify-agent-left-idle": {
+          label: "Tell me when an agent has been left sitting",
+          description: "An agent waiting on you looks exactly like one you finished with.",
+        },
+        "notify-context-pressure": {
+          label: "Tell me when a conversation is nearly full",
+          description:
+            "Checked when a turn ends, and it reaches your phone rather than a screen you are not looking at.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

@@ -1809,6 +1809,15 @@ export const ptBR: TranslationResources = {
           label: "Avisar quando um turno falhar numa sessão cara",
           description: "Só depois que a sessão passar de um custo que justifique interromper você.",
         },
+        "notify-agent-left-idle": {
+          label: "Avisar quando um agente ficar parado",
+          description: "Um agente esperando por você é idêntico a um que já terminou.",
+        },
+        "notify-context-pressure": {
+          label: "Avisar quando uma conversa estiver quase cheia",
+          description:
+            "Verificado no fim do turno e enviado ao seu telefone, não a uma tela que você não está olhando.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

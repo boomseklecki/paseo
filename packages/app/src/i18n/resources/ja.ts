@@ -1794,6 +1794,14 @@ export const ja: TranslationResources = {
           label: "高くついたセッションでターンが失敗したら知らせる",
           description: "中断に値する金額をセッションが超えてからだけ通知します。",
         },
+        "notify-agent-left-idle": {
+          label: "エージェントが放置されていたら知らせる",
+          description: "待っているエージェントと終わったエージェントは見分けがつきません。",
+        },
+        "notify-context-pressure": {
+          label: "会話がもうすぐ一杯だと知らせる",
+          description: "ターン終了時に確認し、見ていない画面ではなく携帯に届きます。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",

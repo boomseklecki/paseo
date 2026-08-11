@@ -1830,6 +1830,15 @@ export const fr: TranslationResources = {
           description:
             "Seulement une fois que la session a dépassé un coût qui mérite de vous déranger.",
         },
+        "notify-agent-left-idle": {
+          label: "M'avertir qu'un agent est resté en attente",
+          description: "Un agent qui vous attend ressemble exactement à un agent terminé.",
+        },
+        "notify-context-pressure": {
+          label: "M'avertir qu'une conversation est presque pleine",
+          description:
+            "Vérifié en fin de tour, et envoyé sur votre téléphone plutôt qu'à un écran que vous ne regardez pas.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

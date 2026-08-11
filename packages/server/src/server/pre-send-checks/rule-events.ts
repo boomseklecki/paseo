@@ -31,8 +31,22 @@ import type {
  * duplicate notification per restart.
  */
 export class PreSendRuleEventTracker {
-  /** Rule ids currently tripping, per agent. Absent means nothing has tripped yet. */
+  /**
+   * Rule ids currently tripping, per agent *and seam*. Absent means nothing has
+   * tripped yet.
+   *
+   * Keyed by both, and that is not tidiness. Each call replaces the whole set
+   * for its key, so with one key per agent a seam that matched nothing would
+   * wipe what another seam was remembering: a completed turn with no rules
+   * matching would clear the failure seam's memory, and the next failed turn
+   * would notify again for a condition it had already reported. Two seams is
+   * what turned that from theory into a bug.
+   */
   private readonly tripping = new Map<string, Set<string>>();
+
+  private static key(agentId: string, event: string): string {
+    return `${agentId}\u0000${event}`;
+  }
 
   /**
    * The findings that are new since the last time this agent reached this seam.
@@ -41,29 +55,39 @@ export class PreSendRuleEventTracker {
    * once — which is the property the caller depends on and the reason this is
    * not a pure function.
    */
-  fired(agentId: string, findings: readonly PreSendEventFinding[]): PreSendEventFinding[] {
-    const previous = this.tripping.get(agentId) ?? new Set<string>();
+  fired(
+    agentId: string,
+    event: string,
+    findings: readonly PreSendEventFinding[],
+  ): PreSendEventFinding[] {
+    const key = PreSendRuleEventTracker.key(agentId, event);
+    const previous = this.tripping.get(key) ?? new Set<string>();
     const current = new Set(findings.map((finding) => finding.ruleId));
 
     if (current.size === 0) {
-      // Nothing tripping: drop the agent's entry rather than keeping an empty
-      // set, so an idle daemon's memory is proportional to what is wrong.
-      this.tripping.delete(agentId);
+      // Nothing tripping: drop the entry rather than keeping an empty set, so an
+      // idle daemon's memory is proportional to what is wrong.
+      this.tripping.delete(key);
     } else {
-      this.tripping.set(agentId, current);
+      this.tripping.set(key, current);
     }
 
     return findings.filter((finding) => !previous.has(finding.ruleId));
   }
 
   /**
-   * Forgets an agent, so its rules arm again from nothing.
+   * Forgets an agent at every seam, so its rules arm again from nothing.
    *
    * Called when an agent is closed or deleted. Without it the map grows for the
-   * life of the daemon, one entry per agent that ever tripped a rule.
+   * life of the daemon, one entry per agent and seam that ever tripped a rule.
    */
   forget(agentId: string): void {
-    this.tripping.delete(agentId);
+    const prefix = `${agentId}\u0000`;
+    for (const key of this.tripping.keys()) {
+      if (key.startsWith(prefix)) {
+        this.tripping.delete(key);
+      }
+    }
   }
 }
 
@@ -85,7 +109,7 @@ export function firePreSendRuleEvent(
   input: PreSendRuleEventInput,
 ): PreSendEventFinding[] {
   const findings = evaluatePreSendEvent(input.rules, input.event, input.context);
-  return tracker.fired(input.agentId, findings);
+  return tracker.fired(input.agentId, input.event, findings);
 }
 
 /**

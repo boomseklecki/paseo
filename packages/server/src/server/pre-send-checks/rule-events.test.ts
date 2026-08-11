@@ -41,10 +41,11 @@ function fire(
   rules: readonly PreSendCheckRule[],
   ctx: PreSendMeasurementContext,
   agentId = "agent-1",
+  event = "turn.failed",
 ) {
   return firePreSendRuleEvent(tracker, {
     agentId,
-    event: "turn.failed",
+    event,
     rules,
     context: ctx,
   }).map((finding) => finding.ruleId);
@@ -102,6 +103,31 @@ describe("firePreSendRuleEvent", () => {
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
     expect(fire(tracker, [COSTLY, ALWAYS], ctx)).toEqual(["any-failure"]);
+  });
+
+  // Each call replaces the whole set for its key, so with one key per agent a
+  // seam that matched nothing would wipe what another seam was remembering.
+  // Before this was keyed by seam as well, a completed turn with no rules
+  // matching cleared the failure seam's memory and the next failed turn
+  // notified again for a condition it had already reported.
+  test("one seam matching nothing does not re-arm another seam", () => {
+    const tracker = new PreSendRuleEventTracker();
+    const ctx = context({ sessionCostUsd: 25 });
+    const completed: PreSendCheckRule = { ...COSTLY, id: "done", event: "turn.completed" };
+
+    expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
+    // Nothing matches at the other seam, which used to be the clobber.
+    expect(fire(tracker, [completed], context(), "agent-1", "turn.completed")).toEqual([]);
+    expect(fire(tracker, [COSTLY], ctx)).toEqual([]);
+  });
+
+  test("keeps a rule tripping at one seam from silencing another", () => {
+    const tracker = new PreSendRuleEventTracker();
+    const ctx = context({ sessionCostUsd: 25 });
+    const idle: PreSendCheckRule = { ...COSTLY, id: "stale", event: "agent.idle" };
+
+    expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
+    expect(fire(tracker, [idle], ctx, "agent-1", "agent.idle")).toEqual(["stale"]);
   });
 
   test("arms again for an agent it was told to forget", () => {

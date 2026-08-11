@@ -1786,6 +1786,14 @@ export const ko: TranslationResources = {
           label: "비용이 큰 세션에서 턴이 실패하면 알리기",
           description: "방해할 만한 금액을 세션이 넘긴 뒤에만 알립니다.",
         },
+        "notify-agent-left-idle": {
+          label: "에이전트가 방치되면 알리기",
+          description: "기다리는 에이전트와 끝난 에이전트는 똑같아 보입니다.",
+        },
+        "notify-context-pressure": {
+          label: "대화가 거의 찼을 때 알리기",
+          description: "턴이 끝날 때 확인하고, 보고 있지 않은 화면이 아니라 휴대폰으로 알립니다.",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",

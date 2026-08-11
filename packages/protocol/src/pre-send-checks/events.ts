@@ -50,6 +50,15 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     triggers: AGENT_TRIGGERS,
   },
   {
+    event: "agent.idle",
+    side: "daemon",
+    // The one seam with nothing to ride: every other is a transition the daemon
+    // already detects, and nothing happens when an agent goes on not being
+    // touched - which is the thing worth being told about. See idle-watcher.ts.
+    outcomeKinds: ["notify"],
+    triggers: AGENT_TRIGGERS,
+  },
+  {
     event: "turn.failed",
     side: "daemon",
     // No `warn` or `block`: the send already happened, and there is no composer

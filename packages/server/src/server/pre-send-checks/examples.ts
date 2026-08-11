@@ -65,6 +65,20 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "notify-agent-left-idle",
+    label: "Tell me when an agent has been left sitting",
+    description:
+      "An agent waiting on you looks exactly like an agent you finished with. This is the only rule that fires because nothing happened, which is what makes it the one worth having when you walked away mid-thought.",
+    rule: {
+      event: "agent.idle",
+      trigger: "agent.idleSeconds",
+      operator: "gte",
+      value: 3600,
+      outcome: { kind: "notify" },
+      message: "This agent has been idle for {{duration}}.",
+    },
+  },
+  {
     id: "warn-context-nearly-full",
     label: "Warn when the context is nearly full",
     description:

@@ -1754,6 +1754,14 @@ export const zhCN: TranslationResources = {
           label: "在花费较高的会话中回合失败时通知我",
           description: "仅当该会话的花费已超过值得打断你的数额时。",
         },
+        "notify-agent-left-idle": {
+          label: "代理被闲置时通知我",
+          description: "等待你的代理和已完成的代理看起来一模一样。",
+        },
+        "notify-context-pressure": {
+          label: "对话快满时通知我",
+          description: "在回合结束时检查，并发送到你的手机而不是你没在看的屏幕。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

@@ -1822,6 +1822,15 @@ export const es: TranslationResources = {
           label: "Avisarme de un turno fallido en una sesión costosa",
           description: "Solo cuando la sesión ha pasado un coste que merece interrumpirle.",
         },
+        "notify-agent-left-idle": {
+          label: "Avisarme de un agente que quedó esperando",
+          description: "Un agente que le espera es idéntico a uno que ya terminó.",
+        },
+        "notify-context-pressure": {
+          label: "Avisarme de una conversación casi llena",
+          description:
+            "Se comprueba al terminar un turno y llega a su teléfono, no a una pantalla que no está mirando.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar cuando el contexto esté casi lleno",
           description:

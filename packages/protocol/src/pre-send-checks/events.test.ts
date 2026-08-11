@@ -182,3 +182,22 @@ describe("the turn.completed seam", () => {
     );
   });
 });
+
+describe("the agent.idle seam", () => {
+  // The only seam that fires because nothing happened, so nothing else can
+  // carry it and the daemon runs a clock for it alone.
+  it("accepts notify and asks about the agent", () => {
+    expect(isOutcomeValidForEvent("agent.idle", "notify")).toBe(true);
+    expect(isTriggerValidForEvent("agent.idle", "agent.idleSeconds")).toBe(true);
+    expect(isOutcomeValidForEvent("agent.idle", "block")).toBe(false);
+  });
+
+  it("is one of the seams on offer", () => {
+    expect(PRE_SEND_EVENT_DEFINITIONS.map((definition) => definition.event)).toEqual([
+      "message.send",
+      "turn.completed",
+      "agent.idle",
+      "turn.failed",
+    ]);
+  });
+});
