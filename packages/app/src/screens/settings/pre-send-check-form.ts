@@ -369,7 +369,18 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
   lte: "≤",
 };
 
+// The text operators have no symbol, so they take a translated word in the
+// sentence form rather than the picker's. Without these a rule read
+// "message startsWith /btw" - two raw wire values in the one row a person is
+// most likely to look at.
+const OPERATOR_PHRASE_KEYS: Record<string, string> = {
+  startsWith: "settings.preSendChecks.operatorPhrases.startsWith",
+  contains: "settings.preSendChecks.operatorPhrases.contains",
+};
+
 const TRIGGER_LABEL_KEYS: Record<string, string> = {
+  message: "settings.preSendChecks.triggers.message",
+  always: "settings.preSendChecks.triggers.always",
   "agent.idleSeconds": "settings.preSendChecks.triggers.idleSeconds",
   "agent.contextUsedPercent": "settings.preSendChecks.triggers.contextUsedPercent",
   "agent.sessionCostUsd": "settings.preSendChecks.triggers.sessionCostUsd",
@@ -420,6 +431,7 @@ export function describePreSendCheck(rule: PreSendCheckRule, t: PreSendTranslate
   const { trigger, value, operator } = normalizePreSendCheckRule(rule);
   const labelKey = TRIGGER_LABEL_KEYS[trigger];
   const label = labelKey ? t(labelKey) : trigger;
-  const symbol = OPERATOR_SYMBOLS[operator] ?? operator;
+  const phraseKey = OPERATOR_PHRASE_KEYS[operator];
+  const symbol = OPERATOR_SYMBOLS[operator] ?? (phraseKey ? t(phraseKey) : operator);
   return `${label} ${symbol} ${formatTriggerValue(trigger, value)}`;
 }

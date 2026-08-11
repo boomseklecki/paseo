@@ -1873,10 +1873,15 @@ export const fr: TranslationResources = {
       thresholdInvalid: "Saisissez un nombre",
       unrecognisedOption: "{{value}} (non reconnu)",
       triggers: {
+        always: "Toujours",
         message: "Ce que vous avez tapé",
         idleSeconds: "Temps d'inactivité",
         contextUsedPercent: "Contexte utilisé",
         sessionCostUsd: "Coût de la session",
+      },
+      operatorPhrases: {
+        startsWith: "commence par",
+        contains: "contient",
       },
       operators: {
         startsWith: "Commence par",

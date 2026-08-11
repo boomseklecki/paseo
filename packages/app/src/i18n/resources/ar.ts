@@ -1818,10 +1818,15 @@ export const ar: TranslationResources = {
       thresholdInvalid: "أدخل رقمًا",
       unrecognisedOption: "{{value}} (غير معروف)",
       triggers: {
+        always: "دائمًا",
         message: "ما كتبته",
         idleSeconds: "مدة الخمول",
         contextUsedPercent: "السياق المستخدم",
         sessionCostUsd: "تكلفة الجلسة",
+      },
+      operatorPhrases: {
+        startsWith: "يبدأ بـ",
+        contains: "يحتوي على",
       },
       operators: {
         startsWith: "يبدأ بـ",

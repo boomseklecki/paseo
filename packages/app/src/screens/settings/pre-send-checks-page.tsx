@@ -21,7 +21,11 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckGroup } from "./pre-send-check-groups";
-import type { PreSendCheckExample } from "@getpaseo/protocol/pre-send-checks/types";
+import {
+  isPlainOutcomeKind,
+  type PreSendCheckExample,
+} from "@getpaseo/protocol/pre-send-checks/types";
+import { normalizePreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/vocabulary";
 import {
   applyPreSendCheckDraft,
   describePreSendCheck,
@@ -163,11 +167,20 @@ function PreSendCheckRow({
 
   const rowStyle = useMemo(() => [styles.row, !isFirst && settingsStyles.rowBorder], [isFirst]);
 
+  // Three outcomes, not two. This read `isBlocking ? block : warn`, which
+  // labelled the /btw rule "Warn" - a redirect neither warns nor blocks, it
+  // takes the message somewhere else, and calling that a warning describes the
+  // one rule most likely to be on the screen exactly backwards.
+  //
   // `block` is the louder outcome and gets the louder badge. There is no amber
   // variant on StatusBadge and adding one would change a component several other
-  // screens share, so `warn` takes the muted one rather than growing the vocabulary
-  // for a single caller.
-  const isBlocking = rule.disposition === "block";
+  // screens share, so the other two take the muted one rather than growing the
+  // vocabulary for a single caller.
+  const outcomeKind = normalizePreSendCheckRule(rule).outcome.kind;
+  const isBlocking = outcomeKind === "block";
+  const badgeLabel = isPlainOutcomeKind(outcomeKind)
+    ? t(`settings.preSendChecks.dispositions.${outcomeKind}`)
+    : t("settings.preSendChecks.dispositions.redirect");
 
   return (
     <View style={rowStyle} testID={`pre-send-check-row-${group.id}`}>
@@ -186,14 +199,7 @@ function PreSendCheckRow({
           ) : null}
         </View>
         <View style={styles.badges}>
-          <StatusBadge
-            label={
-              isBlocking
-                ? t("settings.preSendChecks.dispositions.block")
-                : t("settings.preSendChecks.dispositions.warn")
-            }
-            variant={isBlocking ? "error" : "muted"}
-          />
+          <StatusBadge label={badgeLabel} variant={isBlocking ? "error" : "muted"} />
           {group.differs ? (
             <StatusBadge label={t("settings.preSendChecks.differs")} variant="error" />
           ) : null}

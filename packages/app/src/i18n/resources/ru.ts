@@ -1857,10 +1857,15 @@ export const ru: TranslationResources = {
       thresholdInvalid: "Введите число",
       unrecognisedOption: "{{value}} (не распознано)",
       triggers: {
+        always: "Всегда",
         message: "Что вы ввели",
         idleSeconds: "Время простоя",
         contextUsedPercent: "Использовано контекста",
         sessionCostUsd: "Стоимость сессии",
+      },
+      operatorPhrases: {
+        startsWith: "начинается с",
+        contains: "содержит",
       },
       operators: {
         startsWith: "Начинается с",

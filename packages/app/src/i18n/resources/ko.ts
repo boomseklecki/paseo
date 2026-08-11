@@ -1828,10 +1828,15 @@ export const ko: TranslationResources = {
       thresholdInvalid: "숫자를 입력하세요",
       unrecognisedOption: "{{value}}(알 수 없음)",
       triggers: {
+        always: "항상",
         message: "입력한 내용",
         idleSeconds: "유휴 시간",
         contextUsedPercent: "컨텍스트 사용량",
         sessionCostUsd: "세션 비용",
+      },
+      operatorPhrases: {
+        startsWith: "(으)로 시작",
+        contains: "포함",
       },
       operators: {
         startsWith: "다음으로 시작",

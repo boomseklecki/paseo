@@ -1865,10 +1865,15 @@ export const es: TranslationResources = {
       thresholdInvalid: "Introduzca un número",
       unrecognisedOption: "{{value}} (no reconocido)",
       triggers: {
+        always: "Siempre",
         message: "Lo que escribió",
         idleSeconds: "Tiempo inactivo",
         contextUsedPercent: "Contexto usado",
         sessionCostUsd: "Coste de la sesión",
+      },
+      operatorPhrases: {
+        startsWith: "empieza por",
+        contains: "contiene",
       },
       operators: {
         startsWith: "Empieza por",

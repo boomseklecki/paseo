@@ -1851,10 +1851,15 @@ export const ptBR: TranslationResources = {
       thresholdInvalid: "Digite um número",
       unrecognisedOption: "{{value}} (não reconhecido)",
       triggers: {
+        always: "Sempre",
         message: "O que você digitou",
         idleSeconds: "Tempo ocioso",
         contextUsedPercent: "Contexto usado",
         sessionCostUsd: "Custo da sessão",
+      },
+      operatorPhrases: {
+        startsWith: "começa com",
+        contains: "contém",
       },
       operators: {
         startsWith: "Começa com",

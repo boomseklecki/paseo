@@ -1832,10 +1832,15 @@ export const en = {
       thresholdInvalid: "Enter a number",
       unrecognisedOption: "{{value}} (not recognised)",
       triggers: {
+        always: "Always",
         message: "What you typed",
         idleSeconds: "Idle time",
         contextUsedPercent: "Context used",
         sessionCostUsd: "Session cost",
+      },
+      operatorPhrases: {
+        startsWith: "starts with",
+        contains: "contains",
       },
       operators: {
         startsWith: "Starts with",

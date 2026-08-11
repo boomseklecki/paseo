@@ -407,3 +407,26 @@ describe("preSendCheckExampleToDraft", () => {
     expect(built).not.toHaveProperty("id");
   });
 });
+
+describe("describePreSendCheck for a text rule", () => {
+  // This read "message startsWith /btw" - two raw wire values, in the row a
+  // person is most likely to be looking at, because both label tables predated
+  // text triggers.
+  it("names the message trigger and spells the operator as a phrase", () => {
+    const described = describePreSendCheck(
+      {
+        id: "aside",
+        measurement: "message",
+        operator: "startsWith",
+        text: "/btw",
+        disposition: "redirect",
+        action: { kind: "aside" },
+      },
+      t,
+    );
+
+    expect(described).toBe(
+      "settings.preSendChecks.triggers.message settings.preSendChecks.operatorPhrases.startsWith /btw",
+    );
+  });
+});

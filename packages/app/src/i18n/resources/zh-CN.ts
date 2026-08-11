@@ -1796,10 +1796,15 @@ export const zhCN: TranslationResources = {
       thresholdInvalid: "请输入数字",
       unrecognisedOption: "{{value}}（无法识别）",
       triggers: {
+        always: "始终",
         message: "你输入的内容",
         idleSeconds: "空闲时长",
         contextUsedPercent: "上下文占用",
         sessionCostUsd: "会话花费",
+      },
+      operatorPhrases: {
+        startsWith: "开头是",
+        contains: "包含",
       },
       operators: {
         startsWith: "以此开头",

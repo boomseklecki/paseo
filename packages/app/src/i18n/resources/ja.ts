@@ -1836,10 +1836,15 @@ export const ja: TranslationResources = {
       thresholdInvalid: "数値を入力してください",
       unrecognisedOption: "{{value}}（未対応）",
       triggers: {
+        always: "常に",
         message: "入力した内容",
         idleSeconds: "アイドル時間",
         contextUsedPercent: "コンテキスト使用率",
         sessionCostUsd: "セッション費用",
+      },
+      operatorPhrases: {
+        startsWith: "で始まる",
+        contains: "を含む",
       },
       operators: {
         startsWith: "次で始まる",
