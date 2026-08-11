@@ -4,6 +4,7 @@ import path from "node:path";
 import pino from "pino";
 import { describe, expect, test } from "vitest";
 
+import type { PushNotificationSender } from "../push/index.js";
 import { createTestAgentClients } from "../test-utils/fake-agent-client.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
 import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
@@ -40,9 +41,26 @@ describe("daemon E2E (rule on turn.failed)", () => {
       message: "That turn failed and you asked to be told.",
     });
 
+    // Captured rather than sent. The push leg is the one that reaches a phone
+    // when nobody is at the machine, and it is worth an assertion precisely
+    // because `error` is deliberately *not* push-eligible
+    // (`agent-attention-policy.ts`) - so a rule is the only way a failed turn
+    // reaches a device at all, and nothing else in the suite says so.
+    const pushed: Array<{ title: string; body: string; reason: unknown }> = [];
+    const pushNotificationSender: PushNotificationSender = {
+      send: async (notification) => {
+        pushed.push({
+          title: notification.title,
+          body: notification.body,
+          reason: notification.data?.reason,
+        });
+      },
+    };
+
     const daemon = await createTestPaseoDaemon({
       agentClients: createTestAgentClients(),
       paseoHomeRoot,
+      pushNotificationSender,
       logger,
     });
     const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
@@ -82,6 +100,13 @@ describe("daemon E2E (rule on turn.failed)", () => {
       // it says the agent stopped, where the rule says what its author asked to
       // be told. A rule does not replace it.
       expect(attention.some((entry) => entry.reason === "error")).toBe(true);
+
+      // And the built-in one never leaves the machine. Only the rule pushes, so
+      // the phone gets exactly one notification and it is the one somebody
+      // asked for, in their own words.
+      expect(pushed.map((entry) => entry.reason)).toEqual(["rule"]);
+      expect(pushed[0]?.title).toBe("A rule fired");
+      expect(pushed[0]?.body).toBe("That turn failed and you asked to be told.");
     } finally {
       await client.close().catch(() => undefined);
       await daemon.close().catch(() => undefined);
