@@ -50,7 +50,7 @@ export function usePreSendChecks(serverId: string | null): UsePreSendChecksResul
     // An older daemon has no handler for the verb, so the request would never be
     // answered. Not asking is the whole of the back-compat story.
     enabled: Boolean(serverId && client && isConnected && supported),
-    pushEvent: "status:pre_send_checks_changed",
+    pushEvent: "status:rules_changed",
     queryFn: async () => {
       if (!client) {
         throw new Error(t("workspace.terminal.hostDisconnected"));

@@ -46,11 +46,11 @@ describe("PreSendChecksSession", () => {
     const { session, emitted } = makeSession({ list: async () => [RULE] });
 
     await session.handlePreSendChecksListRequest({
-      type: "pre_send_checks/list",
+      type: "rules.list.request",
       requestId: "r1",
     });
 
-    const response = findByType(emitted, "pre_send_checks/list/response");
+    const response = findByType(emitted, "rules.list.response");
     expect(response?.payload.checks).toEqual([RULE]);
     expect(response?.payload.error).toBeNull();
     expect(response?.payload.actions?.map((action) => action.kind)).toContain("aside");
@@ -70,11 +70,11 @@ describe("PreSendChecksSession", () => {
     });
 
     await session.handlePreSendChecksListRequest({
-      type: "pre_send_checks/list",
+      type: "rules.list.request",
       requestId: "r1",
     });
 
-    expect(findByType(emitted, "pre_send_checks/list/response")?.payload.examples).toBeUndefined();
+    expect(findByType(emitted, "rules.list.response")?.payload.examples).toBeUndefined();
   });
 
   // The distinction the whole subsystem is arranged around: an empty list means
@@ -88,11 +88,11 @@ describe("PreSendChecksSession", () => {
     });
 
     await session.handlePreSendChecksListRequest({
-      type: "pre_send_checks/list",
+      type: "rules.list.request",
       requestId: "r1",
     });
 
-    const response = findByType(emitted, "pre_send_checks/list/response");
+    const response = findByType(emitted, "rules.list.response");
     expect(response?.payload.checks).toEqual([]);
     expect(response?.payload.error).toBe("disk gone");
     expect(findByType(emitted, "rpc_error")).toBeUndefined();
@@ -106,24 +106,24 @@ describe("PreSendChecksSession", () => {
     });
 
     await session.handlePreSendChecksUpsertRequest({
-      type: "pre_send_checks/upsert",
+      type: "rules.upsert.request",
       requestId: "r1",
       check: RULE,
     });
     await session.handlePreSendChecksDeleteRequest({
-      type: "pre_send_checks/delete",
+      type: "rules.delete.request",
       requestId: "r2",
       ruleId: RULE.id,
     });
     await session.handlePreSendChecksReorderRequest({
-      type: "pre_send_checks/reorder",
+      type: "rules.reorder.request",
       requestId: "r3",
       ruleIds: [RULE.id],
     });
 
-    expect(findByType(emitted, "pre_send_checks/upsert/response")?.payload.checks).toEqual([RULE]);
-    expect(findByType(emitted, "pre_send_checks/delete/response")?.payload.checks).toEqual([]);
-    expect(findByType(emitted, "pre_send_checks/reorder/response")?.payload.checks).toEqual([RULE]);
+    expect(findByType(emitted, "rules.upsert.response")?.payload.checks).toEqual([RULE]);
+    expect(findByType(emitted, "rules.delete.response")?.payload.checks).toEqual([]);
+    expect(findByType(emitted, "rules.reorder.response")?.payload.checks).toEqual([RULE]);
   });
 
   // A client that blanked its list because a save failed would stop gating
@@ -137,12 +137,12 @@ describe("PreSendChecksSession", () => {
     });
 
     await session.handlePreSendChecksUpsertRequest({
-      type: "pre_send_checks/upsert",
+      type: "rules.upsert.request",
       requestId: "r1",
       check: RULE,
     });
 
-    const response = findByType(emitted, "pre_send_checks/upsert/response");
+    const response = findByType(emitted, "rules.upsert.response");
     expect(response?.payload.checks).toEqual([RULE]);
     expect(response?.payload.error).toBe("read-only filesystem");
   });
@@ -158,12 +158,12 @@ describe("PreSendChecksSession", () => {
     });
 
     await session.handlePreSendChecksDeleteRequest({
-      type: "pre_send_checks/delete",
+      type: "rules.delete.request",
       requestId: "r1",
       ruleId: RULE.id,
     });
 
-    const response = findByType(emitted, "pre_send_checks/delete/response");
+    const response = findByType(emitted, "rules.delete.response");
     expect(response?.payload.checks).toEqual([]);
     expect(response?.payload.error).toBe("write failed");
   });
@@ -179,7 +179,7 @@ describe("PreSendChecksSession", () => {
     );
 
     await session.handlePreSendChecksRunActionRequest({
-      type: "pre_send_checks/run_action",
+      type: "rules.run_action.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw what does this flag do",
@@ -195,7 +195,7 @@ describe("PreSendChecksSession", () => {
         confirmed: true,
       },
     ]);
-    const response = findByType(emitted, "pre_send_checks/run_action/response");
+    const response = findByType(emitted, "rules.run_action.response");
     expect(response?.payload.status).toBe("started");
     expect(response?.payload.subagentId).toBe("sub-1");
   });
@@ -211,14 +211,14 @@ describe("PreSendChecksSession", () => {
     );
 
     await session.handlePreSendChecksRunActionRequest({
-      type: "pre_send_checks/run_action",
+      type: "rules.run_action.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "pre_send_checks/run_action/response");
+    const response = findByType(emitted, "rules.run_action.response");
     expect(response?.payload.status).toBe("needs_confirmation");
     expect(response?.payload.estimatedTokens).toBe(51_000);
     expect(response?.payload.subagentId).toBeNull();
@@ -239,7 +239,7 @@ describe("PreSendChecksSession", () => {
     );
 
     await session.handlePreSendChecksRunActionRequest({
-      type: "pre_send_checks/run_action",
+      type: "rules.run_action.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "hello",
@@ -247,7 +247,7 @@ describe("PreSendChecksSession", () => {
     });
 
     expect(seen).toEqual(["teleport"]);
-    const response = findByType(emitted, "pre_send_checks/run_action/response");
+    const response = findByType(emitted, "rules.run_action.response");
     expect(response?.payload.status).toBe("declined");
     expect(response?.payload.reason).toBe("Unknown action 'teleport'");
   });
@@ -263,14 +263,14 @@ describe("PreSendChecksSession", () => {
     );
 
     await session.handlePreSendChecksRunActionRequest({
-      type: "pre_send_checks/run_action",
+      type: "rules.run_action.request",
       requestId: "r1",
       agentId: "agent-1",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "pre_send_checks/run_action/response");
+    const response = findByType(emitted, "rules.run_action.response");
     expect(response?.payload.status).toBe("failed");
     expect(response?.payload.reason).toBe("provider refused");
     expect(findByType(emitted, "rpc_error")).toBeUndefined();
@@ -284,14 +284,14 @@ describe("PreSendChecksSession", () => {
     );
 
     await session.handlePreSendChecksRunActionRequest({
-      type: "pre_send_checks/run_action",
+      type: "rules.run_action.request",
       requestId: "r1",
       agentId: "gone",
       message: "/btw",
       action: { kind: "aside" },
     });
 
-    const response = findByType(emitted, "pre_send_checks/run_action/response");
+    const response = findByType(emitted, "rules.run_action.response");
     expect(response?.payload.subagentId).toBeNull();
     expect(response?.payload.estimatedTokens).toBeNull();
   });

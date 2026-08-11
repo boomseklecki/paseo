@@ -4712,20 +4712,20 @@ describe("pre-send-check dispatch routing", () => {
 
   const routingCases: Array<{ msg: SessionInboundMessage; responseType: string }> = [
     {
-      msg: { type: "pre_send_checks/list", requestId: "rt-psc-list" },
-      responseType: "pre_send_checks/list/response",
+      msg: { type: "rules.list.request", requestId: "rt-psc-list" },
+      responseType: "rules.list.response",
     },
     {
-      msg: { type: "pre_send_checks/upsert", requestId: "rt-psc-upsert", check: RULE },
-      responseType: "pre_send_checks/upsert/response",
+      msg: { type: "rules.upsert.request", requestId: "rt-psc-upsert", check: RULE },
+      responseType: "rules.upsert.response",
     },
     {
-      msg: { type: "pre_send_checks/delete", requestId: "rt-psc-delete", ruleId: RULE.id },
-      responseType: "pre_send_checks/delete/response",
+      msg: { type: "rules.delete.request", requestId: "rt-psc-delete", ruleId: RULE.id },
+      responseType: "rules.delete.response",
     },
     {
-      msg: { type: "pre_send_checks/reorder", requestId: "rt-psc-reorder", ruleIds: [RULE.id] },
-      responseType: "pre_send_checks/reorder/response",
+      msg: { type: "rules.reorder.request", requestId: "rt-psc-reorder", ruleIds: [RULE.id] },
+      responseType: "rules.reorder.response",
     },
   ];
 
@@ -4763,12 +4763,12 @@ describe("pre-send-check dispatch routing", () => {
     });
 
     await session.handleMessage({
-      type: "pre_send_checks/upsert",
+      type: "rules.upsert.request",
       requestId: "rt-psc-fail",
       check: RULE,
     });
 
-    const response = messages.find((m) => m.type === "pre_send_checks/upsert/response");
+    const response = messages.find((m) => m.type === "rules.upsert.response");
     expect(response).toBeDefined();
     expect(response && "payload" in response ? response.payload : null).toMatchObject({
       error: "disk full",

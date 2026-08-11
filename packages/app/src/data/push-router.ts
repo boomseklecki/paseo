@@ -462,7 +462,7 @@ function applyPreSendChecksStatus(input: {
   message: StatusMessage;
 }): void {
   const payload = input.message.payload;
-  if (payload.status !== "pre_send_checks_changed") {
+  if (payload.status !== "rules_changed") {
     return;
   }
   if (!isPreSendChecksChangedPayload(payload)) {
@@ -833,6 +833,6 @@ function isDaemonConfigChangedPayload(
 
 function isPreSendChecksChangedPayload(
   payload: StatusMessage["payload"],
-): payload is { status: "pre_send_checks_changed"; checks: PreSendCheckRule[] } {
-  return payload.status === "pre_send_checks_changed" && Array.isArray(payload.checks);
+): payload is { status: "rules_changed"; checks: PreSendCheckRule[] } {
+  return payload.status === "rules_changed" && Array.isArray(payload.checks);
 }

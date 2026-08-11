@@ -2023,9 +2023,9 @@ export class Session {
     // Matched by prefix rather than by five case labels, which is what keeps
     // this switch under the complexity ceiling. Grouping verbs that share a
     // subject is also how they read: they are one feature, not five settings.
-    if (msg.type.startsWith("pre_send_checks/")) {
+    if (msg.type.startsWith("rules.")) {
       return this.dispatchPreSendChecksMessage(
-        msg as Extract<SessionInboundMessage, { type: `pre_send_checks/${string}` }>,
+        msg as Extract<SessionInboundMessage, { type: `rules.${string}` }>,
       );
     }
     switch (msg.type) {
@@ -2079,18 +2079,18 @@ export class Session {
    * subject is the honest way under it rather than raising the limit.
    */
   private dispatchPreSendChecksMessage(
-    msg: Extract<SessionInboundMessage, { type: `pre_send_checks/${string}` }>,
+    msg: Extract<SessionInboundMessage, { type: `rules.${string}` }>,
   ): Promise<void> | undefined {
     switch (msg.type) {
-      case "pre_send_checks/list":
+      case "rules.list.request":
         return this.preSendChecksSession.handlePreSendChecksListRequest(msg);
-      case "pre_send_checks/upsert":
+      case "rules.upsert.request":
         return this.preSendChecksSession.handlePreSendChecksUpsertRequest(msg);
-      case "pre_send_checks/delete":
+      case "rules.delete.request":
         return this.preSendChecksSession.handlePreSendChecksDeleteRequest(msg);
-      case "pre_send_checks/reorder":
+      case "rules.reorder.request":
         return this.preSendChecksSession.handlePreSendChecksReorderRequest(msg);
-      case "pre_send_checks/run_action":
+      case "rules.run_action.request":
         return this.preSendChecksSession.handlePreSendChecksRunActionRequest(msg);
       default:
         return undefined;

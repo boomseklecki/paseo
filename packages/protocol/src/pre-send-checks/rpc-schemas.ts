@@ -16,17 +16,17 @@ import {
  *
  * Both writes echo the whole resulting list rather than the one rule, so a client
  * replaces its cache from the response instead of merging into it.
- * `pre_send_checks_changed` follows moments later carrying the same content and
+ * `rules_changed` follows moments later carrying the same content and
  * is idempotent against it.
  */
 
 export const PreSendChecksListRequestSchema = z.object({
-  type: z.literal("pre_send_checks/list"),
+  type: z.literal("rules.list.request"),
   requestId: z.string(),
 });
 
 export const PreSendChecksListResponseSchema = z.object({
-  type: z.literal("pre_send_checks/list/response"),
+  type: z.literal("rules.list.response"),
   payload: z.object({
     requestId: z.string(),
     // Always concrete, never absent — an empty array means the user turned every
@@ -57,13 +57,13 @@ export const PreSendChecksListResponseSchema = z.object({
 });
 
 export const PreSendChecksUpsertRequestSchema = z.object({
-  type: z.literal("pre_send_checks/upsert"),
+  type: z.literal("rules.upsert.request"),
   requestId: z.string(),
   check: PreSendCheckRuleSchema,
 });
 
 export const PreSendChecksUpsertResponseSchema = z.object({
-  type: z.literal("pre_send_checks/upsert/response"),
+  type: z.literal("rules.upsert.response"),
   payload: z.object({
     requestId: z.string(),
     checks: z.array(PreSendCheckRuleSchema),
@@ -80,13 +80,13 @@ export const PreSendChecksUpsertResponseSchema = z.object({
  * have are ignored, and rules the list omits keep whatever order they had.
  */
 export const PreSendChecksReorderRequestSchema = z.object({
-  type: z.literal("pre_send_checks/reorder"),
+  type: z.literal("rules.reorder.request"),
   requestId: z.string(),
   ruleIds: z.array(z.string()),
 });
 
 export const PreSendChecksReorderResponseSchema = z.object({
-  type: z.literal("pre_send_checks/reorder/response"),
+  type: z.literal("rules.reorder.response"),
   payload: z.object({
     requestId: z.string(),
     checks: z.array(PreSendCheckRuleSchema),
@@ -108,7 +108,7 @@ export const PreSendChecksReorderResponseSchema = z.object({
  * to expect, and the caller asks again with this set once the person agrees.
  */
 export const PreSendChecksRunActionRequestSchema = z.object({
-  type: z.literal("pre_send_checks/run_action"),
+  type: z.literal("rules.run_action.request"),
   requestId: z.string(),
   agentId: z.string(),
   message: z.string(),
@@ -124,7 +124,7 @@ export const PreSendChecksRunActionRequestSchema = z.object({
  * an instruction.
  */
 export const PreSendChecksRunActionResponseSchema = z.object({
-  type: z.literal("pre_send_checks/run_action/response"),
+  type: z.literal("rules.run_action.response"),
   payload: z.object({
     requestId: z.string(),
     status: z.enum(["started", "needs_confirmation", "declined", "failed"]),
@@ -143,13 +143,13 @@ export const PreSendChecksRunActionResponseSchema = z.object({
 });
 
 export const PreSendChecksDeleteRequestSchema = z.object({
-  type: z.literal("pre_send_checks/delete"),
+  type: z.literal("rules.delete.request"),
   requestId: z.string(),
   ruleId: z.string(),
 });
 
 export const PreSendChecksDeleteResponseSchema = z.object({
-  type: z.literal("pre_send_checks/delete/response"),
+  type: z.literal("rules.delete.response"),
   payload: z.object({
     requestId: z.string(),
     checks: z.array(PreSendCheckRuleSchema),

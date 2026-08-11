@@ -89,7 +89,7 @@ export function useAggregatedPreSendChecks(): AggregatedPreSendChecks {
       // the verb, so the request would never be answered. Not asking is the whole
       // of the back-compat story.
       enabled: statuses.get(host.serverId) === "online" && features.get(host.serverId) === true,
-      pushEvent: "status:pre_send_checks_changed",
+      pushEvent: "status:rules_changed",
       queryFn: async () => {
         const client = getHostRuntimeStore().getSnapshot(host.serverId)?.client;
         if (!client) {

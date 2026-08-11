@@ -162,7 +162,7 @@ describe("server data push router pre-send checks", () => {
 
     fake.emit({
       type: "status",
-      payload: { status: "pre_send_checks_changed", checks: RULES },
+      payload: { status: "rules_changed", checks: RULES },
     });
 
     expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);
@@ -180,7 +180,7 @@ describe("server data push router pre-send checks", () => {
 
     fake.emit({
       type: "status",
-      payload: { status: "pre_send_checks_changed" },
+      payload: { status: "rules_changed" },
     });
 
     expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);

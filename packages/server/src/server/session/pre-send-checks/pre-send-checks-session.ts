@@ -36,9 +36,9 @@ export interface PreSendChecksSessionOptions {
 
 type PreSendChecksWriteRequest = Extract<
   SessionInboundMessage,
-  | { type: "pre_send_checks/upsert" }
-  | { type: "pre_send_checks/delete" }
-  | { type: "pre_send_checks/reorder" }
+  | { type: "rules.upsert.request" }
+  | { type: "rules.delete.request" }
+  | { type: "rules.reorder.request" }
 >;
 
 /**
@@ -71,11 +71,11 @@ export class PreSendChecksSession {
    * "send freely".
    */
   async handlePreSendChecksListRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/list" }>,
+    msg: Extract<SessionInboundMessage, { type: "rules.list.request" }>,
   ): Promise<void> {
     try {
       this.host.emit({
-        type: "pre_send_checks/list/response",
+        type: "rules.list.response",
         payload: {
           requestId: msg.requestId,
           checks: await this.preSendChecksService.list(),
@@ -87,7 +87,7 @@ export class PreSendChecksSession {
     } catch (error) {
       this.logger.warn({ err: error }, "Failed to list pre-send checks");
       this.host.emit({
-        type: "pre_send_checks/list/response",
+        type: "rules.list.response",
         payload: {
           requestId: msg.requestId,
           checks: [],
@@ -98,19 +98,19 @@ export class PreSendChecksSession {
   }
 
   async handlePreSendChecksUpsertRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/upsert" }>,
+    msg: Extract<SessionInboundMessage, { type: "rules.upsert.request" }>,
   ): Promise<void> {
     await this.handleWriteRequest(msg, () => this.preSendChecksService.upsert(msg.check));
   }
 
   async handlePreSendChecksDeleteRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/delete" }>,
+    msg: Extract<SessionInboundMessage, { type: "rules.delete.request" }>,
   ): Promise<void> {
     await this.handleWriteRequest(msg, () => this.preSendChecksService.delete(msg.ruleId));
   }
 
   async handlePreSendChecksReorderRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/reorder" }>,
+    msg: Extract<SessionInboundMessage, { type: "rules.reorder.request" }>,
   ): Promise<void> {
     await this.handleWriteRequest(msg, () => this.preSendChecksService.reorder(msg.ruleIds));
   }
@@ -123,7 +123,7 @@ export class PreSendChecksSession {
    * error here would leave the person having typed something that went nowhere.
    */
   async handlePreSendChecksRunActionRequest(
-    msg: Extract<SessionInboundMessage, { type: "pre_send_checks/run_action" }>,
+    msg: Extract<SessionInboundMessage, { type: "rules.run_action.request" }>,
   ): Promise<void> {
     // Which kinds exist is the runner's business now that there is more than
     // one, and it declines anything it does not have. A newer client can name a
@@ -149,7 +149,7 @@ export class PreSendChecksSession {
 
   private respondToRunAction(requestId: string, outcome: PreSendActionOutcome): void {
     this.host.emit({
-      type: "pre_send_checks/run_action/response",
+      type: "rules.run_action.response",
       payload: {
         requestId,
         status: outcome.status,
@@ -175,10 +175,15 @@ export class PreSendChecksSession {
     msg: PreSendChecksWriteRequest,
     write: () => Promise<PreSendCheckRule[]>,
   ): Promise<void> {
-    const responseType = `${msg.type}/response` as
-      | "pre_send_checks/upsert/response"
-      | "pre_send_checks/delete/response"
-      | "pre_send_checks/reorder/response";
+    // Derived by swapping the direction segment, which is the whole reason the
+    // namespacing doc asks for `.request`/`.response`: the pair is mechanical.
+    // This used to append `/response`, and the rename to dots turned that into
+    // `rules.upsert.request/response` — a type nothing listens for, so every
+    // write answered into the void.
+    const responseType = msg.type.replace(/\.request$/, ".response") as
+      | "rules.upsert.response"
+      | "rules.delete.response"
+      | "rules.reorder.response";
     try {
       this.host.emit({
         type: responseType,

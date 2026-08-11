@@ -30,7 +30,7 @@ export type PreSendCheckRuleUpdater = (
  * client, because one rule can live on several hosts and the app groups those
  * copies by id — a store minting its own would give the same rule a different id
  * on every daemon. So `write` is the creation path as well as the update one,
- * which is what `pre_send_checks/upsert` is named after.
+ * which is what `rules.upsert.request` is named after.
  */
 export class PreSendCheckStore {
   private readonly logger: Logger;

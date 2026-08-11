@@ -1653,7 +1653,7 @@ export class VoiceAssistantWebSocketServer {
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
         // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2028-02-09.
-        // Means "serves pre_send_checks/list". A client that does not see this must
+        // Means "serves rules.list.request". A client that does not see this must
         // not send the verb, and must let the send through rather than gate on rules
         // it cannot fetch.
         preSendChecks: true,
@@ -1779,7 +1779,7 @@ export class VoiceAssistantWebSocketServer {
     this.broadcast(
       wrapSessionMessage({
         type: "status",
-        payload: { status: "pre_send_checks_changed", checks },
+        payload: { status: "rules_changed", checks },
       }),
     );
   }

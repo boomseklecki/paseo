@@ -505,23 +505,23 @@ type ScheduleListPayload = Extract<
 >["payload"];
 type PreSendChecksListPayload = Extract<
   SessionOutboundMessage,
-  { type: "pre_send_checks/list/response" }
+  { type: "rules.list.response" }
 >["payload"];
 type PreSendChecksUpsertPayload = Extract<
   SessionOutboundMessage,
-  { type: "pre_send_checks/upsert/response" }
+  { type: "rules.upsert.response" }
 >["payload"];
 type PreSendChecksDeletePayload = Extract<
   SessionOutboundMessage,
-  { type: "pre_send_checks/delete/response" }
+  { type: "rules.delete.response" }
 >["payload"];
 type PreSendChecksReorderPayload = Extract<
   SessionOutboundMessage,
-  { type: "pre_send_checks/reorder/response" }
+  { type: "rules.reorder.response" }
 >["payload"];
 type PreSendChecksRunActionPayload = Extract<
   SessionOutboundMessage,
-  { type: "pre_send_checks/run_action/response" }
+  { type: "rules.run_action.response" }
 >["payload"];
 type ScheduleInspectPayload = Extract<
   SessionOutboundMessage,
@@ -5088,9 +5088,9 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "pre_send_checks/list",
+        type: "rules.list.request",
       },
-      responseType: "pre_send_checks/list/response",
+      responseType: "rules.list.response",
     });
   }
 
@@ -5102,10 +5102,10 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "pre_send_checks/upsert",
+        type: "rules.upsert.request",
         check,
       },
-      responseType: "pre_send_checks/upsert/response",
+      responseType: "rules.upsert.response",
     });
   }
 
@@ -5117,10 +5117,10 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "pre_send_checks/reorder",
+        type: "rules.reorder.request",
         ruleIds: [...ruleIds],
       },
-      responseType: "pre_send_checks/reorder/response",
+      responseType: "rules.reorder.response",
     });
   }
 
@@ -5143,13 +5143,13 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "pre_send_checks/run_action",
+        type: "rules.run_action.request",
         agentId: input.agentId,
         message: input.message,
         action: input.action,
         confirmed: input.confirmed === true,
       },
-      responseType: "pre_send_checks/run_action/response",
+      responseType: "rules.run_action.response",
     });
   }
 
@@ -5161,10 +5161,10 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "pre_send_checks/delete",
+        type: "rules.delete.request",
         ruleId,
       },
-      responseType: "pre_send_checks/delete/response",
+      responseType: "rules.delete.response",
     });
   }
 
