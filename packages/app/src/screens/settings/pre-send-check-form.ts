@@ -77,7 +77,28 @@ export interface PreSendCheckDraft {
   message: string;
 }
 
-export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes";
+export type PreSendCheckField = "event" | "trigger" | "operator" | "value" | "outcomes" | "message";
+
+/**
+ * Whether this seam has a person typing something for `{{message}}` to be.
+ *
+ * The token means two different things and that is the honest reading of it: at
+ * the composer it is the text in the box, and at a daemon seam nobody typed
+ * anything, so what fills it is the rule's own `message`. Everything that has to
+ * explain or validate the token asks this first.
+ */
+export function preSendEventSuppliesTypedMessage(event: string): boolean {
+  return event === DEFAULT_PRE_SEND_EVENT;
+}
+
+/** Whether any of a draft's outcomes interpolates the token. */
+export function preSendDraftUsesMessageToken(draft: PreSendCheckDraft): boolean {
+  return draft.outcomes.some((outcome) =>
+    Object.values(outcome.params).some((value) => value.includes(MESSAGE_TOKEN)),
+  );
+}
+
+const MESSAGE_TOKEN = "{{message}}";
 
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
@@ -229,6 +250,17 @@ export function validatePreSendCheckDraft(draft: PreSendCheckDraft): PreSendChec
   const outcomeError = validateOutcomes(draft.outcomes);
   if (outcomeError) {
     errors.outcomes = outcomeError;
+  }
+  // A prompt asking for `{{message}}` where nothing supplies one renders a hole.
+  // The rule still fires, so nothing else would ever say a word about it: the
+  // agent just receives a prompt with a gap where the question should be. This
+  // is the only place that catches it.
+  if (
+    !preSendEventSuppliesTypedMessage(draft.event) &&
+    !draft.message.trim() &&
+    preSendDraftUsesMessageToken(draft)
+  ) {
+    errors.message = "settings.preSendChecks.messageNeededForToken";
   }
   // A text rule compares against a string, so any non-empty value is usable and
   // only a numeric one has to parse.

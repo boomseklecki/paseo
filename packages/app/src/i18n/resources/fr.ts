@@ -1903,6 +1903,11 @@ export const fr: TranslationResources = {
         "Tout ce que cette règle doit faire. Ajoutez-en plusieurs quand une condition mérite plusieurs réponses.",
       outcomeLabel: "Résultat",
       messageLabel: "Message",
+      messageTokenTyped: "{{message}} est remplacé par ce que vous avez tapé.",
+      messageTokenFromRule:
+        "{{message}} est remplacé par le Message ci-dessous — personne ne tape quoi que ce soit à ce moment. Ne laissez Message vide que si l'invite n'utilise pas le jeton.",
+      messageNeededForToken:
+        "Cette invite utilise {{message}}, et personne ne tape rien à ce moment. Écrivez un message, ou retirez {{message}} de l'invite.",
       messageHint:
         "Facultatif, et partagé par tous les résultats ci-dessus : le message d'alerte, le corps de la notification et le {{message}} que reçoit une invite.",
       messagePlaceholder: "Laissez vide pour le texte par défaut",

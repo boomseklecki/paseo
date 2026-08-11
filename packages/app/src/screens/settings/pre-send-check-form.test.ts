@@ -20,6 +20,7 @@ import {
   movePreSendCheck,
   previewPreSendCheckMessage,
   preSendCheckOptions,
+  preSendEventSuppliesTypedMessage,
   PRE_SEND_OPERATOR_OPTIONS,
   toPreSendCheckDraft,
   validatePreSendCheckDraft,
@@ -586,6 +587,56 @@ describe("preSendOutcomeKindOptions", () => {
 
     expect(kinds).toContain("notify");
     expect(kinds).not.toContain("block");
+  });
+});
+
+/**
+ * The token means two things and the interface used to claim it meant one. At a
+ * daemon seam nobody types anything, so a prompt asking for `{{message}}` with
+ * no rule message renders a hole - the rule fires, the agent gets a prompt with
+ * a gap in it, and nothing anywhere says a word.
+ */
+describe("the {{message}} token", () => {
+  const daemonSeam = (params: Record<string, string>, message = ""): PreSendCheckDraft =>
+    draft({
+      event: "turn.failed",
+      trigger: "always",
+      value: "1",
+      message,
+      outcomes: [{ kind: "aside", params }],
+    });
+
+  it("knows which seams have someone typing", () => {
+    expect(preSendEventSuppliesTypedMessage("message.send")).toBe(true);
+    expect(preSendEventSuppliesTypedMessage("turn.failed")).toBe(false);
+  });
+
+  it("refuses a daemon-seam prompt that interpolates nothing", () => {
+    expect(validatePreSendCheckDraft(daemonSeam({ prompt: "Explain: {{message}}" })).message).toBe(
+      "settings.preSendChecks.messageNeededForToken",
+    );
+  });
+
+  it("accepts it once the rule has a message to interpolate", () => {
+    expect(
+      validatePreSendCheckDraft(daemonSeam({ prompt: "Explain: {{message}}" }, "That turn failed."))
+        .message,
+    ).toBeUndefined();
+  });
+
+  it("says nothing about a prompt that does not use the token", () => {
+    expect(validatePreSendCheckDraft(daemonSeam({ prompt: "Write the handoff." })).message).toBe(
+      undefined,
+    );
+  });
+
+  // At the composer the composer supplies it, so an empty message is fine.
+  it("leaves a send rule alone", () => {
+    expect(
+      validatePreSendCheckDraft(
+        draft({ outcomes: [{ kind: "aside", params: { prompt: "Answer {{message}}" } }] }),
+      ).message,
+    ).toBeUndefined();
   });
 });
 

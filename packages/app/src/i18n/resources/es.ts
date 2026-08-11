@@ -1895,6 +1895,11 @@ export const es: TranslationResources = {
         "Todo lo que debe hacer esta regla. Añada más de uno cuando una condición merezca más de una respuesta.",
       outcomeLabel: "Resultado",
       messageLabel: "Mensaje",
+      messageTokenTyped: "{{message}} se sustituye por lo que escribió.",
+      messageTokenFromRule:
+        "{{message}} se sustituye por el Mensaje de abajo: nadie escribe nada en este momento. Deje Mensaje vacío solo si el prompt no usa el token.",
+      messageNeededForToken:
+        "Este prompt usa {{message}} y nadie escribe nada en este momento. Escriba un mensaje o quite {{message}} del prompt.",
       messageHint:
         "Opcional, y compartido por todos los resultados de arriba: el aviso, el cuerpo de la notificación y el {{message}} que recibe un prompt.",
       messagePlaceholder: "Déjelo vacío para usar el texto predeterminado",

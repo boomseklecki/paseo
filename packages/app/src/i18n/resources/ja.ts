@@ -1865,6 +1865,11 @@ export const ja: TranslationResources = {
         "このルールが行うことすべて。1 つの条件に複数の応答がふさわしいときは追加してください。",
       outcomeLabel: "結果",
       messageLabel: "メッセージ",
+      messageTokenTyped: "{{message}} は入力した内容に置き換わります。",
+      messageTokenFromRule:
+        "{{message}} は下の Message に置き換わります — この瞬間には誰も入力しません。プロンプトがトークンを使わない場合にのみ Message を空にしてください。",
+      messageNeededForToken:
+        "このプロンプトは {{message}} を使いますが、この瞬間には誰も入力しません。メッセージを書くか、プロンプトから {{message}} を外してください。",
       messageHint:
         "任意。上のすべての結果で共有されます — 警告のトースト、通知の本文、プロンプトが受け取る {{message}} です。",
       messagePlaceholder: "空欄にすると既定の文言を使います",

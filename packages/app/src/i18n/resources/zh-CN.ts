@@ -1819,6 +1819,11 @@ export const zhCN: TranslationResources = {
       outcomesHint: "这条规则要做的全部事情。一个条件值得多种响应时可以添加多个。",
       outcomeLabel: "结果",
       messageLabel: "提示语",
+      messageTokenTyped: "{{message}} 会替换为你输入的内容。",
+      messageTokenFromRule:
+        "{{message}} 会替换为下面的“消息”——这一刻没有人输入任何内容。只有当提示词不使用该标记时才可以让“消息”留空。",
+      messageNeededForToken:
+        "该提示词使用了 {{message}}，但这一刻没有人输入内容。请写一条消息，或从提示词中去掉 {{message}}。",
       messageHint: "可选，并由上面所有结果共用——警告提示、通知正文，以及提示词收到的 {{message}}。",
       messagePlaceholder: "留空则使用默认文案",
       defaultMessageHint: "使用内置文案",

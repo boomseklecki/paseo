@@ -1862,6 +1862,11 @@ export const en = {
         "Everything this rule should do. Add more than one when a condition deserves more than one answer.",
       outcomeLabel: "Outcome",
       messageLabel: "Message",
+      messageTokenTyped: "{{message}} is replaced with what you typed.",
+      messageTokenFromRule:
+        "{{message}} is replaced with the Message below — nobody types anything at this moment. Leave Message empty only if the prompt does not use the token.",
+      messageNeededForToken:
+        "This prompt uses {{message}}, and nothing types one at this moment. Write a message, or take {{message}} out of the prompt.",
       messageHint:
         "Optional, and shared by every outcome above — the toast a warning raises, the body of a notification, and the {{message}} a prompt receives.",
       messagePlaceholder: "Leave empty for the default wording",

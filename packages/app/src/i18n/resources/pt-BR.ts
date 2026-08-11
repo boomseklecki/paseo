@@ -1880,6 +1880,11 @@ export const ptBR: TranslationResources = {
         "Tudo o que esta regra deve fazer. Adicione mais de um quando uma condição merecer mais de uma resposta.",
       outcomeLabel: "Resultado",
       messageLabel: "Mensagem",
+      messageTokenTyped: "{{message}} é substituído pelo que você digitou.",
+      messageTokenFromRule:
+        "{{message}} é substituído pela Mensagem abaixo — ninguém digita nada neste momento. Deixe a Mensagem vazia só se o prompt não usar o token.",
+      messageNeededForToken:
+        "Este prompt usa {{message}} e ninguém digita nada neste momento. Escreva uma mensagem ou tire {{message}} do prompt.",
       messageHint:
         "Opcional, e compartilhado por todos os resultados acima: o aviso, o corpo da notificação e o {{message}} que um prompt recebe.",
       messagePlaceholder: "Deixe vazio para usar o texto padrão",

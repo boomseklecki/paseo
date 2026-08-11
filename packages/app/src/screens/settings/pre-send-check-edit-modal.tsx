@@ -19,6 +19,7 @@ import { dryRunPreSendCheckSample } from "@getpaseo/protocol/pre-send-checks/dry
 import {
   gatePreSendCheckSave,
   preSendCheckChoosesHosts,
+  preSendEventSuppliesTypedMessage,
   addPreSendOutcome,
   applyPreSendCheckDraft,
   applyPreSendEventChange,
@@ -323,6 +324,8 @@ function PreSendCheckHostRow({ host, selected, disabled, onToggle }: PreSendChec
 
 interface PreSendOutcomeFieldProps {
   parameter: PreSendOutcomeParameter;
+  /** The seam, because `{{message}}` means something different at each one. */
+  event: string;
   value: string;
   disabled: boolean;
   resetKey: string;
@@ -339,18 +342,36 @@ interface PreSendOutcomeFieldProps {
  */
 function PreSendOutcomeField({
   parameter,
+  event,
   value,
   disabled,
   resetKey,
   onChange,
   testID,
 }: PreSendOutcomeFieldProps) {
+  const { t } = useTranslation();
+
   const handleChangeText = useCallback(
     (next: string) => {
       onChange(parameter.id, next);
     },
     [onChange, parameter.id],
   );
+
+  // The daemon describes its own parameters and cannot know the seam, so its
+  // text for anything mentioning `{{message}}` says "what you typed" — true at
+  // the composer and false everywhere else, where nobody typed anything and the
+  // token takes the rule's own Message instead. Only the app knows which, so
+  // only the app can say. Anything not mentioning the token keeps the daemon's
+  // wording, so an outcome this build has never heard of still describes itself.
+  const hint =
+    parameter.description?.includes("{{message}}") === true
+      ? t(
+          preSendEventSuppliesTypedMessage(event)
+            ? "settings.preSendChecks.messageTokenTyped"
+            : "settings.preSendChecks.messageTokenFromRule",
+        )
+      : parameter.description;
 
   const handleToggle = useCallback(
     (next: boolean) => {
@@ -377,7 +398,7 @@ function PreSendOutcomeField({
   }
 
   return (
-    <Field label={parameter.label} hint={parameter.description} testID={testID + "-field"}>
+    <Field label={parameter.label} hint={hint} testID={testID + "-field"}>
       <FormTextInput
         initialValue={value}
         value={value}
@@ -397,6 +418,8 @@ function PreSendOutcomeField({
 
 interface PreSendOutcomeRowProps {
   index: number;
+  /** The seam, for the parameter hints that depend on it. */
+  event: string;
   outcome: PreSendCheckOutcomeDraft;
   /** Every kind this seam accepts and this daemon can perform. */
   kinds: readonly string[];
@@ -428,6 +451,7 @@ interface PreSendOutcomeRowProps {
  */
 function PreSendOutcomeRow({
   index,
+  event,
   outcome,
   kinds,
   descriptor,
@@ -515,6 +539,7 @@ function PreSendOutcomeRow({
         <PreSendOutcomeField
           key={parameter.id}
           parameter={parameter}
+          event={event}
           value={outcome.params[parameter.id] ?? ""}
           disabled={disabled}
           resetKey={`${resetKey}-${outcome.kind}`}
@@ -575,6 +600,7 @@ function PreSendOutcomeList({
             // picker leaves out what its siblings already have.
             key={outcome.kind}
             index={index}
+            event={draft.event}
             outcome={outcome}
             kinds={preSendOutcomeKindsForRow(draft, index, descriptors)}
             descriptor={descriptors.find((candidate) => candidate.kind === outcome.kind)}
@@ -670,6 +696,21 @@ export function PreSendCheckEditModal({
     initialServerIdKey,
   ]);
 
+  // `setField` only clears an error keyed by the field being typed in, and the
+  // token complaint is raised against `message` but caused by an outcome's
+  // prompt. Editing either has to clear it, or it sits there contradicting a
+  // form that is now valid.
+  const clearMessageError = useCallback(() => {
+    setFieldErrors((current) => {
+      if (!("message" in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next.message;
+      return next;
+    });
+  }, []);
+
   const clearOutcomeError = useCallback(() => {
     setFieldErrors((current) => {
       if (!("outcomes" in current)) {
@@ -689,9 +730,13 @@ export function PreSendCheckEditModal({
     [clearOutcomeError],
   );
 
-  const handleOutcomeParamChange = useCallback((index: number, id: string, value: string) => {
-    setDraft((current) => setPreSendOutcomeParam(current, index, id, value));
-  }, []);
+  const handleOutcomeParamChange = useCallback(
+    (index: number, id: string, value: string) => {
+      setDraft((current) => setPreSendOutcomeParam(current, index, id, value));
+      clearMessageError();
+    },
+    [clearMessageError],
+  );
 
   const handleOutcomeRemove = useCallback(
     (index: number) => {
@@ -908,6 +953,7 @@ export function PreSendCheckEditModal({
         <Field
           label={messageLabel}
           hint={t("settings.preSendChecks.messageHint")}
+          error={fieldErrors.message ? t(fieldErrors.message) : undefined}
           testID={`${prefix}-message`}
         >
           <FormTextInput

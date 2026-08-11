@@ -3,6 +3,12 @@ import type { PreSendOutcomeDescriptor } from "@getpaseo/protocol/pre-send-check
 /**
  * What this daemon can do, described well enough for an editor to draw it.
  *
+ * A description mentioning `{{message}}` is deliberately vague about where the
+ * message comes from, because the daemon cannot know: the token is what someone
+ * typed at the composer and the rule's own `message` at every other seam. The
+ * app knows the seam and replaces these hints with one that says which. See
+ * `PreSendOutcomeField`.
+ *
  * Lives beside the runner rather than in the app so that adding one is a server
  * change: the editor renders whatever arrives and needs no knowledge of the
  * kinds. That is the whole point of sending these — an older app offering a
@@ -31,7 +37,7 @@ export const PRE_SEND_OUTCOME_DESCRIPTORS: readonly PreSendOutcomeDescriptor[] =
         type: "text",
         id: "prompt",
         label: "Prompt",
-        description: "Wraps the message. {{message}} is replaced with what you typed.",
+        description: "Wraps the message. {{message}} is replaced with the message.",
         placeholder: "Answer this side question.\n\n{{message}}",
         multiline: true,
       },
@@ -68,7 +74,7 @@ export const PRE_SEND_OUTCOME_DESCRIPTORS: readonly PreSendOutcomeDescriptor[] =
         id: "prompt",
         label: "Opening message",
         description:
-          "Optional. Sent to the new conversation as its first message. {{message}} is replaced with what you typed. Leave empty to open it and leave it waiting.",
+          "Optional. Sent to the new conversation as its first message. {{message}} is replaced with the message. Leave empty to open it and leave it waiting.",
         multiline: true,
       },
     ],
@@ -90,7 +96,7 @@ export const PRE_SEND_OUTCOME_DESCRIPTORS: readonly PreSendOutcomeDescriptor[] =
         type: "text",
         id: "prompt",
         label: "What to send",
-        description: "{{message}} is replaced with what you typed.",
+        description: "{{message}} is replaced with the message.",
         multiline: true,
       },
       {
