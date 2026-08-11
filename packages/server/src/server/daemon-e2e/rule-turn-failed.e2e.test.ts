@@ -264,9 +264,15 @@ describe("daemon E2E (rule on turn.failed)", () => {
       outcome: { kind: "fork", title: "Second attempt" },
     });
 
+    const pushedFork: string[] = [];
     const daemon = await createTestPaseoDaemon({
       agentClients: createTestAgentClients(),
       paseoHomeRoot,
+      pushNotificationSender: {
+        send: async (notification) => {
+          pushedFork.push(String(notification.data?.reason ?? ""));
+        },
+      },
       logger,
     });
     const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
@@ -294,6 +300,11 @@ describe("daemon E2E (rule on turn.failed)", () => {
 
       // A real agent, visible in the list beside its parent - not a hidden
       // subagent. That is the whole difference between fork and aside.
+      // It announced itself. A notify says so by existing; a fork happens on a
+      // machine nobody is watching, so it raises the same attention rather than
+      // succeeding in silence.
+      expect(pushedFork).toContain("rule");
+
       expect(forked).toHaveLength(1);
       expect(forked[0]?.title).toBe("Second attempt");
       expect(forked[0]?.workspaceId).toBe(agent.workspaceId);

@@ -2532,7 +2532,7 @@ export class VoiceAssistantWebSocketServer {
         });
         continue;
       }
-      await this.runAgentRuleAction(agentId, event, finding);
+      await this.runAgentRuleAction(agentId, provider, event, finding);
     }
   }
 
@@ -2549,6 +2549,7 @@ export class VoiceAssistantWebSocketServer {
    */
   private async runAgentRuleAction(
     agentId: string,
+    provider: AgentProvider,
     event: string,
     finding: PreSendEventFinding,
   ): Promise<void> {
@@ -2562,6 +2563,17 @@ export class VoiceAssistantWebSocketServer {
     });
 
     if (outcome.status === "started") {
+      // Say so. A notify announces itself by existing; a fork, a start or a
+      // schedule happens quietly on a machine nobody is looking at, and the
+      // plan named that gap - "client-side a toast tells you; daemon-side
+      // nothing does". Attributed to the conversation that triggered it, which
+      // is where someone would go looking.
+      await this.broadcastAgentAttention({
+        agentId,
+        provider,
+        reason: "rule",
+        ruleMessage: finding.message ?? undefined,
+      });
       return;
     }
     this.logger.info(
