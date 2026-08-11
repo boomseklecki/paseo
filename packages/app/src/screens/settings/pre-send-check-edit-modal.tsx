@@ -141,9 +141,13 @@ function PreSendCheckPicker({
   );
 
   const label = t(`settings.preSendChecks.${kind}Label`);
+  // Event and trigger carry a line of prose apiece, because the two stack and
+  // nothing else on the form says so: the event is when we look, the trigger is
+  // what must also hold when we do. Operator and outcome need no such help.
+  const hint = t(`settings.preSendChecks.${kind}Hint`, { defaultValue: "" }) || undefined;
 
   return (
-    <Field label={label} error={error} testID={testID}>
+    <Field label={label} hint={hint} error={error} testID={testID}>
       <SelectField
         label={label}
         field={false}
@@ -576,6 +580,7 @@ export function PreSendCheckEditModal({
   );
 
   const header = useMemo<SheetHeader>(() => ({ title }), [title]);
+  const isAlwaysTrigger = draft.trigger === "always";
   const resetKey = visible ? "open" : "closed";
   // One input holds either the number a numeric rule compares against or the
   // text a trigger matches, so it has to say which it currently is. Calling a
@@ -587,6 +592,47 @@ export function PreSendCheckEditModal({
   );
   const thresholdHint = isTextRule ? t("settings.preSendChecks.textHint") : undefined;
   const messageLabel = t("settings.preSendChecks.messageLabel");
+
+  // One ternary rather than two guards, which is also what keeps this function
+  // under the complexity ceiling. `always` is the trigger with no comparison in
+  // it, so the evaluator ignores both of these — rendering them would ask for
+  // two values that do nothing, which is worse than asking for nothing.
+  const comparisonFields = isAlwaysTrigger ? null : (
+    <>
+      {/* `always` is the trigger with no comparison in it, so the evaluator
+              ignores both of these. Rendering them asks for two values that do
+              nothing, which is worse than asking for nothing. */}
+      <PreSendCheckPicker
+        kind="operator"
+        known={PRE_SEND_OPERATOR_OPTIONS}
+        value={draft.operator}
+        error={fieldErrors.operator ? t(fieldErrors.operator) : undefined}
+        disabled={isPending}
+        onChange={handlePickerChange}
+        testID={`${prefix}-operator`}
+      />
+      <Field
+        label={thresholdLabel}
+        hint={thresholdUnitKey ? t(thresholdUnitKey) : thresholdHint}
+        error={fieldErrors.value ? t(fieldErrors.value) : undefined}
+        testID={`${prefix}-threshold`}
+      >
+        <FormTextInput
+          initialValue={draft.value}
+          value={draft.value}
+          resetKey={resetKey}
+          onChangeText={handleThresholdChange}
+          keyboardType={isTextRule ? "default" : "number-pad"}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isPending}
+          returnKeyType="next"
+          accessibilityLabel={thresholdLabel}
+          testID={`${prefix}-threshold-input`}
+        />
+      </Field>{" "}
+    </>
+  );
 
   return (
     <AdaptiveModalSheet
@@ -613,36 +659,7 @@ export function PreSendCheckEditModal({
           onChange={handlePickerChange}
           testID={`${prefix}-measurement`}
         />
-        <PreSendCheckPicker
-          kind="operator"
-          known={PRE_SEND_OPERATOR_OPTIONS}
-          value={draft.operator}
-          error={fieldErrors.operator ? t(fieldErrors.operator) : undefined}
-          disabled={isPending}
-          onChange={handlePickerChange}
-          testID={`${prefix}-operator`}
-        />
-
-        <Field
-          label={thresholdLabel}
-          hint={thresholdUnitKey ? t(thresholdUnitKey) : thresholdHint}
-          error={fieldErrors.value ? t(fieldErrors.value) : undefined}
-          testID={`${prefix}-threshold`}
-        >
-          <FormTextInput
-            initialValue={draft.value}
-            value={draft.value}
-            resetKey={resetKey}
-            onChangeText={handleThresholdChange}
-            keyboardType={isTextRule ? "default" : "number-pad"}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isPending}
-            returnKeyType="next"
-            accessibilityLabel={thresholdLabel}
-            testID={`${prefix}-threshold-input`}
-          />
-        </Field>
+        {comparisonFields}
 
         <PreSendCheckPicker
           kind="disposition"
