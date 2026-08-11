@@ -1846,6 +1846,11 @@ export const es: TranslationResources = {
           description:
             "Se abre una conversación nueva al lado sin arrastrar nada — combínela con la regla de traspaso.",
         },
+        "retry-after-a-failed-turn": {
+          label: "Reintentar diez minutos después de un turno fallido",
+          description:
+            "La mayoría de los fallos son un límite de tasa o un tropiezo: la solución es esperar.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar cuando el contexto esté casi lleno",
           description:

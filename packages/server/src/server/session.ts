@@ -845,6 +845,7 @@ export class Session {
       // well before this line, and an action is a logger and a reference.
       actionRunner: createPreSendActionRegistry({
         manager: agentManager,
+        scheduleService,
         logger: this.sessionLogger,
       }),
       logger: this.sessionLogger,

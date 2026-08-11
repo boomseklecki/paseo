@@ -1774,6 +1774,10 @@ export const zhCN: TranslationResources = {
           label: "这个对话满了就开一个新的",
           description: "旁边开一个不带任何内容的新对话——和交接规则搭配使用。",
         },
+        "retry-after-a-failed-turn": {
+          label: "回合失败十分钟后重试",
+          description: "多数失败是限流或小故障，办法是等待而不是排查。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

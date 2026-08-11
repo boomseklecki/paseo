@@ -1854,6 +1854,11 @@ export const fr: TranslationResources = {
           description:
             "Une nouvelle conversation s'ouvre à côté sans rien reprendre — à associer à la règle de passation.",
         },
+        "retry-after-a-failed-turn": {
+          label: "Réessayer dix minutes après l'échec d'un tour",
+          description:
+            "La plupart des échecs sont une limite de débit ou un incident : la solution est d'attendre.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

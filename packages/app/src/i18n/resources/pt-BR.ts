@@ -1833,6 +1833,10 @@ export const ptBR: TranslationResources = {
           description:
             "Uma conversa nova abre ao lado sem carregar nada — combine com a regra de passagem.",
         },
+        "retry-after-a-failed-turn": {
+          label: "Tentar de novo dez minutos após um turno falhar",
+          description: "A maioria das falhas é limite de taxa ou um tropeço: a solução é esperar.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

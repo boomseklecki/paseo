@@ -1812,6 +1812,11 @@ export const en = {
           description:
             "A new conversation opens beside this one carrying none of it — pair it with the handoff rule.",
         },
+        "retry-after-a-failed-turn": {
+          label: "Try again ten minutes after a turn fails",
+          description:
+            "Most failed turns are a rate limit or a blip, and the fix is waiting rather than reading.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

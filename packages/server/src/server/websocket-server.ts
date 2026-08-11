@@ -772,6 +772,7 @@ export class VoiceAssistantWebSocketServer {
 
     this.ruleActionRunner = createPreSendActionRegistry({
       manager: this.agentManager,
+      scheduleService: this.scheduleService,
       logger: this.logger,
     });
     this.ruleIdleWatcher = new PreSendRuleIdleWatcher({

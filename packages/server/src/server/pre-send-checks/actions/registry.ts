@@ -1,7 +1,9 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
+import type { ScheduleService } from "../../schedule/service.js";
 import { AsideAction } from "./aside.js";
 import { ForkAction } from "./fork.js";
+import { ScheduleAction } from "./schedule.js";
 import { StartAction } from "./start.js";
 import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
 
@@ -14,7 +16,11 @@ import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
  * the message instead of sending it, so silently doing nothing would swallow
  * what somebody typed on the way to a destination that does not exist.
  */
-export function createPreSendActionRegistry(options: { manager: AgentManager; logger: Logger }): {
+export function createPreSendActionRegistry(options: {
+  manager: AgentManager;
+  scheduleService: ScheduleService;
+  logger: Logger;
+}): {
   run: (request: PreSendActionRequest) => Promise<PreSendActionOutcome>;
 } {
   const actions: Record<
@@ -24,6 +30,7 @@ export function createPreSendActionRegistry(options: { manager: AgentManager; lo
     aside: new AsideAction(options),
     fork: new ForkAction(options),
     start: new StartAction(options),
+    schedule: new ScheduleAction(options),
   };
 
   return {

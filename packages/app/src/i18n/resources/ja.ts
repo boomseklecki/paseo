@@ -1817,6 +1817,11 @@ export const ja: TranslationResources = {
           description:
             "何も引き継がない新しい会話が隣に開きます。引き継ぎルールと組み合わせてください。",
         },
+        "retry-after-a-failed-turn": {
+          label: "ターンが失敗した10分後にもう一度試す",
+          description:
+            "失敗のほとんどはレート制限か一時的なもので、直し方は読むことではなく待つことです。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",

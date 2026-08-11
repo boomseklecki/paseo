@@ -81,6 +81,23 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "retry-after-a-failed-turn",
+    label: "Try again ten minutes after a turn fails",
+    description:
+      "Most failed turns are a rate limit or a blip, and the fix is waiting rather than reading. This asks the conversation to try again once, later, and appears in the schedules list so you can cancel it if it was not a blip.",
+    rule: {
+      event: "turn.failed",
+      trigger: "always",
+      operator: "gte",
+      outcome: {
+        kind: "schedule",
+        title: "Retry after a failure",
+        delay: "10m",
+        prompt: "The last turn failed. Try it again.",
+      },
+    },
+  },
+  {
     id: "notify-context-pressure",
     label: "Tell me when a conversation is nearly full",
     description:

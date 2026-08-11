@@ -73,4 +73,32 @@ export const PRE_SEND_ACTION_DESCRIPTORS: readonly PreSendActionDescriptor[] = [
       },
     ],
   },
+  {
+    kind: "schedule",
+    label: "Come back to this later",
+    description:
+      "Sends a message back to this conversation after a delay, as an ordinary schedule - so it shows up in the schedules list and anyone can cancel it without knowing a rule made it.",
+    parameters: [
+      {
+        type: "text",
+        id: "delay",
+        label: "Wait for",
+        description: "How long to wait. 30s, 10m, 2h, 1d.",
+        placeholder: "10m",
+      },
+      {
+        type: "text",
+        id: "prompt",
+        label: "What to send",
+        description: "{{message}} is replaced with what you typed.",
+        multiline: true,
+      },
+      {
+        type: "toggle",
+        id: "repeat",
+        label: "Keep repeating",
+        description: "Off means once. On means every interval until you cancel it.",
+      },
+    ],
+  },
 ];

@@ -1809,6 +1809,10 @@ export const ko: TranslationResources = {
           description:
             "아무것도 가져오지 않는 새 대화가 옆에 열립니다. 인수인계 규칙과 함께 쓰세요.",
         },
+        "retry-after-a-failed-turn": {
+          label: "턴이 실패하고 10분 뒤에 다시 시도",
+          description: "대부분의 실패는 요청 한도나 일시적 문제라 해결책은 기다리는 것입니다。",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",
