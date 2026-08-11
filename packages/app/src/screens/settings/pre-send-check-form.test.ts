@@ -34,6 +34,8 @@ const t = (key: string) => key;
 describe("toPreSendCheckDraft", () => {
   it("renders the threshold as a string and a missing message as empty", () => {
     expect(toPreSendCheckDraft(RULE)).toEqual({
+      // A rule written before `event` existed meant the send.
+      event: "message.send",
       trigger: "agent.idleSeconds",
       operator: "gte",
       value: "3600",
@@ -357,6 +359,7 @@ describe("preSendCheckExampleToDraft", () => {
     });
 
     expect(built).toEqual({
+      event: "message.send",
       trigger: "message",
       operator: "startsWith",
       // The one input holds whichever operand applies, and a text trigger's is

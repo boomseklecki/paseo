@@ -77,6 +77,24 @@ which are the older names for \`trigger\`, \`value\` and \`outcome.kind\`. They 
 written so a Paseo older than 0.3.2 can still read these rules, and either name
 works if you write one by hand. The newer name wins where both appear.
 
+## Events
+
+\`event\` says which moment a rule is evaluated at. Absent means
+\`message.send\`, which is the only one that existed when rules did.
+
+| name | when | outcomes | evaluated by |
+| --- | --- | --- | --- |
+| \`message.send\` | before a message leaves the composer | \`warn\`, \`block\`, an action | the app |
+| \`turn.failed\` | after an agent's turn fails | \`notify\` | the daemon |
+
+A rule asking for an outcome its event does not accept is skipped rather than
+half-performed, so a \`block\` on \`turn.failed\` never fires.
+
+A \`turn.failed\` rule fires on the *crossing*, not on the condition: once it has
+notified, it stays quiet until the condition stops holding and starts again.
+Otherwise a rule about a session's cost would notify on every failed turn for
+the rest of that session. Restarting the daemon arms every rule afresh.
+
 ## Triggers
 
 | name | unit |
@@ -85,6 +103,7 @@ works if you write one by hand. The newer name wins where both appear.
 | \`agent.contextUsedPercent\` | 0-100 |
 | \`agent.sessionCostUsd\` | US dollars |
 | \`message\` | the text about to be sent, compared as a string |
+| \`always\` | no comparison; the event itself is the condition |
 
 ## Operators
 

@@ -1790,6 +1790,10 @@ export const ja: TranslationResources = {
           description:
             "/btw で始まるメッセージは送信されず、隠しエージェントが答え、返答はサブエージェントの下に表示されます。",
         },
+        "notify-on-failed-turn": {
+          label: "高くついたセッションでターンが失敗したら知らせる",
+          description: "中断に値する金額をセッションが超えてからだけ通知します。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",

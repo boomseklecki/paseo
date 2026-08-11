@@ -37,6 +37,20 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "notify-on-failed-turn",
+    label: "Tell me when a turn fails after a costly session",
+    description:
+      "The daemon already says when an agent stops with an error. This says it again, in your words, only once this session has passed a cost worth interrupting you for.",
+    rule: {
+      event: "turn.failed",
+      trigger: "agent.sessionCostUsd",
+      operator: "gte",
+      value: 25,
+      outcome: { kind: "notify" },
+      message: "A turn failed on a session that has already cost {{value}}.",
+    },
+  },
+  {
     id: "warn-context-nearly-full",
     label: "Warn when the context is nearly full",
     description:

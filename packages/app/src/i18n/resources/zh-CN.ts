@@ -1750,6 +1750,10 @@ export const zhCN: TranslationResources = {
           label: "在一旁回答 /btw",
           description: "以 /btw 开头的消息不会发送，而由隐藏代理回答，回复显示在子代理下方。",
         },
+        "notify-on-failed-turn": {
+          label: "在花费较高的会话中回合失败时通知我",
+          description: "仅当该会话的花费已超过值得打断你的数额时。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

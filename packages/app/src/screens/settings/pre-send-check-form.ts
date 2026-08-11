@@ -36,6 +36,17 @@ import { formatDuration } from "@/utils/time";
  * record.
  */
 export interface PreSendCheckDraft {
+  /**
+   * Which seam the rule belongs to.
+   *
+   * Carried through an edit rather than chosen: the editor has no picker for it,
+   * because with one daemon-side seam a picker would offer a choice between the
+   * send and one other thing. A rule written by hand or opened from an example
+   * keeps whatever seam it names, which is what stops the editor quietly moving
+   * a `turn.failed` rule onto the composer the first time someone fixes a typo
+   * in its message.
+   */
+  event: string;
   trigger: string;
   operator: string;
   /** The number for a numeric trigger, or the text a message trigger matches. */
@@ -59,6 +70,7 @@ export type PreSendCheckField = "trigger" | "operator" | "value" | "disposition"
 export type PreSendCheckFieldErrors = Partial<Record<PreSendCheckField, string>>;
 
 export const EMPTY_PRE_SEND_CHECK_DRAFT: PreSendCheckDraft = {
+  event: DEFAULT_PRE_SEND_EVENT,
   trigger: PRE_SEND_TRIGGERS[0],
   operator: "gte",
   value: "",
@@ -73,6 +85,7 @@ export function toPreSendCheckDraft(rule: PreSendCheckRule): PreSendCheckDraft {
   const { kind, ...params } = normalized.outcome;
   const isAction = !isPlainDisposition(kind);
   return {
+    event: normalized.event,
     trigger: normalized.trigger,
     operator: normalized.operator,
     value: normalized.value === undefined ? "" : String(normalized.value),
@@ -147,9 +160,7 @@ export function applyPreSendCheckDraft(input: {
     ...carryUnknownFields(input.existing),
     ...projectPreSendCheckRule({
       id: input.id,
-      // The editor only edits sends, so an existing rule keeps whatever seam it
-      // was written for rather than being moved to this one.
-      event: previous?.event ?? DEFAULT_PRE_SEND_EVENT,
+      event: input.draft.event,
       trigger: input.draft.trigger,
       operator: input.draft.operator,
       // The type is the answer to which operand this is, so a text trigger's
@@ -345,8 +356,8 @@ export function movePreSendCheck(
   return next;
 }
 
-export const PRE_SEND_TRIGGER_OPTIONS = PRE_SEND_TRIGGERS;
 export const PRE_SEND_OPERATOR_OPTIONS = PRE_SEND_OPERATORS;
+export const PRE_SEND_TRIGGER_OPTIONS = PRE_SEND_TRIGGERS;
 export const PRE_SEND_DISPOSITION_OPTIONS = ["warn", "block", "redirect"] as const;
 
 // Symbols rather than words, so they need no translation and the sentence stays

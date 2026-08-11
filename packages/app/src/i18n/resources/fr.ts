@@ -1825,6 +1825,11 @@ export const fr: TranslationResources = {
           description:
             "Un message commençant par /btw reçoit une réponse d'un agent masqué au lieu d'être envoyé, et la réponse apparaît sous les sous-agents.",
         },
+        "notify-on-failed-turn": {
+          label: "M'avertir d'un tour échoué sur une session coûteuse",
+          description:
+            "Seulement une fois que la session a dépassé un coût qui mérite de vous déranger.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

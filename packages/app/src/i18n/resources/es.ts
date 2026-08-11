@@ -1818,6 +1818,10 @@ export const es: TranslationResources = {
           description:
             "Un mensaje que empieza por /btw lo responde un agente oculto en lugar de enviarse, y la respuesta aparece bajo subagentes.",
         },
+        "notify-on-failed-turn": {
+          label: "Avisarme de un turno fallido en una sesión costosa",
+          description: "Solo cuando la sesión ha pasado un coste que merece interrumpirle.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar cuando el contexto esté casi lleno",
           description:

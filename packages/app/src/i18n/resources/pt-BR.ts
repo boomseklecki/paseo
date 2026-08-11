@@ -1805,6 +1805,10 @@ export const ptBR: TranslationResources = {
           description:
             "Uma mensagem que começa com /btw é respondida por um agente oculto em vez de enviada, e a resposta aparece em subagentes.",
         },
+        "notify-on-failed-turn": {
+          label: "Avisar quando um turno falhar numa sessão cara",
+          description: "Só depois que a sessão passar de um custo que justifique interromper você.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

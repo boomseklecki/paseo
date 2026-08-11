@@ -1784,6 +1784,10 @@ export const en = {
           description:
             "A message starting with /btw is answered by a hidden agent instead of being sent, and the reply appears under subagents.",
         },
+        "notify-on-failed-turn": {
+          label: "Tell me when a turn fails after a costly session",
+          description: "Only once the session has passed a cost worth interrupting you for.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

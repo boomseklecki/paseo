@@ -1782,6 +1782,10 @@ export const ko: TranslationResources = {
           description:
             "/btw로 시작하는 메시지는 전송되지 않고 숨은 에이전트가 답하며, 답변은 서브에이전트 아래에 표시됩니다.",
         },
+        "notify-on-failed-turn": {
+          label: "비용이 큰 세션에서 턴이 실패하면 알리기",
+          description: "방해할 만한 금액을 세션이 넘긴 뒤에만 알립니다.",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",
