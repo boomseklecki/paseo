@@ -155,3 +155,30 @@ describe("evaluatePreSendEvent", () => {
     expect(findings[0]?.value).toBe("always");
   });
 });
+
+describe("the turn.completed seam", () => {
+  // Where a conversation has got to settles when a turn ends, so this is the
+  // seam for context and cost.
+  it("accepts notify and the agent triggers", () => {
+    expect(isOutcomeValidForEvent("turn.completed", "notify")).toBe(true);
+    expect(isTriggerValidForEvent("turn.completed", "agent.contextUsedPercent")).toBe(true);
+    expect(isTriggerValidForEvent("turn.completed", "always")).toBe(true);
+  });
+
+  // There is no composer at this seam to warn in or hold anything back.
+  it("accepts neither warn nor block", () => {
+    expect(isOutcomeValidForEvent("turn.completed", "warn")).toBe(false);
+    expect(isOutcomeValidForEvent("turn.completed", "block")).toBe(false);
+  });
+
+  it("keeps its rules apart from the failure seam", () => {
+    const completed: PreSendCheckRule = { ...FAILURE_RULE, id: "full", event: "turn.completed" };
+
+    expect(
+      rulesForPreSendEvent([completed, FAILURE_RULE], "turn.completed").map((r) => r.id),
+    ).toEqual(["full"]);
+    expect(rulesForPreSendEvent([completed, FAILURE_RULE], "turn.failed").map((r) => r.id)).toEqual(
+      ["costly"],
+    );
+  });
+});

@@ -493,6 +493,18 @@ const WS_CLOSE_SERVER_SHUTDOWN = 1001;
 const WS_PROTOCOL_VERSION = 1;
 const WS_RUNTIME_METRICS_FLUSH_MS = 30_000;
 
+/**
+ * Which daemon seam each attention transition is.
+ *
+ * `permission` is absent on purpose: a rule firing while a person is being asked
+ * a question would be interrupting an interruption, and the outcomes worth
+ * having there - approve, deny - are the ones the SDK will not let us take.
+ */
+const RULE_EVENT_BY_ATTENTION_REASON: Partial<Record<AgentAttentionReason, string>> = {
+  finished: "turn.completed",
+  error: "turn.failed",
+};
+
 export class MissingDaemonVersionError extends Error {
   constructor() {
     super("VoiceAssistantWebSocketServer requires a non-empty daemonVersion.");
@@ -722,19 +734,23 @@ export class VoiceAssistantWebSocketServer {
       void this.broadcastAgentAttention(params).catch((err) => {
         this.logger.warn({ err, agentId: params.agentId }, "Failed to broadcast agent attention");
       });
-      // A failed turn is what puts an agent into error, so this is the seam.
+      // The two daemon seams ride transitions the manager already detects: a
+      // failed turn is what puts an agent into error, a completed one is what
+      // returns it to idle. Hooking these rather than the raw stream keeps rules
+      // off the per-token path - they are re-read from disk on every evaluation,
+      // and what a rule asks about only settles when a turn ends anyway.
+      //
       // Separate from the built-in notification above rather than replacing it:
       // that one says the agent stopped, a rule says something its author asked
       // to be told about, and only the second is conditional.
-      if (params.reason === "error") {
-        void this.fireAgentRuleEvent(params.agentId, params.provider, "turn.failed").catch(
-          (err) => {
-            this.logger.warn(
-              { err, agentId: params.agentId },
-              "Failed to evaluate rules for turn.failed",
-            );
-          },
-        );
+      const ruleEvent = RULE_EVENT_BY_ATTENTION_REASON[params.reason];
+      if (ruleEvent) {
+        void this.fireAgentRuleEvent(params.agentId, params.provider, ruleEvent).catch((err) => {
+          this.logger.warn(
+            { err, agentId: params.agentId, event: ruleEvent },
+            "Failed to evaluate rules for a daemon seam",
+          );
+        });
       }
     });
 

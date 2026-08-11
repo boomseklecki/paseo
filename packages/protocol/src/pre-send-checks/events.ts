@@ -39,6 +39,17 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     triggers: PRE_SEND_TRIGGERS,
   },
   {
+    event: "turn.completed",
+    side: "daemon",
+    // The seam for anything about where a conversation has got to - how full the
+    // context is, what it has cost - because those settle when a turn ends. A
+    // `usage.changed` seam would answer the same questions per token batch, and
+    // the rules are re-read from disk on every evaluation, so it would be a
+    // directory scan per token to learn something that only changes per turn.
+    outcomeKinds: ["notify"],
+    triggers: AGENT_TRIGGERS,
+  },
+  {
     event: "turn.failed",
     side: "daemon",
     // No `warn` or `block`: the send already happened, and there is no composer

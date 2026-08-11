@@ -112,4 +112,80 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 60_000);
+
+  // The other daemon seam, and the one that answers "where has this
+  // conversation got to". Both ride transitions the manager already detects, so
+  // the risk worth testing is that they do not fire for each other.
+  test("fires a turn.completed rule when a turn succeeds, and not the failure one", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-done-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "any-completion",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "notify" },
+      message: "That turn finished.",
+    });
+    await seedRule(paseoHomeRoot, {
+      id: "any-failure",
+      event: "turn.failed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "notify" },
+      message: "That turn failed.",
+    });
+
+    const pushed: string[] = [];
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      pushNotificationSender: {
+        send: async (notification) => {
+          pushed.push(notification.body);
+        },
+      },
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-done-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Finishing",
+      });
+
+      // An ordinary prompt, so the fake provider completes the turn rather than
+      // failing it.
+      await client.sendMessage(agent.id, "Say hello");
+
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && !pushed.includes("That turn finished.")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      // Two pushes, and both belong. Unlike `error`, the built-in `finished`
+      // attention *is* push-eligible, so a completed turn already reaches a
+      // phone carrying the agent's last message. The rule adds a second saying
+      // the thing the built-in cannot know to say - and only on the crossing,
+      // which is what keeps "context is over 80%" from being every turn from
+      // here to the end of the conversation.
+      expect(pushed).toContain("That turn finished.");
+      expect(pushed).toContain("Hello world");
+
+      // The failure rule is seeded and must stay silent: the seams ride
+      // different transitions and must not fire for each other.
+      expect(pushed).not.toContain("That turn failed.");
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
 });

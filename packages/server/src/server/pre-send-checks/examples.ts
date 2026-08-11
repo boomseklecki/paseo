@@ -51,6 +51,20 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "notify-context-pressure",
+    label: "Tell me when a conversation is nearly full",
+    description:
+      "Checked when a turn ends, and it reaches your phone rather than the screen you are not looking at - which is the point, because the thing to do about a full context is decide, and you cannot decide what you have not been told.",
+    rule: {
+      event: "turn.completed",
+      trigger: "agent.contextUsedPercent",
+      operator: "gte",
+      value: 80,
+      outcome: { kind: "notify" },
+      message: "This conversation is {{value}} full. Wrap up or hand off before it compacts.",
+    },
+  },
+  {
     id: "warn-context-nearly-full",
     label: "Warn when the context is nearly full",
     description:
