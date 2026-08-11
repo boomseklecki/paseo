@@ -360,4 +360,54 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 60_000);
+
+  // The runaway this guard exists for: a turn.completed rule that starts an
+  // agent, whose turn completes, which starts another. The edge trigger cannot
+  // see it - every new agent is a new id with nothing remembered - so without a
+  // cap this test would not terminate.
+  test("stops a creating rule after one generation", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-loop-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "always-start",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      // An opening message, so the agent it makes takes a turn of its own and
+      // reaches the very seam that made it.
+      outcome: { kind: "start", title: "Spawned", prompt: "Say hello" },
+    });
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-loop-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Original",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+      // Long enough that an ungoverned chain would be well past two by now.
+      await new Promise((resolve) => setTimeout(resolve, 12_000));
+
+      const all = (await client.fetchAgents({})).entries.map((entry) => entry.agent);
+      // The original and exactly one it made. The second generation is refused
+      // because the agent asking carries the label the first one stamped.
+      expect(all).toHaveLength(2);
+      expect(all.filter((found) => found.title === "Spawned")).toHaveLength(1);
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 90_000);
 });

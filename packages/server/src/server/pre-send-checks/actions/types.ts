@@ -50,3 +50,22 @@ export interface PreSendActionRequest {
   /** True on a second attempt, after the caller answered a `needs_confirmation`. */
   confirmed: boolean;
 }
+
+/**
+ * Marks an agent a rule created, so a rule cannot create from it again.
+ *
+ * The edge trigger stops a rule firing twice for the same agent, which covers
+ * every outcome that acts on the conversation it fired for. It cannot cover the
+ * two that make a *new* agent: a fresh id has a fresh memory, so a
+ * `turn.completed` rule with a `start` outcome creates an agent, whose turn
+ * completes, which fires the rule again, without bound.
+ *
+ * One generation is the cap and it is deliberate rather than tunable. Every
+ * legitimate chain anyone has wanted is one hop — fork on a failure, start when
+ * full — and the second hop is always the runaway rather than a use case.
+ */
+export const RULE_CREATED_AGENT_LABEL = "paseo.created-by-rule";
+
+export function wasCreatedByRule(labels: Record<string, string> | undefined): boolean {
+  return typeof labels?.[RULE_CREATED_AGENT_LABEL] === "string";
+}

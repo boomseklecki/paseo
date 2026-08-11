@@ -1,7 +1,12 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import { buildAgentForkContextAttachment } from "../../agent/activity-curator.js";
-import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
+import {
+  RULE_CREATED_AGENT_LABEL,
+  wasCreatedByRule,
+  type PreSendActionOutcome,
+  type PreSendActionRequest,
+} from "./types.js";
 
 /**
  * Carries a conversation into a new one, up to where it had got to.
@@ -35,6 +40,16 @@ export class ForkAction {
       return { status: "declined", reason: "No such agent" };
     }
 
+    // One generation. Without this a rule at a daemon seam creates an agent
+    // whose turn then trips the same rule, forever - the edge trigger cannot
+    // see it, because each new agent is a new id with nothing remembered.
+    if (wasCreatedByRule(parent.labels)) {
+      return {
+        status: "declined",
+        reason: "This conversation was made by a rule, so a rule will not make another from it",
+      };
+    }
+
     const timeline = this.manager.fetchTimeline(request.agentId, { direction: "tail", limit: 0 });
     const forked = buildAgentForkContextAttachment({
       rows: timeline.rows,
@@ -58,7 +73,10 @@ export class ForkAction {
         // The same workspace, deliberately. A fork is a continuation of this
         // work, and an agent with no workspace is one nothing can notify about
         // and nothing lists beside its parent.
-        { workspaceId: parent.workspaceId },
+        {
+          workspaceId: parent.workspaceId,
+          labels: { ...parent.labels, [RULE_CREATED_AGENT_LABEL]: "fork" },
+        },
       );
 
       this.logger.info(

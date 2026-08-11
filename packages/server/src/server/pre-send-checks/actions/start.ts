@@ -1,6 +1,11 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
-import type { PreSendActionOutcome, PreSendActionRequest } from "./types.js";
+import {
+  RULE_CREATED_AGENT_LABEL,
+  wasCreatedByRule,
+  type PreSendActionOutcome,
+  type PreSendActionRequest,
+} from "./types.js";
 
 /**
  * Starts a fresh conversation beside this one.
@@ -30,6 +35,16 @@ export class StartAction {
       return { status: "declined", reason: "No such agent" };
     }
 
+    // One generation. Without this a rule at a daemon seam creates an agent
+    // whose turn then trips the same rule, forever - the edge trigger cannot
+    // see it, because each new agent is a new id with nothing remembered.
+    if (wasCreatedByRule(parent.labels)) {
+      return {
+        status: "declined",
+        reason: "This conversation was made by a rule, so a rule will not make another from it",
+      };
+    }
+
     const title = request.action.title?.trim() || `${parent.config.title ?? "Agent"} (continued)`;
     const opening = readOpening(request);
 
@@ -39,7 +54,10 @@ export class StartAction {
         undefined,
         // Same workspace and cwd as the conversation that asked for it: this is
         // the same work continuing, not a new piece of it.
-        { workspaceId: parent.workspaceId },
+        {
+          workspaceId: parent.workspaceId,
+          labels: { ...parent.labels, [RULE_CREATED_AGENT_LABEL]: "start" },
+        },
       );
 
       if (opening) {
