@@ -1794,6 +1794,11 @@ export const ko: TranslationResources = {
           label: "대화가 거의 찼을 때 알리기",
           description: "턴이 끝날 때 확인하고, 보고 있지 않은 화면이 아니라 휴대폰으로 알립니다.",
         },
+        "handoff-before-compaction": {
+          label: "대화가 압축되기 전에 인수인계를 작성",
+          description:
+            "숨은 에이전트가 직접 썼을 요약을 대신 써 두어, 필요한 날에 이미 존재합니다.",
+        },
         "warn-context-nearly-full": {
           label: "컨텍스트가 거의 찼을 때 경고",
           description: "80%에서. 아직은 생각을 끝내는 편이 다시 시작하는 것보다 쌉니다.",

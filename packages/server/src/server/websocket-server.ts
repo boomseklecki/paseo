@@ -19,6 +19,9 @@ import {
   PreSendRuleEventTracker,
 } from "./pre-send-checks/rule-events.js";
 import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
+import { AsideAction } from "./pre-send-checks/actions/aside.js";
+import type { PreSendActionRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
+import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -556,6 +559,16 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly scheduleService: ScheduleService;
   private readonly preSendChecksService: PreSendChecksService;
+  /**
+   * Runs a rule's action at a daemon seam.
+   *
+   * The same port the session subsystem takes, and for the same reason: what is
+   * needed is one method, and naming that keeps AgentManager out of everything
+   * downstream of it. A second instance rather than the session's, because a
+   * daemon seam belongs to no session - there may be no client connected at all
+   * when a rule fires.
+   */
+  private readonly ruleActionRunner: PreSendActionRunner;
   /** The one seam that needs a clock rather than a transition. See idle-watcher.ts. */
   private readonly ruleIdleWatcher: PreSendRuleIdleWatcher;
   /** Per-agent memory of which rules are already tripping. See rule-events.ts. */
@@ -757,6 +770,10 @@ export class VoiceAssistantWebSocketServer {
       }
     });
 
+    this.ruleActionRunner = new AsideAction({
+      manager: this.agentManager,
+      logger: this.logger,
+    });
     this.ruleIdleWatcher = new PreSendRuleIdleWatcher({
       listAgents: () =>
         this.agentManager.listAgents().map((agent) => ({
@@ -2505,16 +2522,58 @@ export class VoiceAssistantWebSocketServer {
     });
 
     for (const finding of findings) {
-      if (finding.outcome.kind !== "notify") {
+      if (finding.outcome.kind === "notify") {
+        await this.broadcastAgentAttention({
+          agentId,
+          provider,
+          reason: "rule",
+          ruleMessage: finding.message ?? undefined,
+        });
         continue;
       }
-      await this.broadcastAgentAttention({
-        agentId,
-        provider,
-        reason: "rule",
-        ruleMessage: finding.message ?? undefined,
-      });
+      await this.runAgentRuleAction(agentId, event, finding);
     }
+  }
+
+  /**
+   * Carries out a rule's action at a daemon seam.
+   *
+   * `confirmed` is false and that is the decision, not an oversight. An aside
+   * takes the cheap path when the provider still holds the parent's session and
+   * asks first when it would have to replay the transcript instead - and at a
+   * seam there is nobody to ask. Declining the expensive path means a rule that
+   * cannot run cheaply does not run, which is the same answer the composer gives
+   * when someone dismisses the confirmation, and the opposite of quietly
+   * spending a conversation's worth of tokens on every crossing.
+   */
+  private async runAgentRuleAction(
+    agentId: string,
+    event: string,
+    finding: PreSendEventFinding,
+  ): Promise<void> {
+    const outcome = await this.ruleActionRunner.run({
+      agentId,
+      // Nobody typed anything here, so the rule's own wording is the message.
+      // An action whose prompt has no {{message}} ignores it entirely.
+      message: finding.message ?? "",
+      action: finding.outcome,
+      confirmed: false,
+    });
+
+    if (outcome.status === "started") {
+      return;
+    }
+    this.logger.info(
+      {
+        agentId,
+        event,
+        ruleId: finding.ruleId,
+        kind: finding.outcome.kind,
+        status: outcome.status,
+        reason: "reason" in outcome ? outcome.reason : undefined,
+      },
+      "Rule action did not run",
+    );
   }
 
   private async broadcastAgentAttention(params: {

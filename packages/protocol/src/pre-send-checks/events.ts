@@ -46,7 +46,10 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     // `usage.changed` seam would answer the same questions per token batch, and
     // the rules are re-read from disk on every evaluation, so it would be a
     // directory scan per token to learn something that only changes per turn.
-    outcomeKinds: ["notify"],
+    // Actions too, not just notify. An aside at a daemon seam is the same
+    // hidden agent the composer's /btw uses, asked without anyone typing: write
+    // the handoff before this conversation compacts, say why that turn failed.
+    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
     triggers: AGENT_TRIGGERS,
   },
   {
@@ -55,7 +58,10 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     // The one seam with nothing to ride: every other is a transition the daemon
     // already detects, and nothing happens when an agent goes on not being
     // touched - which is the thing worth being told about. See idle-watcher.ts.
-    outcomeKinds: ["notify"],
+    // Actions too, not just notify. An aside at a daemon seam is the same
+    // hidden agent the composer's /btw uses, asked without anyone typing: write
+    // the handoff before this conversation compacts, say why that turn failed.
+    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
     triggers: AGENT_TRIGGERS,
   },
   {
@@ -63,7 +69,10 @@ export const PRE_SEND_EVENT_DEFINITIONS: readonly PreSendEventDefinition[] = [
     side: "daemon",
     // No `warn` or `block`: the send already happened, and there is no composer
     // to hold anything in.
-    outcomeKinds: ["notify"],
+    // Actions too, not just notify. An aside at a daemon seam is the same
+    // hidden agent the composer's /btw uses, asked without anyone typing: write
+    // the handoff before this conversation compacts, say why that turn failed.
+    outcomeKinds: ["notify", ...PRE_SEND_ACTION_KINDS],
     // No `message`: the text was sent a turn ago, so matching on it here would
     // fire on something the rule's author is no longer looking at.
     triggers: AGENT_TRIGGERS,

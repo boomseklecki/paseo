@@ -1831,6 +1831,11 @@ export const es: TranslationResources = {
           description:
             "Se comprueba al terminar un turno y llega a su teléfono, no a una pantalla que no está mirando.",
         },
+        "handoff-before-compaction": {
+          label: "Escribir el traspaso antes de que se compacte",
+          description:
+            "Un agente oculto escribe el resumen que usted habría escrito, para que ya exista el día que lo necesite.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar cuando el contexto esté casi lleno",
           description:

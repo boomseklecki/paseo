@@ -1797,6 +1797,11 @@ export const en = {
           description:
             "Checked when a turn ends, and it reaches your phone rather than a screen you are not looking at.",
         },
+        "handoff-before-compaction": {
+          label: "Write the handoff before a conversation compacts",
+          description:
+            "A hidden agent writes the summary you would have written yourself, so it already exists on the day you need it.",
+        },
         "warn-context-nearly-full": {
           label: "Warn when the context is nearly full",
           description:

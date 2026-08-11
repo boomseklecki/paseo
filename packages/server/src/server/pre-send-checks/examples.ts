@@ -79,6 +79,24 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "handoff-before-compaction",
+    label: "Write the handoff before a conversation compacts",
+    description:
+      "At 80% full, a hidden agent writes the summary you would have had to write yourself, and it appears under subagents. Nothing is sent to the conversation and it takes no turn - the point is to have the handoff already written on the day you need it.",
+    rule: {
+      event: "turn.completed",
+      trigger: "agent.contextUsedPercent",
+      operator: "gte",
+      value: 80,
+      outcome: {
+        kind: "aside",
+        title: "Handoff",
+        prompt:
+          "This conversation is nearly full and will compact soon. Write a handoff for whoever picks it up: what we were doing, what is decided, what is still open, and which files matter. Be specific and do not go looking - use what you already have.",
+      },
+    },
+  },
+  {
     id: "warn-context-nearly-full",
     label: "Warn when the context is nearly full",
     description:

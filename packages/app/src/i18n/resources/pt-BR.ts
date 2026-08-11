@@ -1818,6 +1818,11 @@ export const ptBR: TranslationResources = {
           description:
             "Verificado no fim do turno e enviado ao seu telefone, não a uma tela que você não está olhando.",
         },
+        "handoff-before-compaction": {
+          label: "Escrever a passagem antes de a conversa compactar",
+          description:
+            "Um agente oculto escreve o resumo que você teria escrito, para que ele já exista no dia em que precisar.",
+        },
         "warn-context-nearly-full": {
           label: "Avisar quando o contexto estiver quase cheio",
           description: "Em 80%, enquanto terminar o raciocínio ainda custa menos que recomeçar.",

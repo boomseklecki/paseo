@@ -202,12 +202,17 @@ function asideConfig(parent: AgentSessionConfig): AgentSessionConfig {
  */
 function buildQuestion(request: PreSendActionRequest): string {
   const template = request.action.prompt?.trim();
+  const message = request.message.trim();
   if (!template) {
-    return request.message;
+    return message;
   }
-  return template.includes("{{message}}")
-    ? template.replaceAll("{{message}}", request.message)
-    : `${template}\n\n${request.message}`;
+  if (template.includes("{{message}}")) {
+    return template.replaceAll("{{message}}", message);
+  }
+  // Nothing to append at a daemon seam: nobody typed anything, so the template
+  // is the whole question. Appending an empty line and a blank would leave the
+  // prompt trailing into nothing.
+  return message ? `${template}\n\n${message}` : template;
 }
 
 function buildReplayPrompt(transcript: string, question: string): string {

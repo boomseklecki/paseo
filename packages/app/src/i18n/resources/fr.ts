@@ -1839,6 +1839,11 @@ export const fr: TranslationResources = {
           description:
             "Vérifié en fin de tour, et envoyé sur votre téléphone plutôt qu'à un écran que vous ne regardez pas.",
         },
+        "handoff-before-compaction": {
+          label: "Rédiger la passation avant la compaction",
+          description:
+            "Un agent masqué écrit le résumé que vous auriez dû écrire, pour qu'il existe déjà le jour où il vous faut.",
+        },
         "warn-context-nearly-full": {
           label: "Avertir quand le contexte est presque plein",
           description: "À 80 %, tant qu'il reste moins coûteux de finir que de recommencer.",

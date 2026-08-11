@@ -1762,6 +1762,10 @@ export const zhCN: TranslationResources = {
           label: "对话快满时通知我",
           description: "在回合结束时检查，并发送到你的手机而不是你没在看的屏幕。",
         },
+        "handoff-before-compaction": {
+          label: "在对话压缩前写好交接",
+          description: "隐藏代理写下你本来要写的摘要，等你需要时它已经存在。",
+        },
         "warn-context-nearly-full": {
           label: "上下文快满时发出警告",
           description: "在 80% 时提示，此时把话说完仍比重新开始便宜。",

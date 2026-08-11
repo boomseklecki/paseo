@@ -188,4 +188,63 @@ describe("daemon E2E (rule on turn.failed)", () => {
       await daemon.close().catch(() => undefined);
     }
   }, 60_000);
+
+  // An action at a daemon seam: the same hidden agent /btw uses, asked without
+  // anyone typing. This is the handoff case - write the summary before the
+  // conversation compacts - and the whole point is that it happens with nobody
+  // at the keyboard.
+  test("runs an aside from a daemon seam and attaches it to the conversation", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-aside-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "handoff",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "aside", title: "Handoff", prompt: "Write the handoff." },
+    });
+
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-aside-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Working",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+
+      let subagents: Awaited<ReturnType<typeof client.listProviderSubagents>>["subagents"] = [];
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && subagents.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        subagents = (await client.listProviderSubagents(agent.id)).subagents;
+      }
+
+      // It ran, it belongs to the conversation that triggered it, and it is
+      // titled by the rule rather than by the action's default.
+      expect(subagents).toHaveLength(1);
+      expect(subagents[0]?.parentAgentId).toBe(agent.id);
+      expect(subagents[0]?.title).toBe("Handoff");
+
+      // And the parent never took a turn for it: the aside is attached to the
+      // conversation without being part of it.
+      const timeline = await client.fetchAgentTimeline(agent.id);
+      const asked = JSON.stringify(timeline).includes("Write the handoff.");
+      expect(asked).toBe(false);
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
 });

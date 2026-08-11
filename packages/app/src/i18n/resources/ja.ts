@@ -1802,6 +1802,11 @@ export const ja: TranslationResources = {
           label: "会話がもうすぐ一杯だと知らせる",
           description: "ターン終了時に確認し、見ていない画面ではなく携帯に届きます。",
         },
+        "handoff-before-compaction": {
+          label: "圧縮される前に引き継ぎを書いておく",
+          description:
+            "隠しエージェントが自分で書くはずだった要約を作り、必要になった日にはもう存在しています。",
+        },
         "warn-context-nearly-full": {
           label: "コンテキストが埋まりかけたら警告",
           description: "80% の時点で。まだ考えをまとめ切るほうが、やり直すより安く済みます。",
