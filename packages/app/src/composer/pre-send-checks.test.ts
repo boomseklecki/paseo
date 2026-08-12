@@ -80,11 +80,11 @@ describe("buildPreSendMeasurementContext", () => {
       ...base,
       head: [item("2026-08-09T12:00:00.000Z")],
     });
-    expect(context.idleSeconds).toBe(3600);
+    expect(context["agent.idleSeconds"]).toBe(3600);
   });
 
   it("reports unknown idle when there is no timestamp at all", () => {
-    expect(buildPreSendMeasurementContext(base).idleSeconds).toBeNull();
+    expect(buildPreSendMeasurementContext(base)["agent.idleSeconds"]).toBeNull();
   });
 
   // The daemon's clock and this client's are never reconciled, so a client
@@ -94,7 +94,7 @@ describe("buildPreSendMeasurementContext", () => {
       ...base,
       head: [item("2026-08-09T14:00:00.000Z")],
     });
-    expect(context.idleSeconds).toBe(0);
+    expect(context["agent.idleSeconds"]).toBe(0);
   });
 
   it("computes context used as a percentage", () => {
@@ -103,7 +103,7 @@ describe("buildPreSendMeasurementContext", () => {
       contextWindowUsedTokens: 50_000,
       contextWindowMaxTokens: 200_000,
     });
-    expect(context.contextUsedPercent).toBe(25);
+    expect(context["agent.contextUsedPercent"]).toBe(25);
   });
 
   it("reports unknown context percent rather than dividing by zero", () => {
@@ -112,11 +112,13 @@ describe("buildPreSendMeasurementContext", () => {
       contextWindowUsedTokens: 50_000,
       contextWindowMaxTokens: 0,
     });
-    expect(context.contextUsedPercent).toBeNull();
+    expect(context["agent.contextUsedPercent"]).toBeNull();
   });
 
   it("passes session cost through", () => {
-    expect(buildPreSendMeasurementContext({ ...base, totalCostUsd: 4.2 }).sessionCostUsd).toBe(4.2);
+    expect(
+      buildPreSendMeasurementContext({ ...base, totalCostUsd: 4.2 })["agent.sessionCostUsd"],
+    ).toBe(4.2);
   });
 });
 

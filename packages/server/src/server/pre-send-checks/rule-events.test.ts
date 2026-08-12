@@ -28,9 +28,9 @@ const ALWAYS: PreSendCheckRule = {
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
-    idleSeconds: 0,
-    contextUsedPercent: null,
-    sessionCostUsd: null,
+    "agent.idleSeconds": 0,
+    "agent.contextUsedPercent": null,
+    "agent.sessionCostUsd": null,
     message: "",
     ...overrides,
   };
@@ -55,14 +55,14 @@ describe("firePreSendRuleEvent", () => {
   test("fires a rule whose condition holds", () => {
     const tracker = new PreSendRuleEventTracker();
 
-    expect(fire(tracker, [COSTLY], context({ sessionCostUsd: 25 }))).toEqual(["costly"]);
+    expect(fire(tracker, [COSTLY], context({ "agent.sessionCostUsd": 25 }))).toEqual(["costly"]);
   });
 
   // The whole reason the tracker exists: "cost is over $10" stays true for every
   // turn after the first, and notifying each time is how a feature gets muted.
   test("stays quiet while the same condition keeps holding", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
     expect(fire(tracker, [COSTLY], ctx)).toEqual([]);
@@ -73,9 +73,9 @@ describe("firePreSendRuleEvent", () => {
   test("re-arms once the condition goes away", () => {
     const tracker = new PreSendRuleEventTracker();
 
-    expect(fire(tracker, [COSTLY], context({ sessionCostUsd: 25 }))).toEqual(["costly"]);
-    expect(fire(tracker, [COSTLY], context({ sessionCostUsd: 0 }))).toEqual([]);
-    expect(fire(tracker, [COSTLY], context({ sessionCostUsd: 25 }))).toEqual(["costly"]);
+    expect(fire(tracker, [COSTLY], context({ "agent.sessionCostUsd": 25 }))).toEqual(["costly"]);
+    expect(fire(tracker, [COSTLY], context({ "agent.sessionCostUsd": 0 }))).toEqual([]);
+    expect(fire(tracker, [COSTLY], context({ "agent.sessionCostUsd": 25 }))).toEqual(["costly"]);
   });
 
   // An `always` rule is unconditional per seam, not once per lifetime: every
@@ -90,7 +90,7 @@ describe("firePreSendRuleEvent", () => {
 
   test("tracks each agent apart", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
 
     expect(fire(tracker, [COSTLY], ctx, "agent-1")).toEqual(["costly"]);
     expect(fire(tracker, [COSTLY], ctx, "agent-2")).toEqual(["costly"]);
@@ -99,7 +99,7 @@ describe("firePreSendRuleEvent", () => {
 
   test("fires a newly added rule without re-firing the one already tripping", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
     expect(fire(tracker, [COSTLY, ALWAYS], ctx)).toEqual(["any-failure"]);
@@ -112,7 +112,7 @@ describe("firePreSendRuleEvent", () => {
   // notified again for a condition it had already reported.
   test("one seam matching nothing does not re-arm another seam", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
     const completed: PreSendCheckRule = { ...COSTLY, id: "done", event: "turn.completed" };
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
@@ -123,7 +123,7 @@ describe("firePreSendRuleEvent", () => {
 
   test("keeps a rule tripping at one seam from silencing another", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
     const idle: PreSendCheckRule = { ...COSTLY, id: "stale", event: "agent.idle" };
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
@@ -132,7 +132,7 @@ describe("firePreSendRuleEvent", () => {
 
   test("arms again for an agent it was told to forget", () => {
     const tracker = new PreSendRuleEventTracker();
-    const ctx = context({ sessionCostUsd: 25 });
+    const ctx = context({ "agent.sessionCostUsd": 25 });
 
     expect(fire(tracker, [COSTLY], ctx)).toEqual(["costly"]);
     tracker.forget("agent-1");
@@ -145,7 +145,7 @@ describe("firePreSendRuleEvent", () => {
     const blocking: PreSendCheckRule = { ...COSTLY, id: "blocking", outcome: { kind: "block" } };
 
     expect(
-      fire(new PreSendRuleEventTracker(), [blocking], context({ sessionCostUsd: 25 })),
+      fire(new PreSendRuleEventTracker(), [blocking], context({ "agent.sessionCostUsd": 25 })),
     ).toEqual([]);
   });
 
@@ -153,20 +153,22 @@ describe("firePreSendRuleEvent", () => {
     const sendRule: PreSendCheckRule = { ...COSTLY, id: "on-send", event: "message.send" };
 
     expect(
-      fire(new PreSendRuleEventTracker(), [sendRule], context({ sessionCostUsd: 25 })),
+      fire(new PreSendRuleEventTracker(), [sendRule], context({ "agent.sessionCostUsd": 25 })),
     ).toEqual([]);
   });
 
   test("ignores a disabled rule", () => {
     const off: PreSendCheckRule = { ...COSTLY, enabled: false };
 
-    expect(fire(new PreSendRuleEventTracker(), [off], context({ sessionCostUsd: 25 }))).toEqual([]);
+    expect(
+      fire(new PreSendRuleEventTracker(), [off], context({ "agent.sessionCostUsd": 25 })),
+    ).toEqual([]);
   });
 
   // Failing open: an unmeasurable value is not a reason to notify.
   test("does not fire when the value could not be measured", () => {
     expect(
-      fire(new PreSendRuleEventTracker(), [COSTLY], context({ sessionCostUsd: null })),
+      fire(new PreSendRuleEventTracker(), [COSTLY], context({ "agent.sessionCostUsd": null })),
     ).toEqual([]);
   });
 });

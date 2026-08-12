@@ -1,3 +1,5 @@
+import { PRE_SEND_TRIGGER_UNITS_BY_NAME } from "./types.js";
+
 /**
  * How a measured value reads.
  *
@@ -47,12 +49,17 @@ export function formatPreSendTriggerValue(
   if (typeof value !== "number") {
     return value ?? "";
   }
-  switch (trigger) {
-    case "agent.idleSeconds":
+  // Off the shared unit table rather than a second switch. The switch had a
+  // `default` that rendered a duration as a bare number, and nothing said so: a
+  // trigger added without a case here read "3600" in a toast and "1h" in the
+  // editor. The table is keyed by the trigger union, so there is no case to
+  // forget — only a unit to name.
+  switch (PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger]) {
+    case "seconds":
       return formatPreSendDuration(value * 1000);
-    case "agent.contextUsedPercent":
+    case "percent":
       return `${Math.round(value)}%`;
-    case "agent.sessionCostUsd":
+    case "usd":
       return `$${value.toFixed(2)}`;
     default:
       return String(value);

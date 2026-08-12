@@ -10,9 +10,9 @@ import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
-    idleSeconds: 0,
-    contextUsedPercent: null,
-    sessionCostUsd: null,
+    "agent.idleSeconds": 0,
+    "agent.contextUsedPercent": null,
+    "agent.sessionCostUsd": null,
     message: "",
     ...overrides,
   };
@@ -117,7 +117,7 @@ describe("evaluatePreSendEvent", () => {
     const findings = evaluatePreSendEvent(
       [FAILURE_RULE],
       "turn.failed",
-      context({ sessionCostUsd: 25 }),
+      context({ "agent.sessionCostUsd": 25 }),
     );
 
     expect(findings).toEqual([
@@ -134,7 +134,7 @@ describe("evaluatePreSendEvent", () => {
 
   it("does not fire when the condition does not hold", () => {
     expect(
-      evaluatePreSendEvent([FAILURE_RULE], "turn.failed", context({ sessionCostUsd: 1 })),
+      evaluatePreSendEvent([FAILURE_RULE], "turn.failed", context({ "agent.sessionCostUsd": 1 })),
     ).toEqual([]);
   });
 
@@ -261,7 +261,7 @@ describe("several outcomes at a daemon seam", () => {
     const findings = evaluatePreSendEvent(
       [rule([{ kind: "notify" }, { kind: "aside" }])],
       "turn.failed",
-      context({ sessionCostUsd: 25 }),
+      context({ "agent.sessionCostUsd": 25 }),
     );
 
     expect(findings[0]?.outcomes).toEqual([{ kind: "notify" }, { kind: "aside" }]);
@@ -273,7 +273,7 @@ describe("several outcomes at a daemon seam", () => {
     const findings = evaluatePreSendEvent(
       [rule([{ kind: "block" }, { kind: "notify" }])],
       "turn.failed",
-      context({ sessionCostUsd: 25 }),
+      context({ "agent.sessionCostUsd": 25 }),
     );
 
     expect(findings[0]?.outcomes).toEqual([{ kind: "notify" }]);
@@ -283,7 +283,7 @@ describe("several outcomes at a daemon seam", () => {
     const findings = evaluatePreSendEvent(
       [rule([{ kind: "block" }, { kind: "warn" }])],
       "turn.failed",
-      context({ sessionCostUsd: 25 }),
+      context({ "agent.sessionCostUsd": 25 }),
     );
 
     expect(findings).toEqual([]);

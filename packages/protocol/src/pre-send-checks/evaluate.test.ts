@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { evaluatePreSendChecks, firstRunnablePreSendOutcome } from "./evaluate.js";
+import {
+  isTextTrigger,
+  PRE_SEND_TEXT_TRIGGERS,
+  PRE_SEND_TRIGGER_UNITS,
+  PRE_SEND_TRIGGERS,
+} from "./types.js";
 import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
-    idleSeconds: null,
-    contextUsedPercent: null,
-    sessionCostUsd: null,
+    "agent.idleSeconds": null,
+    "agent.contextUsedPercent": null,
+    "agent.sessionCostUsd": null,
     message: "",
     ...overrides,
   };
@@ -41,7 +47,8 @@ describe("evaluatePreSendChecks operators", () => {
     it(`${operator} fires below/at/above threshold as ${below}/${at}/${above}`, () => {
       const rules = [rule({ operator })];
       const fired = (idleSeconds: number) =>
-        evaluatePreSendChecks(rules, context({ idleSeconds })).disposition === "block";
+        evaluatePreSendChecks(rules, context({ "agent.idleSeconds": idleSeconds })).disposition ===
+        "block";
 
       expect(fired(99)).toBe(below);
       expect(fired(100)).toBe(at);
@@ -53,22 +60,22 @@ describe("evaluatePreSendChecks operators", () => {
 describe("evaluatePreSendChecks measurements", () => {
   it("reads contextUsedPercent", () => {
     const rules = [rule({ measurement: "agent.contextUsedPercent", threshold: 80 })];
-    expect(evaluatePreSendChecks(rules, context({ contextUsedPercent: 81 })).disposition).toBe(
-      "block",
-    );
-    expect(evaluatePreSendChecks(rules, context({ contextUsedPercent: 79 })).disposition).toBe(
-      "allow",
-    );
+    expect(
+      evaluatePreSendChecks(rules, context({ "agent.contextUsedPercent": 81 })).disposition,
+    ).toBe("block");
+    expect(
+      evaluatePreSendChecks(rules, context({ "agent.contextUsedPercent": 79 })).disposition,
+    ).toBe("allow");
   });
 
   it("reads sessionCostUsd", () => {
     const rules = [rule({ measurement: "agent.sessionCostUsd", threshold: 5 })];
-    expect(evaluatePreSendChecks(rules, context({ sessionCostUsd: 5.01 })).disposition).toBe(
-      "block",
-    );
-    expect(evaluatePreSendChecks(rules, context({ sessionCostUsd: 4.99 })).disposition).toBe(
-      "allow",
-    );
+    expect(
+      evaluatePreSendChecks(rules, context({ "agent.sessionCostUsd": 5.01 })).disposition,
+    ).toBe("block");
+    expect(
+      evaluatePreSendChecks(rules, context({ "agent.sessionCostUsd": 4.99 })).disposition,
+    ).toBe("allow");
   });
 });
 
@@ -82,7 +89,7 @@ describe("evaluatePreSendChecks findings", () => {
           message: "Idle for {{duration}}.",
         }),
       ],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     // A rule written in the old vocabulary reports a finding in the new one,
@@ -101,14 +108,14 @@ describe("evaluatePreSendChecks findings", () => {
   });
 
   it("reports a null message when the rule carries none", () => {
-    const evaluation = evaluatePreSendChecks([rule()], context({ idleSeconds: 250 }));
+    const evaluation = evaluatePreSendChecks([rule()], context({ "agent.idleSeconds": 250 }));
     expect(evaluation.findings[0]?.message).toBeNull();
   });
 
   it("keeps findings in rule order", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ id: "first", disposition: "warn" }), rule({ id: "second" })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
     expect(evaluation.findings.map((finding) => finding.ruleId)).toEqual(["first", "second"]);
   });
@@ -116,14 +123,14 @@ describe("evaluatePreSendChecks findings", () => {
 
 describe("evaluatePreSendChecks aggregation", () => {
   it("allows with no findings when nothing trips", () => {
-    const evaluation = evaluatePreSendChecks([rule()], context({ idleSeconds: 1 }));
+    const evaluation = evaluatePreSendChecks([rule()], context({ "agent.idleSeconds": 1 }));
     expect(evaluation).toEqual({ disposition: "allow", findings: [] });
   });
 
   it("warns when only warn rules trip", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ disposition: "warn" })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
     expect(evaluation.disposition).toBe("warn");
   });
@@ -131,7 +138,7 @@ describe("evaluatePreSendChecks aggregation", () => {
   it("blocks when a block rule trips after a warn rule", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ id: "a", disposition: "warn" }), rule({ id: "b", disposition: "block" })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
     expect(evaluation.disposition).toBe("block");
   });
@@ -139,7 +146,7 @@ describe("evaluatePreSendChecks aggregation", () => {
   it("blocks when a block rule trips before a warn rule", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ id: "a", disposition: "block" }), rule({ id: "b", disposition: "warn" })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
     expect(evaluation.disposition).toBe("block");
   });
@@ -149,7 +156,7 @@ describe("evaluatePreSendChecks aggregation", () => {
 // and let the send through, rather than blocking on a config it does not
 // understand.
 describe("evaluatePreSendChecks fails open", () => {
-  const tripping = context({ idleSeconds: 250 });
+  const tripping = context({ "agent.idleSeconds": 250 });
 
   const unreadable: Array<[string, PreSendCheckRule, PreSendMeasurementContext]> = [
     ["unknown measurement", rule({ measurement: "agent.phaseOfMoon" }), tripping],
@@ -158,7 +165,7 @@ describe("evaluatePreSendChecks fails open", () => {
     ["non-finite threshold", rule({ threshold: Number.NaN }), tripping],
     ["non-numeric threshold", rule({ threshold: "100" as unknown as number }), tripping],
     ["unmeasured value", rule(), context()],
-    ["non-finite value", rule(), context({ idleSeconds: Number.NaN })],
+    ["non-finite value", rule(), context({ "agent.idleSeconds": Number.NaN })],
   ];
 
   for (const [name, unreadableRule, measurements] of unreadable) {
@@ -267,7 +274,7 @@ describe("text triggers", () => {
     const rules = [trigger(), rule({ id: "cold", disposition: "block" })];
     const evaluation = evaluatePreSendChecks(
       rules,
-      context({ message: "/btw hi", idleSeconds: 999 }),
+      context({ message: "/btw hi", "agent.idleSeconds": 999 }),
     );
     expect(evaluation.disposition).toBe("redirect");
     expect(evaluation.findings).toHaveLength(2);
@@ -312,7 +319,7 @@ describe("a rule with several outcomes", () => {
   it("carries out the half this build understands", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ outcomes: [{ kind: "teleport" }, { kind: "warn" }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.disposition).toBe("warn");
@@ -322,7 +329,7 @@ describe("a rule with several outcomes", () => {
   it("skips a rule whose every outcome is unreadable", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ outcomes: [{ kind: "teleport" }, { kind: "levitate" }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.findings).toEqual([]);
@@ -339,7 +346,7 @@ describe("firstRunnablePreSendOutcome", () => {
         rule({ id: "asks", order: 1, outcomes: [{ kind: "warn" }, { kind: "aside" }] }),
         rule({ id: "forks", order: 2, outcomes: [{ kind: "fork" }] }),
       ],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(firstRunnablePreSendOutcome(evaluation.findings)).toEqual({ kind: "aside" });
@@ -348,7 +355,7 @@ describe("firstRunnablePreSendOutcome", () => {
   it("answers null when nothing that tripped asked for a runner", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ outcomes: [{ kind: "warn" }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(firstRunnablePreSendOutcome(evaluation.findings)).toBeNull();
@@ -364,7 +371,7 @@ describe("wording on the outcome", () => {
   it("takes the sentence from the outcome that decided the disposition", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ outcomes: [{ kind: "block", wording: "Too cold." }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.findings[0]?.message).toBe("Too cold.");
@@ -382,7 +389,7 @@ describe("wording on the outcome", () => {
           ],
         }),
       ],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.disposition).toBe("block");
@@ -393,7 +400,7 @@ describe("wording on the outcome", () => {
   it("falls back to the retiring rule-level message", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ message: "From the old field.", outcomes: [{ kind: "block" }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.findings[0]?.message).toBe("From the old field.");
@@ -404,9 +411,76 @@ describe("wording on the outcome", () => {
   it("treats blank wording as none", () => {
     const evaluation = evaluatePreSendChecks(
       [rule({ outcomes: [{ kind: "block", wording: "   " }] })],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(evaluation.findings[0]?.message).toBeNull();
+  });
+});
+
+/**
+ * The guarantee the reshape bought.
+ *
+ * Before it, `PreSendTrigger` was declared and referenced nowhere: a trigger
+ * added to `PRE_SEND_TRIGGERS` compiled clean, was offered by the editor, saved
+ * into a rule, and then fell through three separate defaults — the evaluator's
+ * switch, the unit formatter, and the app's wording table. Most of that is now a
+ * type error, which no test can assert. What a test *can* pin is the half that
+ * stays a runtime concern: every declared trigger is readable, and one nobody
+ * declared is skipped rather than thrown on.
+ */
+describe("every declared trigger is wired end to end", () => {
+  it("gives each trigger a unit", () => {
+    for (const declared of PRE_SEND_TRIGGERS) {
+      expect(PRE_SEND_TRIGGER_UNITS[declared]).toBeTypeOf("string");
+    }
+  });
+
+  // The list that used to be written out twice.
+  it("derives the text triggers from the unit table", () => {
+    expect([...PRE_SEND_TEXT_TRIGGERS]).toEqual(["message"]);
+    expect(isTextTrigger("message")).toBe(true);
+    expect(isTextTrigger("agent.idleSeconds")).toBe(false);
+  });
+
+  // Every numeric trigger reads the value put under its own key, and reads
+  // nothing when the key is absent. One loop rather than three near-identical
+  // cases, because the whole point is that they no longer differ.
+  it("reads each numeric trigger from its own key", () => {
+    for (const declared of PRE_SEND_TRIGGERS) {
+      if (PRE_SEND_TRIGGER_UNITS[declared] === "text" || declared === "always") {
+        continue;
+      }
+      const numeric = rule({
+        trigger: declared,
+        measurement: declared,
+        operator: "gte",
+        value: 10,
+      });
+
+      expect(evaluatePreSendChecks([numeric], context({ [declared]: 11 })).disposition).toBe(
+        "block",
+      );
+      expect(evaluatePreSendChecks([numeric], context({ [declared]: 9 })).disposition).toBe(
+        "allow",
+      );
+      expect(evaluatePreSendChecks([numeric], context()).disposition).toBe("allow");
+    }
+  });
+
+  // Fail open: a rule from a newer daemon costs that rule and nothing else.
+  it("skips a trigger this build never declared", () => {
+    const unknown = rule({ trigger: "agent.phaseOfMoon", measurement: "agent.phaseOfMoon" });
+
+    expect(
+      evaluatePreSendChecks([unknown], context({ "agent.phaseOfMoon": 500 })).findings,
+    ).toEqual([]);
+  });
+
+  // A numeric rule pointed at the text trigger gets nothing rather than NaN.
+  it("does not read a string as a number", () => {
+    const crossed = rule({ trigger: "message", measurement: "message", operator: "gte", value: 1 });
+
+    expect(evaluatePreSendChecks([crossed], context({ message: "hello" })).findings).toEqual([]);
   });
 });

@@ -131,10 +131,13 @@ export function buildAgentRuleContext(input: {
 }): PreSendMeasurementContext {
   const used = input.contextWindowUsedTokens ?? null;
   const max = input.contextWindowMaxTokens ?? null;
+  // No `message` key at all, rather than an empty one. Nobody typed anything at
+  // a daemon seam, and the events table does not offer that trigger here — an
+  // empty string would be a measured value of "", which is a different claim.
   return {
-    idleSeconds: input.idleSeconds,
-    contextUsedPercent: used === null || max === null || max <= 0 ? null : (used / max) * 100,
-    sessionCostUsd: input.totalCostUsd ?? null,
-    message: "",
+    "agent.idleSeconds": input.idleSeconds,
+    "agent.contextUsedPercent":
+      used === null || max === null || max <= 0 ? null : (used / max) * 100,
+    "agent.sessionCostUsd": input.totalCostUsd ?? null,
   };
 }

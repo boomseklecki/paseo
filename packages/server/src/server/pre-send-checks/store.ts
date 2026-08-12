@@ -14,10 +14,14 @@ export type PreSendCheckRuleUpdater = (
 /**
  * One rule per file under a directory, read from disk on every access.
  *
- * Modelled on `ScheduleStore`, which is the only user-editable record list in the
- * daemon that a person can hand-edit while it runs: no in-memory copy means there
- * is nothing to go stale and nothing to overwrite an edit with. Rules were an
- * array in `config.json` first, and that arrangement did both.
+ * Modelled on `ScheduleStore`: no in-memory copy means there is nothing to go
+ * stale and nothing to overwrite an edit with. Rules were an array in
+ * `config.json` first, and that arrangement did both.
+ *
+ * The fresh read is an implementation detail, not a promise. It came from hand
+ * editing, which is no longer a goal — see "How this lands in SQL" in
+ * `docs/data-model.md`. At the migration this becomes a table read and the
+ * 30-second poll in the service goes with it; neither needs preserving.
  *
  * Two deliberate divergences from `ScheduleStore`. It parses its files through
  * `Promise.all`, so a single malformed record rejects the whole list. Here that

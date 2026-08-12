@@ -23,9 +23,9 @@ afterEach(async () => {
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
-    idleSeconds: null,
-    contextUsedPercent: null,
-    sessionCostUsd: null,
+    "agent.idleSeconds": null,
+    "agent.contextUsedPercent": null,
+    "agent.sessionCostUsd": null,
     message: "",
     ...overrides,
   };
@@ -81,7 +81,7 @@ describe("the seeded cold-prompt-cache rule", () => {
   test("allows a send one second short of an hour idle", () => {
     const evaluation = evaluatePreSendChecks(
       DEFAULT_PRE_SEND_CHECKS,
-      context({ idleSeconds: 3599 }),
+      context({ "agent.idleSeconds": 3599 }),
     );
     expect(evaluation.disposition).toBe("allow");
   });
@@ -89,7 +89,7 @@ describe("the seeded cold-prompt-cache rule", () => {
   test("blocks a send at exactly an hour idle", () => {
     const evaluation = evaluatePreSendChecks(
       DEFAULT_PRE_SEND_CHECKS,
-      context({ idleSeconds: 3600 }),
+      context({ "agent.idleSeconds": 3600 }),
     );
     expect(evaluation.disposition).toBe("block");
     expect(evaluation.findings[0]?.ruleId).toBe("cold-prompt-cache");

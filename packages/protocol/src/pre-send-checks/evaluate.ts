@@ -1,4 +1,5 @@
 import {
+  isNumericTrigger,
   isPreSendRunnableOutcomeKind,
   isTextTrigger,
   preSendOutcomeWording,
@@ -77,20 +78,38 @@ const SEVERITY: Record<PreSendDisposition, number> = {
   redirect: 3,
 };
 
+/**
+ * The measured value for a trigger, if the caller could measure it.
+ *
+ * A lookup where there was a switch. The switch's `default` was the only thing
+ * making an unknown trigger skip rather than throw, and it was invisible: a
+ * trigger added to `PRE_SEND_TRIGGERS` fell into it silently. A missing key does
+ * the same job now, and `PRE_SEND_TRIGGER_UNITS` is what makes forgetting one a
+ * type error instead.
+ *
+ * Type-guarded rather than cast: the map holds `number | string | null` because
+ * one of the triggers is text, so a numeric rule has to check what it got. A
+ * string here is a rule comparing a message with `gte`, which is a rule that
+ * should not fire rather than one that should throw.
+ */
 function readNumericTrigger(
   trigger: string,
   context: PreSendMeasurementContext,
 ): number | null | undefined {
-  switch (trigger) {
-    case "agent.idleSeconds":
-      return context.idleSeconds;
-    case "agent.contextUsedPercent":
-      return context.contextUsedPercent;
-    case "agent.sessionCostUsd":
-      return context.sessionCostUsd;
-    default:
-      return undefined;
+  // Gated on the unit table, not merely on the key being absent. A bare lookup
+  // would read whatever a caller happened to put under an unknown name, which
+  // quietly turns "this build does not know that trigger" into "it works if
+  // someone supplies it". The switch this replaced refused outright, and that is
+  // the behaviour worth keeping: a rule from a newer daemon should cost that
+  // rule, not act on a value nothing here understands.
+  if (!isNumericTrigger(trigger)) {
+    return undefined;
   }
+  const value = (context as Record<string, number | string | null | undefined>)[trigger];
+  if (value === undefined || value === null) {
+    return value;
+  }
+  return typeof value === "number" ? value : undefined;
 }
 
 /**
@@ -246,8 +265,13 @@ function evaluateTextRule(
   return compare(value, operand) ? { value, operand } : null;
 }
 
+/** The measured text for a trigger. Same gate as the numeric read, other type. */
 function readTextTrigger(trigger: string, context: PreSendMeasurementContext): string | undefined {
-  return trigger === "message" ? context.message : undefined;
+  if (!isTextTrigger(trigger)) {
+    return undefined;
+  }
+  const value = (context as Record<string, number | string | null | undefined>)[trigger];
+  return typeof value === "string" ? value : undefined;
 }
 
 /**

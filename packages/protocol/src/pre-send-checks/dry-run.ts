@@ -1,6 +1,7 @@
 import { evaluatePreSendChecks, evaluatePreSendEvent } from "./evaluate.js";
 import { findPreSendEventDefinition } from "./events.js";
 import { DEFAULT_PRE_SEND_EVENT, normalizePreSendCheckRule } from "./vocabulary.js";
+import { isTextTrigger } from "./types.js";
 import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 /**
@@ -141,12 +142,10 @@ export function dryRunPreSendCheckSample(
   const numeric = Number(sample.trim());
   const measured = sample.trim() === "" || !Number.isFinite(numeric) ? null : numeric;
 
+  // One entry, for the trigger this rule actually reads. Filling every numeric
+  // field with the same sample was what a field-per-trigger shape forced; keyed
+  // by trigger there is nothing to fill but the key in hand.
   return dryRunPreSendCheck(rule, {
-    // Every numeric trigger reads the same sample: the rule only looks at one of
-    // them, and filling them all keeps the caller from having to know which.
-    idleSeconds: measured,
-    contextUsedPercent: measured,
-    sessionCostUsd: measured,
-    message: trigger === "message" ? sample : "",
+    [trigger]: isTextTrigger(trigger) ? sample : measured,
   });
 }

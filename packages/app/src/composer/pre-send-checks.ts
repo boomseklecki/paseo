@@ -1,6 +1,7 @@
 import type {
   PreSendFinding,
   PreSendMeasurementContext,
+  PreSendTrigger,
 } from "@getpaseo/protocol/pre-send-checks/types";
 
 import type { StreamItem } from "@/types/stream";
@@ -78,19 +79,41 @@ export function buildPreSendMeasurementContext(
       ? null
       : (contextWindowUsedTokens / contextWindowMaxTokens) * 100;
 
+  // Keyed by trigger, and only what this side can measure. The composer has the
+  // session store; the daemon has the agent record; neither writes a null for
+  // the other's values, because a missing key already means "not measured".
   return {
-    idleSeconds,
-    contextUsedPercent,
-    sessionCostUsd: input.totalCostUsd,
+    "agent.idleSeconds": idleSeconds,
+    "agent.contextUsedPercent": contextUsedPercent,
+    "agent.sessionCostUsd": input.totalCostUsd,
     message: input.message ?? "",
   };
 }
 
-const MESSAGE_KEY_BY_MEASUREMENT: Record<string, string> = {
+/**
+ * The translated sentence a trigger falls back to when a rule words nothing.
+ *
+ * Keyed by the trigger union, so a trigger added without a sentence here is a
+ * type error rather than one that quietly reads the generic line. `message` and
+ * `always` take the generic one on purpose: neither measures anything there is a
+ * unit for, so there is nothing specific to say.
+ */
+const MESSAGE_KEY_BY_MEASUREMENT: Record<PreSendTrigger, string> = {
+  message: "composer.preSendChecks.generic",
+  always: "composer.preSendChecks.generic",
   "agent.idleSeconds": "composer.preSendChecks.idleSeconds",
   "agent.contextUsedPercent": "composer.preSendChecks.contextUsedPercent",
   "agent.sessionCostUsd": "composer.preSendChecks.sessionCostUsd",
 };
+
+/**
+ * The same table, widened, because a trigger read off a rule file is a `string`.
+ *
+ * Declare typed, consume widened — the idiom `COMPARATORS` uses in the evaluator.
+ * The type checks whoever adds a trigger; the `| undefined` handles a rule naming
+ * one this build has never heard of.
+ */
+const MESSAGE_KEY_BY_NAME = MESSAGE_KEY_BY_MEASUREMENT as Record<string, string | undefined>;
 
 /**
  * Re-exported rather than implemented, because the daemon renders this too now:
@@ -124,7 +147,7 @@ export function defaultPreSendWording(
   t: PreSendTranslate,
 ): string {
   const rendered = formatPreSendTriggerValue(trigger, operand);
-  return t(MESSAGE_KEY_BY_MEASUREMENT[trigger] ?? "composer.preSendChecks.generic", {
+  return t(MESSAGE_KEY_BY_NAME[trigger] ?? "composer.preSendChecks.generic", {
     value: rendered,
     threshold: rendered,
     duration: typeof operand === "number" ? formatDuration(operand * 1000) : "",
@@ -142,7 +165,7 @@ export function formatPreSendFinding(finding: PreSendFinding, t: PreSendTranslat
 
   const sentence = finding.message
     ? t(finding.message, { ...values, defaultValue: finding.message })
-    : t(MESSAGE_KEY_BY_MEASUREMENT[finding.trigger] ?? "composer.preSendChecks.generic", values);
+    : t(MESSAGE_KEY_BY_NAME[finding.trigger] ?? "composer.preSendChecks.generic", values);
 
   if (finding.disposition !== "block") {
     return sentence;

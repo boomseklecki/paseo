@@ -4,9 +4,9 @@ import type { PreSendCheckRule, PreSendMeasurementContext } from "./types.js";
 
 function context(overrides: Partial<PreSendMeasurementContext> = {}): PreSendMeasurementContext {
   return {
-    idleSeconds: 0,
-    contextUsedPercent: null,
-    sessionCostUsd: null,
+    "agent.idleSeconds": 0,
+    "agent.contextUsedPercent": null,
+    "agent.sessionCostUsd": null,
     message: "",
     ...overrides,
   };
@@ -25,7 +25,7 @@ const IDLE: PreSendCheckRule = {
 
 describe("dryRunPreSendCheck", () => {
   it("says a rule fires when its condition holds", () => {
-    expect(dryRunPreSendCheck(IDLE, context({ idleSeconds: 250 }))).toEqual({
+    expect(dryRunPreSendCheck(IDLE, context({ "agent.idleSeconds": 250 }))).toEqual({
       ruleId: "cold",
       event: "message.send",
       verdict: { fires: true },
@@ -33,7 +33,7 @@ describe("dryRunPreSendCheck", () => {
   });
 
   it("separates not tripping from not able to trip", () => {
-    expect(dryRunPreSendCheck(IDLE, context({ idleSeconds: 5 })).verdict).toEqual({
+    expect(dryRunPreSendCheck(IDLE, context({ "agent.idleSeconds": 5 })).verdict).toEqual({
       fires: false,
       because: "condition-false",
     });
@@ -61,7 +61,7 @@ describe("dryRunPreSendCheck", () => {
   it("names an outcome its seam refuses", () => {
     const wrong: PreSendCheckRule = { ...IDLE, event: "turn.failed" };
 
-    expect(dryRunPreSendCheck(wrong, context({ idleSeconds: 250 })).verdict).toEqual({
+    expect(dryRunPreSendCheck(wrong, context({ "agent.idleSeconds": 250 })).verdict).toEqual({
       fires: false,
       because: "outcome-not-at-this-event",
     });
@@ -76,7 +76,7 @@ describe("dryRunPreSendCheck", () => {
       outcomes: [{ kind: "block" }, { kind: "notify" }],
     };
 
-    expect(dryRunPreSendCheck(partly, context({ idleSeconds: 250 })).verdict).toEqual({
+    expect(dryRunPreSendCheck(partly, context({ "agent.idleSeconds": 250 })).verdict).toEqual({
       fires: true,
     });
   });
@@ -90,7 +90,8 @@ describe("dryRunPreSendCheck", () => {
 
   it("says when a rule is simply off", () => {
     expect(
-      dryRunPreSendCheck({ ...IDLE, enabled: false }, context({ idleSeconds: 250 })).verdict,
+      dryRunPreSendCheck({ ...IDLE, enabled: false }, context({ "agent.idleSeconds": 250 }))
+        .verdict,
     ).toEqual({ fires: false, because: "disabled" });
   });
 
@@ -100,7 +101,7 @@ describe("dryRunPreSendCheck", () => {
   it("reports the structural reason ahead of the condition", () => {
     const wrong: PreSendCheckRule = { ...IDLE, event: "turn.failed" };
 
-    expect(dryRunPreSendCheck(wrong, context({ idleSeconds: 0 })).verdict).toEqual({
+    expect(dryRunPreSendCheck(wrong, context({ "agent.idleSeconds": 0 })).verdict).toEqual({
       fires: false,
       because: "outcome-not-at-this-event",
     });
@@ -114,7 +115,7 @@ describe("dryRunPreSendCheck", () => {
       outcome: { kind: "notify" },
     };
 
-    expect(dryRunPreSendCheck(notify, context({ idleSeconds: 250 })).verdict).toEqual({
+    expect(dryRunPreSendCheck(notify, context({ "agent.idleSeconds": 250 })).verdict).toEqual({
       fires: true,
     });
   });
@@ -124,7 +125,7 @@ describe("dryRunPreSendChecks", () => {
   it("answers for every rule in the order given", () => {
     const results = dryRunPreSendChecks(
       [IDLE, { ...IDLE, id: "off", enabled: false }],
-      context({ idleSeconds: 250 }),
+      context({ "agent.idleSeconds": 250 }),
     );
 
     expect(results.map((result) => [result.ruleId, result.verdict.fires])).toEqual([

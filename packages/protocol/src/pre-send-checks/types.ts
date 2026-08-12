@@ -194,11 +194,64 @@ export type PreSendTrigger = (typeof PRE_SEND_TRIGGERS)[number];
  */
 export const PRE_SEND_ALWAYS_TRIGGER = "always";
 
-/** The triggers compared as text rather than as numbers. */
-export const PRE_SEND_TEXT_TRIGGERS = ["message"] as const;
+/**
+ * What each trigger measures, and therefore how it is compared and rendered.
+ *
+ * Keyed by the trigger union rather than by `string`, so adding a trigger to
+ * `PRE_SEND_TRIGGERS` without an entry here is a type error rather than a rule
+ * that silently never fires. That is the guarantee `COMPARATORS` has given the
+ * operators from the start, and the triggers went without it: `PreSendTrigger`
+ * was declared and referenced nowhere, so a new one would have compiled clean,
+ * been offered by the editor, saved into a rule, and then fallen through three
+ * separate defaults — the evaluator's switch, the unit formatter, and the app's
+ * wording table.
+ *
+ * One table rather than three lists, for the reason `docs/coding-standards.md`
+ * gives: the same discriminator branched in three files is a policy table.
+ */
+export type PreSendTriggerUnit = "seconds" | "percent" | "usd" | "text" | "none";
+
+export const PRE_SEND_TRIGGER_UNITS: Record<PreSendTrigger, PreSendTriggerUnit> = {
+  "agent.idleSeconds": "seconds",
+  "agent.contextUsedPercent": "percent",
+  "agent.sessionCostUsd": "usd",
+  message: "text",
+  // The trigger with no comparison in it, so there is nothing to render.
+  always: "none",
+};
+
+/**
+ * The same table, widened, for lookups whose key came off disk.
+ *
+ * Declare typed, consume widened — the idiom this file already uses twice for
+ * operators. The type checks whoever adds a trigger; the `| undefined` handles a
+ * rule file naming one this build has never heard of.
+ */
+export const PRE_SEND_TRIGGER_UNITS_BY_NAME = PRE_SEND_TRIGGER_UNITS as Record<
+  string,
+  PreSendTriggerUnit | undefined
+>;
+
+/**
+ * The triggers compared as text rather than as numbers.
+ *
+ * Derived from the unit table rather than written out again. A second list is a
+ * second thing to forget: `d5dd876d` records `schedule` missing from one of four
+ * parallel outcome lists, refused by the evaluator at every seam while the
+ * registry, the descriptor and a shipped example all said it worked.
+ */
+export const PRE_SEND_TEXT_TRIGGERS = PRE_SEND_TRIGGERS.filter(
+  (trigger) => PRE_SEND_TRIGGER_UNITS[trigger] === "text",
+);
 
 export function isTextTrigger(trigger: string): boolean {
-  return (PRE_SEND_TEXT_TRIGGERS as readonly string[]).includes(trigger);
+  return PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger] === "text";
+}
+
+/** Whether a trigger is compared with the numeric operators. */
+export function isNumericTrigger(trigger: string): boolean {
+  const unit = PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger];
+  return unit === "seconds" || unit === "percent" || unit === "usd";
 }
 
 /**
@@ -370,28 +423,29 @@ export function mostSeverePreSendOutcome(outcomes: readonly PreSendOutcome[]): P
 }
 
 /**
- * The measured values, assembled by the caller at send time. `null` means the
- * value is unknown right now — no usage reported yet, no timeline loaded, no
- * agent — and any rule reading a `null` is skipped rather than guessed at.
+ * The measured values, assembled by the caller at the moment a rule is asked.
+ *
+ * Keyed by trigger rather than a field per trigger, because the two sides can
+ * measure different things: the composer reads what the session store holds, the
+ * daemon reads the agent record, and neither can supply the other's. A field per
+ * trigger would make each of them write an explicit `null` for everything it
+ * cannot see, which is noise that grows with every trigger added.
+ *
+ * A missing key and a `null` mean the same thing to the evaluator — not measured,
+ * skip the rule — and that is deliberate. There is no useful difference between
+ * "this build does not know that trigger" and "nobody could measure it", because
+ * both must fail open: a gate that blocks because it could not read itself is
+ * worse than one that occasionally misses.
+ *
+ * `Partial<Record<...>>` rather than an open string map is the repo's idiom for
+ * "typed key, deliberately incomplete" — `RULE_EVENT_BY_ATTENTION_REASON` is the
+ * same shape. Typed keys are what keep a mistyped override in a test a compile
+ * error rather than a silently ignored entry.
+ *
+ * Never serialised: each side builds its own and hands it to a pure function in
+ * the same process, so this shape is not a wire concern and owes no COMPAT tag.
  */
-export interface PreSendMeasurementContext {
-  /**
-   * Seconds since the agent last did anything, measured from the end of its
-   * last turn. That is when a provider-side prompt cache was written, which is
-   * what makes it the right clock for a staleness rule.
-   */
-  idleSeconds: number | null;
-  /** Context window consumed, 0-100. */
-  contextUsedPercent: number | null;
-  /** Cumulative cost of this agent's session, in USD. */
-  sessionCostUsd: number | null;
-  /**
-   * The text about to be sent. Unlike the others this is never `null` — there is
-   * always a message at send time, and an empty one is a real value rather than
-   * an unknown one.
-   */
-  message: string;
-}
+export type PreSendMeasurementContext = Partial<Record<PreSendTrigger, number | string | null>>;
 
 export type PreSendDisposition = "allow" | "warn" | "block" | "redirect";
 

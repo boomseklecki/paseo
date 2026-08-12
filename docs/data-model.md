@@ -597,15 +597,20 @@ The second case is the one a naive importer gets wrong, because zero imported ro
 looks like nothing happened. It is not: it is a person who cleared their rules, and
 the marker is what stops the next start handing them back.
 
-**Hand-editability is a decision this feature has to make, not one it inherits.**
-The store reads fresh from disk on every access and polls every 30 seconds, both
-because a person can edit these files while the daemon runs — the seeded `README.md`
-says so in its first paragraph. The foundation branch's two migrated stores stopped
-reading disk once their marker existed, and it records no reasoning about
-hand-editing either way. So migrating rules the same way would retire an advertised
-property of the feature. Either the rules store keeps a disk read the others do not,
-or the README stops promising it; picking neither and migrating by rote picks the
-second by accident.
+**Hand-editability is not a goal, and the migration should not preserve it.**
+The store reads fresh from disk on every access and polls every 30 seconds, both of
+which exist only because a person could edit these files while the daemon runs. That
+is not a property this feature is trying to have. So rules migrate exactly as
+schedules and push tokens did — one-way import, marker, SQLite as sole authority,
+no disk read afterwards — and the fresh-read and the poll go with it rather than
+being carried across as a special case.
+
+Two things follow that are easy to miss. The seeded `README.md` currently promises
+that "an edit takes effect without a restart", which stops being true at the import
+and should be rewritten then, not left to contradict the daemon. And the 30-second
+poll with `lastBroadcast` diffing exists to notice changes the daemon did not make;
+once nothing else writes, the service already broadcasts on its own writes and the
+poll is dead weight.
 
 **Six older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition`, `action` and a singular `outcome` are what `trigger`, `value`, `value` and `outcomes` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both.
 
