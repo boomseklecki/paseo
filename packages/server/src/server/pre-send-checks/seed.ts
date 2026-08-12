@@ -156,6 +156,15 @@ that rule. A malformed file cannot stop the daemon or disable the others.
  * rule, and re-seeding it would silently undo them. It also means the client can
  * read an empty list as "no checks" rather than "not loaded", which is what keeps
  * the gate failing open.
+ *
+ * Directory-existence has no SQL analogue, and the migration is where that bites:
+ * an empty table cannot say whether it was never seeded or emptied on purpose. It
+ * is deliberately *not* solved here with a marker file — this directory is
+ * user-facing and hand-editable, and hidden bookkeeping in it is one more thing to
+ * explain and one more thing to delete by accident. The marker belongs at the
+ * import boundary, where `legacy_imports` already provides one. See "How this
+ * lands in SQL" in `docs/data-model.md` for what the importer has to do with an
+ * empty directory, which is the case it would otherwise get wrong.
  */
 export async function ensureSeeded(dir: string, logger: Logger): Promise<void> {
   if (existsSync(dir)) {

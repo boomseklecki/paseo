@@ -547,6 +547,66 @@ The three daemon seams ride transitions the agent manager already detects;
 happens when an agent goes on not being touched and that is the thing worth
 being told about.
 
+### How this lands in SQL
+
+Written down while the feature is still JSON, because the shape has changed twice
+this week and the migration should inherit a decision rather than an accident.
+Conventions taken from `origin/sqlite-migration-pr2-db-foundation`.
+
+```sql
+CREATE TABLE pre_send_checks (
+  id TEXT PRIMARY KEY,
+  sort_order INTEGER,
+  payload TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX pre_send_checks_sort_order_idx ON pre_send_checks(sort_order);
+```
+
+`id` is the natural text key the client mints, as it must be — the same rule lives
+on several hosts under one id, which is why there is no `create` on the store.
+`sort_order` is promoted because it is the sort key (`ORDER BY sort_order, id`,
+with `NULL` sorting last exactly as unordered rules do today). Everything else
+stays in `payload`.
+
+**`outcomes` stays in the payload, and that is precedented rather than lazy.**
+`StoredSchedule` already carries an ordered `runs: ScheduleRun[]` as JSON inside
+its own payload, and the branch's rule is that a field earns a column only by
+being the primary key, a sort key, or an indexed lookup. A rule's outcome list is
+none of those: it is read whole, written whole, and never queried across rules. A
+child table would be new ground for this repo and buys nothing here.
+
+**`trigger`, `operator` and `outcomes[].kind` stay open TEXT inside the payload —
+no `CHECK`, no lookup table.** The foundation declares none anywhere, and this
+feature has a stronger reason than convention: a rule naming a trigger this build
+does not know is _skipped_, not rejected, so that a rule written by a newer daemon
+survives a read by an older one. A `CHECK` constraint would turn that into a write
+that fails.
+
+**Seeding, and the one thing the importer must get right.** Today "the directory
+exists" is the seeded marker, and an empty directory means somebody deleted every
+rule — re-seeding would silently undo them. Under SQL an empty table cannot say
+which of those it is, so the `legacy_imports` marker carries that distinction:
+
+- Rules directory absent — a genuinely fresh install. Seed the defaults, write the
+  marker.
+- Rules directory present, **including when it is empty** — import what is there,
+  even if that is zero rows, and write the marker. Never seed.
+
+The second case is the one a naive importer gets wrong, because zero imported rows
+looks like nothing happened. It is not: it is a person who cleared their rules, and
+the marker is what stops the next start handing them back.
+
+**Hand-editability is a decision this feature has to make, not one it inherits.**
+The store reads fresh from disk on every access and polls every 30 seconds, both
+because a person can edit these files while the daemon runs — the seeded `README.md`
+says so in its first paragraph. The foundation branch's two migrated stores stopped
+reading disk once their marker existed, and it records no reasoning about
+hand-editing either way. So migrating rules the same way would retire an advertised
+property of the feature. Either the rules store keeps a disk read the others do not,
+or the README stops promising it; picking neither and migrating by rote picks the
+second by accident.
+
 **Six older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition`, `action` and a singular `outcome` are what `trigger`, `value`, `value` and `outcomes` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both.
 
 The three single-outcome fields take the **most severe** entry rather than the first, so a reader that can carry out only one of them carries out the one deciding what happens to the message — a client seeing `warn` where the rule also said `aside` would send what this build would have redirected. `packages/protocol/src/pre-send-checks/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(preSendCheckVocabulary)` and `COMPAT(preSendCheckOutcomeList)` tags carry the removal dates.
