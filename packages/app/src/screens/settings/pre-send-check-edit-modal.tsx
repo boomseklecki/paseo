@@ -125,6 +125,8 @@ const OPTION_LABEL_PREFIX: Record<PickerKind, string> = {
 
 const THRESHOLD_UNIT_KEYS: Record<string, string> = {
   "agent.idleSeconds": "settings.preSendChecks.thresholdUnits.idleSeconds",
+  "agent.secondsSinceUserMessage": "settings.preSendChecks.thresholdUnits.idleSeconds",
+  "agent.contextRemainingTokens": "settings.preSendChecks.thresholdUnits.contextRemainingTokens",
   "agent.contextUsedPercent": "settings.preSendChecks.thresholdUnits.contextUsedPercent",
   "agent.sessionCostUsd": "settings.preSendChecks.thresholdUnits.sessionCostUsd",
 };

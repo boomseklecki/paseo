@@ -81,6 +81,9 @@ export const ru: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "Последний ход завершился ошибкой: {{value}}",
+      secondsSinceUserMessage: "Здесь никто не писал уже {{duration}}.",
+      contextRemainingTokens: "У этого разговора осталось {{value}} контекста.",
       idleSeconds:
         "Агент простаивает уже {{duration}}, поэтому кэш промпта истёк. Отправка сейчас приведёт к повторной обработке всего диалога.",
       contextUsedPercent:
@@ -1816,6 +1819,16 @@ export const ru: TranslationResources = {
         "Правила, которые могут пригодиться. Ничего не добавляется, пока вы не сохраните.",
       useExample: "Использовать пример {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "Переждать лимит запросов — и только его",
+          description:
+            "Сверяется с тем, что действительно сказал провайдер, поэтому повтор происходит лишь когда помогает ожидание.",
+        },
+        "notify-when-context-runs-low": {
+          label: "Сообщить, когда контекста осталось мало",
+          description:
+            "В токенах, а не в процентах, поэтому срабатывает при одинаковом реальном запасе на любой модели.",
+        },
         "aside-on-btw": {
           label: "Отвечать на /btw в стороне",
           description:
@@ -1914,6 +1927,11 @@ export const ru: TranslationResources = {
         idle: "Когда агент простаивает",
       },
       triggers: {
+        secondsSinceUserMessage: "С последнего сообщения",
+        contextRemainingTokens: "Остаток контекста",
+        lastError: "Последняя ошибка",
+        provider: "Провайдер",
+        model: "Модель",
         always: "Всегда",
         message: "Что вы ввели",
         idleSeconds: "Время простоя",
@@ -1961,6 +1979,7 @@ export const ru: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "В токенах. 20000 — комфортный запас.",
         idleSeconds: "В секундах. 3600 — это один час.",
         contextUsedPercent: "Процент от 0 до 100.",
         sessionCostUsd: "В долларах США.",

@@ -79,6 +79,9 @@ export const en = {
   },
   composer: {
     preSendChecks: {
+      lastError: "The last turn failed: {{value}}",
+      secondsSinceUserMessage: "Nobody has typed here for {{duration}}.",
+      contextRemainingTokens: "This conversation has {{value}} of context left.",
       idleSeconds:
         "This agent has been idle for {{duration}}, so its prompt cache has expired. Sending now reprocesses the whole conversation.",
       contextUsedPercent: "The context window is {{value}} full, past the {{threshold}} limit.",
@@ -1790,6 +1793,16 @@ export const en = {
       examplesHint: "Rules you might want. Nothing is added until you save one.",
       useExample: "Use the example {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "Wait out a rate limit, but only a rate limit",
+          description:
+            "Matches on what the provider actually said, so the retry only happens where waiting is the fix.",
+        },
+        "notify-when-context-runs-low": {
+          label: "Tell me when there is little context left",
+          description:
+            "In tokens rather than a percentage, so it fires at the same real headroom whichever model you are on.",
+        },
         "aside-on-btw": {
           label: "Answer /btw on the side",
           description:
@@ -1889,6 +1902,11 @@ export const en = {
         idle: "When an agent is left idle",
       },
       triggers: {
+        secondsSinceUserMessage: "Time since you typed",
+        contextRemainingTokens: "Context left",
+        lastError: "Last error",
+        provider: "Provider",
+        model: "Model",
         always: "Always",
         message: "What you typed",
         idleSeconds: "Idle time",
@@ -1936,6 +1954,7 @@ export const en = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "In tokens. 20000 is a comfortable margin.",
         idleSeconds: "In seconds. 3600 is one hour.",
         contextUsedPercent: "A percentage from 0 to 100.",
         sessionCostUsd: "In US dollars.",

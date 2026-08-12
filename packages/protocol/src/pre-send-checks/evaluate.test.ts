@@ -438,7 +438,12 @@ describe("every declared trigger is wired end to end", () => {
 
   // The list that used to be written out twice.
   it("derives the text triggers from the unit table", () => {
-    expect([...PRE_SEND_TEXT_TRIGGERS]).toEqual(["message"]);
+    expect([...PRE_SEND_TEXT_TRIGGERS]).toEqual([
+      "agent.lastError",
+      "agent.provider",
+      "agent.model",
+      "message",
+    ]);
     expect(isTextTrigger("message")).toBe(true);
     expect(isTextTrigger("agent.idleSeconds")).toBe(false);
   });

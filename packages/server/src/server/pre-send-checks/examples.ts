@@ -86,6 +86,44 @@ export const PRE_SEND_CHECK_EXAMPLES: readonly PreSendCheckExample[] = [
     },
   },
   {
+    id: "retry-a-rate-limit",
+    label: "Wait out a rate limit, but only a rate limit",
+    description:
+      "A failed turn is not one thing. A rate limit wants waiting; a bad tool call wants reading. This matches on what the provider actually said, so the retry only happens where waiting is the fix.",
+    rule: {
+      event: "turn.failed",
+      trigger: "agent.lastError",
+      operator: "contains",
+      value: "rate limit",
+      outcomes: [
+        {
+          kind: "schedule",
+          title: "Retry after a rate limit",
+          delay: "15m",
+          prompt: "The last turn hit a rate limit. Try it again.",
+        },
+      ],
+    },
+  },
+  {
+    id: "notify-when-context-runs-low",
+    label: "Tell me when there is little context left",
+    description:
+      "In tokens rather than a percentage, because 10% of a 1M window and 10% of a 200k one are five times apart. This fires at the same real headroom whichever model the conversation is on.",
+    rule: {
+      event: "turn.completed",
+      trigger: "agent.contextRemainingTokens",
+      operator: "lt",
+      value: 20000,
+      outcomes: [
+        {
+          kind: "notify",
+          wording: "Only {{value}} of context left. Wrap up or hand off.",
+        },
+      ],
+    },
+  },
+  {
     id: "retry-after-a-failed-turn",
     label: "Try again ten minutes after a turn fails",
     description:

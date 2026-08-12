@@ -81,6 +81,9 @@ export const ko: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "마지막 턴이 실패했습니다: {{value}}",
+      secondsSinceUserMessage: "{{duration}} 동안 아무도 입력하지 않았습니다.",
+      contextRemainingTokens: "이 대화의 컨텍스트가 {{value}} 남았습니다.",
       idleSeconds:
         "이 에이전트가 {{duration}} 동안 유휴 상태여서 프롬프트 캐시가 만료되었습니다. 지금 보내면 대화 전체를 다시 처리합니다.",
       contextUsedPercent: "컨텍스트 창 사용량이 {{value}}로 {{threshold}} 한도를 넘었습니다.",
@@ -1788,6 +1791,15 @@ export const ko: TranslationResources = {
       examplesHint: "원할 만한 규칙입니다. 저장하기 전에는 아무것도 추가되지 않습니다.",
       useExample: "예시 {{name}} 사용",
       examples: {
+        "retry-a-rate-limit": {
+          label: "레이트 리밋일 때만 기다렸다 재시도",
+          description:
+            "공급자가 실제로 말한 내용으로 판단하므로, 기다리면 해결되는 경우에만 재시도합니다.",
+        },
+        "notify-when-context-runs-low": {
+          label: "컨텍스트가 얼마 안 남으면 알리기",
+          description: "비율이 아니라 토큰 수라서 어떤 모델에서도 같은 실제 여유에서 발동합니다.",
+        },
         "aside-on-btw": {
           label: "/btw를 곁에서 답하기",
           description:
@@ -1881,6 +1893,11 @@ export const ko: TranslationResources = {
         idle: "에이전트가 방치되었을 때",
       },
       triggers: {
+        secondsSinceUserMessage: "마지막 입력 이후",
+        contextRemainingTokens: "남은 컨텍스트",
+        lastError: "마지막 오류",
+        provider: "공급자",
+        model: "모델",
         always: "항상",
         message: "입력한 내용",
         idleSeconds: "유휴 시간",
@@ -1928,6 +1945,7 @@ export const ko: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "토큰 수. 20000이면 여유 있는 편입니다.",
         idleSeconds: "초 단위. 3600은 한 시간입니다.",
         contextUsedPercent: "0에서 100까지의 백분율입니다.",
         sessionCostUsd: "미국 달러 기준.",

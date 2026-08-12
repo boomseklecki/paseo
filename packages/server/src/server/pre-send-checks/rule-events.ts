@@ -128,6 +128,12 @@ export function buildAgentRuleContext(input: {
   contextWindowMaxTokens: number | null | undefined;
   totalCostUsd: number | null | undefined;
   idleSeconds: number | null;
+  /** Since a person last typed here, which is not the same as since anything moved. */
+  secondsSinceUserMessage?: number | null;
+  /** Cleared by the provider on the next good turn, so a rule on it re-arms itself. */
+  lastError?: string | null;
+  provider?: string | null;
+  model?: string | null;
 }): PreSendMeasurementContext {
   const used = input.contextWindowUsedTokens ?? null;
   const max = input.contextWindowMaxTokens ?? null;
@@ -136,8 +142,15 @@ export function buildAgentRuleContext(input: {
   // empty string would be a measured value of "", which is a different claim.
   return {
     "agent.idleSeconds": input.idleSeconds,
+    "agent.secondsSinceUserMessage": input.secondsSinceUserMessage ?? null,
     "agent.contextUsedPercent":
       used === null || max === null || max <= 0 ? null : (used / max) * 100,
+    "agent.contextRemainingTokens": used === null || max === null ? null : Math.max(0, max - used),
     "agent.sessionCostUsd": input.totalCostUsd ?? null,
+    // Absent rather than null when there is nothing to say, so a rule reading one
+    // is skipped rather than compared against an empty string.
+    ...(input.lastError ? { "agent.lastError": input.lastError } : {}),
+    ...(input.provider ? { "agent.provider": input.provider } : {}),
+    ...(input.model ? { "agent.model": input.model } : {}),
   };
 }

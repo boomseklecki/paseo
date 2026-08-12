@@ -54,6 +54,15 @@ export interface PreSendMeasurementInput {
    * operand, so no trigger can match a caller that had no message to give.
    */
   message?: string;
+  /**
+   * What the provider said about the last failure, and which agent this is.
+   *
+   * Optional because a caller describing an agent it has not loaded fully has
+   * nothing to say, and a missing key means "not measured" rather than "empty".
+   */
+  lastError?: string | null;
+  provider?: string | null;
+  model?: string | null;
 }
 
 export function buildPreSendMeasurementContext(
@@ -82,10 +91,28 @@ export function buildPreSendMeasurementContext(
   // Keyed by trigger, and only what this side can measure. The composer has the
   // session store; the daemon has the agent record; neither writes a null for
   // the other's values, because a missing key already means "not measured".
+  const { lastUserMessageAt } = input;
+  const secondsSinceUserMessage =
+    lastUserMessageAt === null
+      ? null
+      : Math.max(0, (input.nowMs - lastUserMessageAt.getTime()) / 1000);
+
+  const contextRemainingTokens =
+    contextWindowUsedTokens === null || contextWindowMaxTokens === null
+      ? null
+      : Math.max(0, contextWindowMaxTokens - contextWindowUsedTokens);
+
   return {
     "agent.idleSeconds": idleSeconds,
+    "agent.secondsSinceUserMessage": secondsSinceUserMessage,
     "agent.contextUsedPercent": contextUsedPercent,
+    "agent.contextRemainingTokens": contextRemainingTokens,
     "agent.sessionCostUsd": input.totalCostUsd,
+    // Absent rather than null when the caller did not supply them, so a rule
+    // reading one is skipped rather than compared against an empty string.
+    ...(input.lastError ? { "agent.lastError": input.lastError } : {}),
+    ...(input.provider ? { "agent.provider": input.provider } : {}),
+    ...(input.model ? { "agent.model": input.model } : {}),
     message: input.message ?? "",
   };
 }
@@ -101,6 +128,13 @@ export function buildPreSendMeasurementContext(
 const MESSAGE_KEY_BY_MEASUREMENT: Record<PreSendTrigger, string> = {
   message: "composer.preSendChecks.generic",
   always: "composer.preSendChecks.generic",
+  // Scoping triggers, rarely a rule's whole reason, so the generic sentence is
+  // the honest default rather than an invented one about a provider name.
+  "agent.provider": "composer.preSendChecks.generic",
+  "agent.model": "composer.preSendChecks.generic",
+  "agent.lastError": "composer.preSendChecks.lastError",
+  "agent.secondsSinceUserMessage": "composer.preSendChecks.secondsSinceUserMessage",
+  "agent.contextRemainingTokens": "composer.preSendChecks.contextRemainingTokens",
   "agent.idleSeconds": "composer.preSendChecks.idleSeconds",
   "agent.contextUsedPercent": "composer.preSendChecks.contextUsedPercent",
   "agent.sessionCostUsd": "composer.preSendChecks.sessionCostUsd",

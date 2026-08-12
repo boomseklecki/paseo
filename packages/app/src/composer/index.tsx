@@ -282,6 +282,12 @@ function readPreSendMeasurements(
     contextWindowUsedTokens: agent.lastUsage?.contextWindowUsedTokens ?? null,
     contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens ?? null,
     totalCostUsd: agent.lastUsage?.totalCostUsd ?? null,
+    lastError: agent.lastError ?? null,
+    provider: agent.provider ?? null,
+    // What the agent resolved to at runtime, falling back to what it was
+    // configured with — the same resolution the agent projection makes, so a
+    // rule and the model picker cannot disagree about which model this is.
+    model: agent.runtimeInfo?.model ?? agent.model ?? null,
     nowMs,
     message,
   });

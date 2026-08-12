@@ -1,4 +1,5 @@
 import { PRE_SEND_TRIGGER_UNITS_BY_NAME } from "./types.js";
+import type { PreSendTriggerUnit } from "./types.js";
 
 /**
  * How a measured value reads.
@@ -49,22 +50,27 @@ export function formatPreSendTriggerValue(
   if (typeof value !== "number") {
     return value ?? "";
   }
-  // Off the shared unit table rather than a second switch. The switch had a
-  // `default` that rendered a duration as a bare number, and nothing said so: a
-  // trigger added without a case here read "3600" in a toast and "1h" in the
-  // editor. The table is keyed by the trigger union, so there is no case to
-  // forget — only a unit to name.
-  switch (PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger]) {
-    case "seconds":
-      return formatPreSendDuration(value * 1000);
-    case "percent":
-      return `${Math.round(value)}%`;
-    case "usd":
-      return `$${value.toFixed(2)}`;
-    default:
-      return String(value);
-  }
+  const unit = PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger];
+  // Widened at the lookup because the trigger came off disk; keyed by the unit
+  // union in the table itself, so adding a unit without a renderer is a type
+  // error. A `switch` with a `default` here would have taken the new `tokens`
+  // unit and printed it as a bare number — the same silent half-working the
+  // trigger table exists to prevent, one level down.
+  return unit === undefined ? String(value) : RENDER_BY_UNIT[unit](value);
 }
+
+const RENDER_BY_UNIT: Record<PreSendTriggerUnit, (value: number) => string> = {
+  seconds: (value) => formatPreSendDuration(value * 1000),
+  percent: (value) => `${Math.round(value)}%`,
+  usd: (value) => `$${value.toFixed(2)}`,
+  // Thousands, because a context window is read in them and "18k left" is the
+  // shape of the thought. Below a thousand the exact number is what matters.
+  tokens: (value) => (value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value))),
+  // A text trigger's value is the text, and `always` has none; either way there
+  // is no unit to apply, and a number reaching here is shown as itself.
+  text: (value) => String(value),
+  none: (value) => String(value),
+};
 
 /**
  * Fills the tokens a wording may carry.

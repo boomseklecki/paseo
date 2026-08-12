@@ -3,7 +3,11 @@ import type {
   PreSendCheckRule,
   PreSendMeasurementContext,
 } from "@getpaseo/protocol/pre-send-checks/types";
-import { PreSendRuleEventTracker, firePreSendRuleEvent } from "./rule-events.js";
+import {
+  PreSendRuleEventTracker,
+  buildAgentRuleContext,
+  firePreSendRuleEvent,
+} from "./rule-events.js";
 
 const COSTLY: PreSendCheckRule = {
   id: "costly",
@@ -170,5 +174,82 @@ describe("firePreSendRuleEvent", () => {
     expect(
       fire(new PreSendRuleEventTracker(), [COSTLY], context({ "agent.sessionCostUsd": null })),
     ).toEqual([]);
+  });
+});
+
+/**
+ * The five triggers the reshape made cheap. What matters here is not the
+ * arithmetic but that the daemon supplies them at all: a trigger the editor
+ * offers and no builder measures is a rule that saves, evaluates, and does
+ * nothing.
+ */
+describe("buildAgentRuleContext measures the agent triggers", () => {
+  test("reports headroom as well as proportion", () => {
+    const measured = buildAgentRuleContext({
+      contextWindowUsedTokens: 180_000,
+      contextWindowMaxTokens: 200_000,
+      totalCostUsd: null,
+      idleSeconds: 0,
+    });
+
+    expect(measured["agent.contextRemainingTokens"]).toBe(20_000);
+    expect(measured["agent.contextUsedPercent"]).toBe(90);
+  });
+
+  // A window that shrank under what was already used would otherwise report
+  // negative headroom, which no operator reads usefully.
+  test("never reports negative headroom", () => {
+    const measured = buildAgentRuleContext({
+      contextWindowUsedTokens: 210_000,
+      contextWindowMaxTokens: 200_000,
+      totalCostUsd: null,
+      idleSeconds: 0,
+    });
+
+    expect(measured["agent.contextRemainingTokens"]).toBe(0);
+  });
+
+  test("leaves headroom unmeasured when the window is unknown", () => {
+    const measured = buildAgentRuleContext({
+      contextWindowUsedTokens: 180_000,
+      contextWindowMaxTokens: null,
+      totalCostUsd: null,
+      idleSeconds: 0,
+    });
+
+    expect(measured["agent.contextRemainingTokens"]).toBeNull();
+  });
+
+  // Absent rather than null, so a rule reading one is skipped rather than
+  // compared against an empty string.
+  test("omits the text triggers it has nothing to say about", () => {
+    const measured = buildAgentRuleContext({
+      contextWindowUsedTokens: null,
+      contextWindowMaxTokens: null,
+      totalCostUsd: null,
+      idleSeconds: 0,
+    });
+
+    expect("agent.lastError" in measured).toBe(false);
+    expect("agent.provider" in measured).toBe(false);
+    expect("agent.model" in measured).toBe(false);
+  });
+
+  test("carries the provider, model and last error when it has them", () => {
+    const measured = buildAgentRuleContext({
+      contextWindowUsedTokens: null,
+      contextWindowMaxTokens: null,
+      totalCostUsd: null,
+      idleSeconds: 0,
+      secondsSinceUserMessage: 120,
+      lastError: "rate limit exceeded",
+      provider: "claude",
+      model: "claude-opus-5[1m]",
+    });
+
+    expect(measured["agent.lastError"]).toBe("rate limit exceeded");
+    expect(measured["agent.provider"]).toBe("claude");
+    expect(measured["agent.model"]).toBe("claude-opus-5[1m]");
+    expect(measured["agent.secondsSinceUserMessage"]).toBe(120);
   });
 });

@@ -2524,6 +2524,15 @@ export class VoiceAssistantWebSocketServer {
         contextWindowMaxTokens: agent.lastUsage?.contextWindowMaxTokens,
         totalCostUsd: agent.lastUsage?.totalCostUsd,
         idleSeconds,
+        // Measured here rather than passed in, because unlike `idleSeconds` this
+        // one is the same field on both sides and needs no seam-specific clock.
+        secondsSinceUserMessage:
+          agent.lastUserMessageAt === null
+            ? null
+            : Math.max(0, (Date.now() - agent.lastUserMessageAt.getTime()) / 1000),
+        lastError: agent.lastError ?? null,
+        provider: agent.provider,
+        model: agent.runtimeInfo?.model ?? agent.config.model ?? null,
       }),
     });
 

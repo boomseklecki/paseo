@@ -81,6 +81,9 @@ export const ptBR: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "O último turno falhou: {{value}}",
+      secondsSinceUserMessage: "Ninguém digita aqui há {{duration}}.",
+      contextRemainingTokens: "Esta conversa tem {{value}} de contexto restante.",
       idleSeconds:
         "Este agente está inativo há {{duration}}, então seu cache de prompt expirou. Enviar agora reprocessa a conversa inteira.",
       contextUsedPercent:
@@ -1811,6 +1814,16 @@ export const ptBR: TranslationResources = {
       examplesHint: "Regras que você talvez queira. Nada é adicionado até você salvar.",
       useExample: "Usar o exemplo {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "Esperar um limite de taxa, e só isso",
+          description:
+            "Compara com o que o provedor realmente disse, então a nova tentativa só ocorre quando esperar resolve.",
+        },
+        "notify-when-context-runs-low": {
+          label: "Avisar quando restar pouco contexto",
+          description:
+            "Em tokens e não em porcentagem, para disparar na mesma margem real em qualquer modelo.",
+        },
         "aside-on-btw": {
           label: "Responder /btw à parte",
           description:
@@ -1907,6 +1920,11 @@ export const ptBR: TranslationResources = {
         idle: "Quando um agente fica ocioso",
       },
       triggers: {
+        secondsSinceUserMessage: "Desde que você digitou",
+        contextRemainingTokens: "Contexto restante",
+        lastError: "Último erro",
+        provider: "Provedor",
+        model: "Modelo",
         always: "Sempre",
         message: "O que você digitou",
         idleSeconds: "Tempo ocioso",
@@ -1954,6 +1972,7 @@ export const ptBR: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "Em tokens. 20000 é uma margem confortável.",
         idleSeconds: "Em segundos. 3600 é uma hora.",
         contextUsedPercent: "Uma porcentagem de 0 a 100.",
         sessionCostUsd: "Em dólares americanos.",

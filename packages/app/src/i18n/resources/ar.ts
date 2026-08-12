@@ -81,6 +81,9 @@ export const ar: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "فشلت الجولة الأخيرة: {{value}}",
+      secondsSinceUserMessage: "لم يكتب أحد هنا منذ {{duration}}.",
+      contextRemainingTokens: "بقي لهذه المحادثة {{value}} من السياق.",
       idleSeconds:
         "ظل هذا الوكيل خاملاً لمدة {{duration}}، لذا انتهت صلاحية ذاكرة التخزين المؤقت للمطالبة. الإرسال الآن يعيد معالجة المحادثة بأكملها.",
       contextUsedPercent: "نافذة السياق ممتلئة بنسبة {{value}}، وهو ما يتجاوز الحد {{threshold}}.",
@@ -1778,6 +1781,16 @@ export const ar: TranslationResources = {
       examplesHint: "قواعد قد ترغب بها. لا يُضاف شيء حتى تحفظ واحدة.",
       useExample: "استخدام المثال {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "انتظر انتهاء حد المعدّل، وهذا فقط",
+          description:
+            "يطابق ما قاله المزوّد فعلًا، فلا تتم إعادة المحاولة إلا حين يكون الانتظار هو الحل.",
+        },
+        "notify-when-context-runs-low": {
+          label: "أخبرني حين يقل السياق المتبقي",
+          description:
+            "بالرموز لا بالنسبة المئوية، فيُطلق عند المقدار الحقيقي نفسه مهما كان النموذج.",
+        },
         "aside-on-btw": {
           label: "الإجابة على /btw جانبًا",
           description:
@@ -1871,6 +1884,11 @@ export const ar: TranslationResources = {
         idle: "عند ترك وكيل بلا عمل",
       },
       triggers: {
+        secondsSinceUserMessage: "منذ آخر كتابة منك",
+        contextRemainingTokens: "المتبقي من السياق",
+        lastError: "آخر خطأ",
+        provider: "المزوّد",
+        model: "النموذج",
         always: "دائمًا",
         message: "ما كتبته",
         idleSeconds: "مدة الخمول",
@@ -1918,6 +1936,7 @@ export const ar: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "بالرموز. 20000 هامش مريح.",
         idleSeconds: "بالثواني. 3600 تعني ساعة واحدة.",
         contextUsedPercent: "نسبة مئوية من 0 إلى 100.",
         sessionCostUsd: "بالدولار الأمريكي.",

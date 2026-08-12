@@ -81,6 +81,9 @@ export const zhCN: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "上一轮失败了：{{value}}",
+      secondsSinceUserMessage: "已经 {{duration}} 没有人输入了。",
+      contextRemainingTokens: "这个对话还剩 {{value}} 上下文。",
       idleSeconds: "该 Agent 已空闲 {{duration}}，提示缓存已过期。此时发送会重新处理整段对话。",
       contextUsedPercent: "上下文窗口已用 {{value}}，超过 {{threshold}} 的上限。",
       sessionCostUsd: "本次会话已花费 {{value}}，超过 {{threshold}} 的上限。",
@@ -1756,6 +1759,14 @@ export const zhCN: TranslationResources = {
       examplesHint: "你可能想要的规则。保存之前不会添加任何内容。",
       useExample: "使用示例 {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "只在触发限流时等待重试",
+          description: "依据提供方实际给出的说法判断，只有等待能解决时才重试。",
+        },
+        "notify-when-context-runs-low": {
+          label: "上下文快用完时告诉我",
+          description: "按 token 而不是百分比，所以在任何模型上都在同样的真实余量触发。",
+        },
         "aside-on-btw": {
           label: "在一旁回答 /btw",
           description: "以 /btw 开头的消息不会发送，而由隐藏代理回答，回复显示在子代理下方。",
@@ -1846,6 +1857,11 @@ export const zhCN: TranslationResources = {
         idle: "代理闲置时",
       },
       triggers: {
+        secondsSinceUserMessage: "距你上次输入",
+        contextRemainingTokens: "剩余上下文",
+        lastError: "最近的错误",
+        provider: "提供方",
+        model: "模型",
         always: "始终",
         message: "你输入的内容",
         idleSeconds: "空闲时长",
@@ -1893,6 +1909,7 @@ export const zhCN: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "以 token 计。20000 是比较从容的余量。",
         idleSeconds: "以秒为单位，3600 即一小时。",
         contextUsedPercent: "0 到 100 之间的百分比。",
         sessionCostUsd: "以美元计。",

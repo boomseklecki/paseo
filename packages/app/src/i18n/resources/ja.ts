@@ -81,6 +81,9 @@ export const ja: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "直近のターンが失敗しました: {{value}}",
+      secondsSinceUserMessage: "{{duration}} のあいだ誰も入力していません。",
+      contextRemainingTokens: "この会話のコンテキストは残り {{value}} です。",
       idleSeconds:
         "このエージェントは{{duration}}アイドル状態のため、プロンプトキャッシュが失効しています。今送信すると会話全体が再処理されます。",
       contextUsedPercent:
@@ -1796,6 +1799,14 @@ export const ja: TranslationResources = {
       examplesHint: "使いたくなるかもしれないルールです。保存するまで何も追加されません。",
       useExample: "例「{{name}}」を使う",
       examples: {
+        "retry-a-rate-limit": {
+          label: "レート制限のときだけ待って再試行する",
+          description: "プロバイダーの実際の文言で判定するので、待てば直る場合にだけ再試行します。",
+        },
+        "notify-when-context-runs-low": {
+          label: "コンテキストの残りが少なくなったら知らせる",
+          description: "割合ではなくトークン数なので、どのモデルでも同じ実質的な余裕で発火します。",
+        },
         "aside-on-btw": {
           label: "/btw を脇で答える",
           description:
@@ -1892,6 +1903,11 @@ export const ja: TranslationResources = {
         idle: "エージェントが放置されたとき",
       },
       triggers: {
+        secondsSinceUserMessage: "最後に入力してから",
+        contextRemainingTokens: "残りコンテキスト",
+        lastError: "直近のエラー",
+        provider: "プロバイダー",
+        model: "モデル",
         always: "常に",
         message: "入力した内容",
         idleSeconds: "アイドル時間",
@@ -1939,6 +1955,7 @@ export const ja: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "トークン数。20000 は余裕のある目安です。",
         idleSeconds: "秒単位。3600 で 1 時間です。",
         contextUsedPercent: "0 から 100 のパーセントです。",
         sessionCostUsd: "米ドル単位。",

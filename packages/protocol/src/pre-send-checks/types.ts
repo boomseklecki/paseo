@@ -174,8 +174,13 @@ export type PreSendCheckRule = z.infer<typeof PreSendCheckRuleSchema>;
  */
 export const PRE_SEND_TRIGGERS = [
   "agent.idleSeconds",
+  "agent.secondsSinceUserMessage",
   "agent.contextUsedPercent",
+  "agent.contextRemainingTokens",
   "agent.sessionCostUsd",
+  "agent.lastError",
+  "agent.provider",
+  "agent.model",
   "message",
   "always",
 ] as const;
@@ -209,12 +214,52 @@ export const PRE_SEND_ALWAYS_TRIGGER = "always";
  * One table rather than three lists, for the reason `docs/coding-standards.md`
  * gives: the same discriminator branched in three files is a policy table.
  */
-export type PreSendTriggerUnit = "seconds" | "percent" | "usd" | "text" | "none";
+export type PreSendTriggerUnit = "seconds" | "percent" | "usd" | "tokens" | "text" | "none";
 
 export const PRE_SEND_TRIGGER_UNITS: Record<PreSendTrigger, PreSendTriggerUnit> = {
   "agent.idleSeconds": "seconds",
+  /**
+   * Since a person last typed here, rather than since anything moved.
+   *
+   * `idleSeconds` is measured from different clocks on the two sides — the
+   * newest timeline item in the composer, `updatedAt` in the daemon, which is
+   * bumped on every state change — so the same rule means slightly different
+   * things depending on the seam. This one reads `lastUserMessageAt`, which is
+   * the same field on both, and is the better question for "has this been left
+   * alone" anyway: an agent working hard on its own is not idle, but nobody has
+   * been near it.
+   */
+  "agent.secondsSinceUserMessage": "seconds",
   "agent.contextUsedPercent": "percent",
+  /**
+   * Headroom rather than proportion.
+   *
+   * 10% of a 1M window and 10% of a 200k one are five times apart, and what
+   * anyone actually reasons about is "how much room is left before this
+   * compacts". `lt 20000` says that; `gt 90` says it only if you know which
+   * model you are on.
+   */
+  "agent.contextRemainingTokens": "tokens",
   "agent.sessionCostUsd": "usd",
+  /**
+   * The provider's own words for why the last turn failed.
+   *
+   * The one trigger that makes `turn.failed` more than a single undifferentiated
+   * seam: `contains "rate limit"` and `contains "context"` want opposite
+   * responses — wait and retry, versus compact and carry on. Cleared on the next
+   * successful turn, so a rule on it re-arms by itself.
+   */
+  "agent.lastError": "text",
+  /**
+   * Which agent this is, for scoping every other rule.
+   *
+   * Not decoration: token and context reporting differ by provider, and the
+   * ACP-based ones report no context window at all, so a `contextUsedPercent`
+   * rule silently never fires there and nothing says why. Being able to write
+   * `agent.provider contains codex` is the cheapest fix for that.
+   */
+  "agent.provider": "text",
+  "agent.model": "text",
   message: "text",
   // The trigger with no comparison in it, so there is nothing to render.
   always: "none",
@@ -248,10 +293,17 @@ export function isTextTrigger(trigger: string): boolean {
   return PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger] === "text";
 }
 
-/** Whether a trigger is compared with the numeric operators. */
+/**
+ * Whether a trigger is compared with the numeric operators.
+ *
+ * Stated as "not text and not nothing" rather than by listing the numeric units,
+ * so adding a unit makes its triggers numeric without a second edit. Listing
+ * them is how `tokens` arrived numeric-in-name and refused by the evaluator,
+ * which a test caught and a type would not have.
+ */
 export function isNumericTrigger(trigger: string): boolean {
   const unit = PRE_SEND_TRIGGER_UNITS_BY_NAME[trigger];
-  return unit === "seconds" || unit === "percent" || unit === "usd";
+  return unit !== undefined && unit !== "text" && unit !== "none";
 }
 
 /**

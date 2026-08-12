@@ -83,6 +83,9 @@ export const fr: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "Le dernier tour a échoué : {{value}}",
+      secondsSinceUserMessage: "Personne n'a écrit ici depuis {{duration}}.",
+      contextRemainingTokens: "Il reste {{value}} de contexte à cette conversation.",
       idleSeconds:
         "Cet agent est inactif depuis {{duration}}, son cache de prompt a donc expiré. Envoyer maintenant retraite toute la conversation.",
       contextUsedPercent:
@@ -1831,6 +1834,16 @@ export const fr: TranslationResources = {
         "Des règles qui pourraient vous convenir. Rien n'est ajouté tant que vous n'enregistrez pas.",
       useExample: "Utiliser l'exemple {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "Attendre une limite de débit, et rien d'autre",
+          description:
+            "Se base sur ce que le fournisseur a réellement dit, donc la reprise n'a lieu que si attendre suffit.",
+        },
+        "notify-when-context-runs-low": {
+          label: "Me prévenir quand il reste peu de contexte",
+          description:
+            "En jetons plutôt qu'en pourcentage, pour se déclencher à la même marge réelle sur tout modèle.",
+        },
         "aside-on-btw": {
           label: "Répondre à /btw en aparté",
           description:
@@ -1930,6 +1943,11 @@ export const fr: TranslationResources = {
         idle: "Quand un agent reste inactif",
       },
       triggers: {
+        secondsSinceUserMessage: "Depuis votre dernier message",
+        contextRemainingTokens: "Contexte restant",
+        lastError: "Dernière erreur",
+        provider: "Fournisseur",
+        model: "Modèle",
         always: "Toujours",
         message: "Ce que vous avez tapé",
         idleSeconds: "Temps d'inactivité",
@@ -1977,6 +1995,7 @@ export const fr: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "En jetons. 20000 est une marge confortable.",
         idleSeconds: "En secondes. 3600 correspond à une heure.",
         contextUsedPercent: "Un pourcentage de 0 à 100.",
         sessionCostUsd: "En dollars américains.",

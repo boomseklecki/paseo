@@ -81,6 +81,9 @@ export const es: TranslationResources = {
   },
   composer: {
     preSendChecks: {
+      lastError: "El último turno falló: {{value}}",
+      secondsSinceUserMessage: "Nadie ha escrito aquí desde hace {{duration}}.",
+      contextRemainingTokens: "A esta conversación le quedan {{value}} de contexto.",
       idleSeconds:
         "Este agente lleva {{duration}} inactivo, por lo que su caché de prompts ha caducado. Enviar ahora reprocesa toda la conversación.",
       contextUsedPercent:
@@ -1824,6 +1827,16 @@ export const es: TranslationResources = {
       examplesHint: "Reglas que quizá quieras. No se añade nada hasta que guardes una.",
       useExample: "Usar el ejemplo {{name}}",
       examples: {
+        "retry-a-rate-limit": {
+          label: "Esperar un límite de tasa, y solo eso",
+          description:
+            "Coincide con lo que dijo el proveedor, así que el reintento solo ocurre cuando esperar es la solución.",
+        },
+        "notify-when-context-runs-low": {
+          label: "Avisarme cuando quede poco contexto",
+          description:
+            "En tokens y no en porcentaje, para que se active con el mismo margen real en cualquier modelo.",
+        },
         "aside-on-btw": {
           label: "Responder /btw aparte",
           description:
@@ -1922,6 +1935,11 @@ export const es: TranslationResources = {
         idle: "Cuando un agente queda inactivo",
       },
       triggers: {
+        secondsSinceUserMessage: "Desde que escribió",
+        contextRemainingTokens: "Contexto restante",
+        lastError: "Último error",
+        provider: "Proveedor",
+        model: "Modelo",
         always: "Siempre",
         message: "Lo que escribió",
         idleSeconds: "Tiempo inactivo",
@@ -1969,6 +1987,7 @@ export const es: TranslationResources = {
         },
       },
       thresholdUnits: {
+        contextRemainingTokens: "En tokens. 20000 es un margen cómodo.",
         idleSeconds: "En segundos. 3600 es una hora.",
         contextUsedPercent: "Un porcentaje de 0 a 100.",
         sessionCostUsd: "En dólares estadounidenses.",
