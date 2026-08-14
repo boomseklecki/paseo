@@ -36,10 +36,35 @@
     "disposition": {
       "type": "string"
     },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "wording": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["kind"],
+        "additionalProperties": {}
+      }
+    },
     "outcome": {
       "type": "object",
       "properties": {
         "kind": {
+          "type": "string"
+        },
+        "wording": {
           "type": "string"
         },
         "prompt": {
@@ -59,6 +84,9 @@
       "type": "object",
       "properties": {
         "kind": {
+          "type": "string"
+        },
+        "wording": {
           "type": "string"
         },
         "prompt": {
