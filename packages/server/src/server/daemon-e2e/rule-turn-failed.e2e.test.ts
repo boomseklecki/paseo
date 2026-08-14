@@ -46,13 +46,19 @@ describe("daemon E2E (rule on turn.failed)", () => {
     // because `error` is deliberately *not* push-eligible
     // (`agent-attention-policy.ts`) - so a rule is the only way a failed turn
     // reaches a device at all, and nothing else in the suite says so.
-    const pushed: Array<{ title: string; body: string; reason: unknown }> = [];
+    const pushed: Array<{
+      title: string;
+      body: string;
+      reason: unknown;
+      requiredCapability?: string;
+    }> = [];
     const pushNotificationSender: PushNotificationSender = {
-      send: async (notification) => {
+      send: async (notification, options) => {
         pushed.push({
           title: notification.title,
           body: notification.body,
           reason: notification.data?.reason,
+          requiredCapability: options?.requiredCapability,
         });
       },
     };
@@ -107,6 +113,11 @@ describe("daemon E2E (rule on turn.failed)", () => {
       expect(pushed.map((entry) => entry.reason)).toEqual(["rule"]);
       expect(pushed[0]?.title).toBe("A rule fired");
       expect(pushed[0]?.body).toBe("That turn failed and you asked to be told.");
+
+      // And it goes only to a device that can render what it is about. The
+      // websocket leg makes this check per connection; a push has none, so it is
+      // asked of the store instead.
+      expect(pushed[0]?.requiredCapability).toBe("rule_attention");
     } finally {
       await client.close().catch(() => undefined);
       await daemon.close().catch(() => undefined);

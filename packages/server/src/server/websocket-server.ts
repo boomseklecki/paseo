@@ -2715,9 +2715,20 @@ export class VoiceAssistantWebSocketServer {
     });
 
     if (plan.shouldPush) {
-      void this.pushNotificationSender.send(notification).catch((err) => {
-        this.logger.warn({ err, agentId: params.agentId }, "Failed to send push notification");
-      });
+      // COMPAT(ruleAttention): the same withholding the per-connection loop does
+      // below, made per recipient rather than per event. `pushEligible` is
+      // decided here, before anything knows who receives it, so a device that
+      // cannot render a rule would be woken by one and open into a build with no
+      // rules in it - and unlike the websocket leg, nothing about a push arriving
+      // tells it what it was for.
+      void this.pushNotificationSender
+        .send(
+          notification,
+          params.reason === "rule" ? { requiredCapability: CLIENT_CAPS.ruleAttention } : undefined,
+        )
+        .catch((err) => {
+          this.logger.warn({ err, agentId: params.agentId }, "Failed to send push notification");
+        });
     }
 
     for (const [clientIndex, { ws }] of clientEntries.entries()) {

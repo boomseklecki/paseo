@@ -7,10 +7,19 @@ export type { PushPayload };
 
 const PUSH_TOKEN_LEASE_MS = 48 * 60 * 60 * 1000;
 
+export interface PushSendOptions {
+  /**
+   * Deliver only to devices whose client advertised this capability. The
+   * websocket leg makes the same check per connection; a push has no connection
+   * to check, so the store answers from what the client last said it understands.
+   */
+  requiredCapability?: string;
+}
+
 export interface PushNotifications {
-  renew(token: string): void;
+  renew(token: string, capabilities?: readonly string[]): void;
   revoke(token: string): void;
-  send(payload: PushPayload): Promise<void>;
+  send(payload: PushPayload, options?: PushSendOptions): Promise<void>;
 }
 
 export type PushNotificationSender = Pick<PushNotifications, "send">;
@@ -29,15 +38,18 @@ export function createPushNotifications(options: {
     ((tokens: string[], payload: PushPayload) => service.sendPush(tokens, payload));
 
   return {
-    renew(token) {
-      store.renewToken(token);
+    renew(token, capabilities) {
+      store.renewToken(token, capabilities);
     },
     revoke(token) {
       store.revokeToken(token);
     },
-    async send(payload) {
-      const tokens = store.getActiveTokens();
-      options.logger.info({ tokenCount: tokens.length }, "Sending push notification");
+    async send(payload, sendOptions) {
+      const tokens = store.getActiveTokens(sendOptions?.requiredCapability);
+      options.logger.info(
+        { tokenCount: tokens.length, requiredCapability: sendOptions?.requiredCapability },
+        "Sending push notification",
+      );
       if (tokens.length === 0) return;
       await deliver(tokens, payload);
     },

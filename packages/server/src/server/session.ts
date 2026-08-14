@@ -1154,6 +1154,15 @@ export class Session {
     return this.clientCapabilities.has(capability);
   }
 
+  /**
+   * What this client understands, for the one consumer that has to outlive the
+   * connection: a push token is used while the app is closed, so what it can
+   * render has to be recorded now rather than asked later.
+   */
+  private capabilityList(): ClientCapability[] {
+    return Array.from(this.clientCapabilities);
+  }
+
   supportsForSource(capability: ClientCapability, source: object): boolean {
     return (
       this.clientCapabilitiesBySource.get(source)?.has(capability) ?? this.supports(capability)
@@ -3787,7 +3796,7 @@ export class Session {
       void this.clearFocusedTerminalAttention(focusedTerminalId);
     }
     if (this.registeredPushToken) {
-      this.pushNotifications.renew(this.registeredPushToken);
+      this.pushNotifications.renew(this.registeredPushToken, this.capabilityList());
     }
   }
 
@@ -3808,7 +3817,7 @@ export class Session {
    */
   private handleRegisterPushToken(token: string): void {
     this.registeredPushToken = token;
-    this.pushNotifications.renew(token);
+    this.pushNotifications.renew(token, this.capabilityList());
     this.sessionLogger.info("Registered push token");
   }
 
