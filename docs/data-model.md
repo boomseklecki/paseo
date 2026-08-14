@@ -190,6 +190,7 @@ Single file, validated with `PersistedConfigSchema`.
     appendSystemPrompt: string,    // appended to supported provider system/developer prompts
     terminalProfiles: TerminalProfile[],  // named shell commands; omitted means DEFAULT_TERMINAL_PROFILES
     agentProfiles: AgentProfile[],        // named agent launch bundles; omitted means none
+    preSendChecksEnabled: boolean,        // this host's rules, at all four seams; absent means on
     cors: { allowedOrigins: string[] },
     relay: { enabled: boolean, endpoint: string, publicEndpoint: string, useTls: boolean, publicUseTls: boolean }, // new homes materialize enabled: false
     auth: { password: string }    // bcrypt hash, optional
@@ -509,6 +510,23 @@ The runners are `aside` (answer in a hidden agent), `fork` (carry this
 conversation into a new one), `start` (open a fresh one carrying nothing) and
 `schedule` (come back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
 is the lookup, and it declines a kind it does not have rather than ignoring it.
+
+### The host switch
+
+`daemon.preSendChecksEnabled` in `config.json` turns off every rule on one host,
+and the rules stay on disk while it is off. Absent means on, so a daemon that has
+never seen the key still runs what it holds; only an explicit `false` stops
+anything.
+
+It is read on both sides of the `message.send` seam, because that seam is
+evaluated in the app: the composer reads it out of the daemon config it already
+holds, and `websocket-server.ts` reads it once where the three daemon seams meet.
+Two readers, one switch — off means off at all four, pushes included. Both read it
+live rather than capturing it at startup, so a toggle takes effect without a
+restart, which is the property the rules themselves have.
+
+The switch is per host, like everything else in this section. A fleet's rules are
+turned off one machine at a time.
 
 ### Wording belongs to the outcome that says it
 
