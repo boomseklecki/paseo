@@ -1,5 +1,6 @@
 import type { Logger } from "pino";
 import type { AgentManager } from "../../agent/agent-manager.js";
+import { inheritableLabels } from "@getpaseo/protocol/agent-labels";
 import { buildAgentForkContextAttachment } from "../../agent/activity-curator.js";
 import {
   RULE_CREATED_AGENT_LABEL,
@@ -73,9 +74,13 @@ export class ForkOutcome {
         // The same workspace, deliberately. A fork is a continuation of this
         // work, and an agent with no workspace is one nothing can notify about
         // and nothing lists beside its parent.
+        //
+        // The labels come across without the `paseo.` ones: a fork is its own
+        // conversation and stands where the rule put it, not where its original
+        // happened to stand.
         {
           workspaceId: parent.workspaceId,
-          labels: { ...parent.labels, [RULE_CREATED_AGENT_LABEL]: "fork" },
+          labels: { ...inheritableLabels(parent.labels), [RULE_CREATED_AGENT_LABEL]: "fork" },
         },
       );
 

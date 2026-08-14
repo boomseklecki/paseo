@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { inheritableLabels } from "@getpaseo/protocol/agent-labels";
 import type { AgentManager } from "../../agent/agent-manager.js";
 import {
   RULE_CREATED_AGENT_LABEL,
@@ -55,9 +56,12 @@ export class StartOutcome {
         undefined,
         // Same workspace and cwd as the conversation that asked for it: this is
         // the same work continuing, not a new piece of it.
+        //
+        // The labels come across without the `paseo.` ones - see the fork
+        // outcome, which leaves them behind for the same reason.
         {
           workspaceId: parent.workspaceId,
-          labels: { ...parent.labels, [RULE_CREATED_AGENT_LABEL]: "start" },
+          labels: { ...inheritableLabels(parent.labels), [RULE_CREATED_AGENT_LABEL]: "start" },
         },
       );
 
