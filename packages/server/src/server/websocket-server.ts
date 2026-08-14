@@ -2510,6 +2510,20 @@ export class VoiceAssistantWebSocketServer {
      */
     idleSeconds = 0,
   ): Promise<void> {
+    // The host switch, read here because this is where the three daemon seams
+    // meet. The fourth, `message.send`, is evaluated in the app before anything
+    // reaches the daemon, so the switch is read once on each side of that seam
+    // rather than once in total.
+    //
+    // Read live rather than captured at construction, so a toggle takes effect
+    // without a restart — the same property the rules themselves have.
+    //
+    // Explicitly `false`: an absent switch means on, matching the composer and
+    // the settings row, so a host that has never seen it still gets its rules.
+    if (this.daemonConfigStore.get().preSendChecksEnabled === false) {
+      return;
+    }
+
     const agent = this.agentManager.getAgent(agentId);
     if (!agent?.workspaceId) {
       // No workspace means no deep link and no attention, the same rule the

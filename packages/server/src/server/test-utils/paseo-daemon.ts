@@ -47,6 +47,7 @@ interface TestPaseoDaemonOptions {
   webUi?: PaseoDaemonConfig["webUi"];
   trustedProxies?: PaseoDaemonConfig["trustedProxies"];
   agentProfiles?: AgentProfile[];
+  preSendChecksEnabled?: boolean;
 }
 
 export interface TestPaseoDaemon {
@@ -197,6 +198,7 @@ async function prepareTestDaemonConfig(
     dictationFinalTimeoutMs: options.dictationFinalTimeoutMs,
     downloadTokenTtlMs: options.downloadTokenTtlMs,
     agentProfiles: options.agentProfiles,
+    preSendChecksEnabled: options.preSendChecksEnabled,
   };
   return { config, paseoHomeRoot, paseoHome, staticDir };
 }

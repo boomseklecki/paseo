@@ -507,6 +507,153 @@ describe("daemon E2E (rule on turn.failed)", () => {
     }
   }, 90_000);
 
+  /**
+   * The host switch, at a daemon seam.
+   *
+   * It reads as a daemon-wide off and for a while governed only `message.send`,
+   * which is evaluated in the app - so turning rules off on a host left three
+   * seams firing, pushes included. The guard is one early return in
+   * `fireAgentRuleEvent`, because all three daemon seams funnel through it, and
+   * an end-to-end run is the only test that would notice a fourth seam wired up
+   * somewhere else.
+   */
+  test("fires nothing at a daemon seam while the host switch is off", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-off-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "any-completion",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "notify" },
+      message: "That turn finished.",
+    });
+
+    const pushed: string[] = [];
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      preSendChecksEnabled: false,
+      pushNotificationSender: {
+        send: async (notification) => {
+          pushed.push(notification.body);
+        },
+      },
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-off-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Finishing",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+
+      // Waited on the built-in notification rather than on a timer, so the turn
+      // is known to have completed and reached the seam. Without it the test
+      // would pass on a daemon that never got that far.
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && !pushed.includes("Hello world")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(pushed).toContain("Hello world");
+
+      expect(pushed).not.toContain("That turn finished.");
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 60_000);
+
+  /**
+   * And what happens when it goes back on, which is a choice rather than
+   * fallout.
+   *
+   * The guard returns before the edge tracker sees anything, so a condition that
+   * stayed true the whole time the switch was off is news again at the first
+   * seam after it goes back on. Edge-triggered relative to when you were
+   * listening, not to when the condition started. Recording findings while
+   * suppressed would mean turning rules on and hearing nothing about the agent
+   * that has been over 80% for an hour.
+   *
+   * The tracker answers an `always` rule once per agent and seam, so the second
+   * turn firing is only explicable by the first having been suppressed outright.
+   * It also shows the switch is read live: no restart between the two turns.
+   */
+  test("fires at the first crossing after the switch goes back on", async () => {
+    const logger = pino({ level: "silent" });
+    const paseoHomeRoot = await mkdtemp(path.join(tmpdir(), "paseo-rule-reenable-e2e-"));
+    await seedRule(paseoHomeRoot, {
+      id: "any-completion",
+      event: "turn.completed",
+      trigger: "always",
+      measurement: "always",
+      operator: "gte",
+      disposition: "redirect",
+      outcome: { kind: "notify" },
+      message: "That turn finished.",
+    });
+
+    const pushed: string[] = [];
+    const daemon = await createTestPaseoDaemon({
+      agentClients: createTestAgentClients(),
+      paseoHomeRoot,
+      preSendChecksEnabled: false,
+      pushNotificationSender: {
+        send: async (notification) => {
+          pushed.push(notification.body);
+        },
+      },
+      logger,
+    });
+    const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
+
+    try {
+      await client.connect();
+      await client.fetchAgents({ subscribe: { subscriptionId: "rule-reenable-e2e" } });
+      const agent = await client.createAgent({
+        provider: "claude",
+        cwd: paseoHomeRoot,
+        title: "Finishing",
+      });
+
+      await client.sendMessage(agent.id, "Say hello");
+      const firstDeadline = Date.now() + 20_000;
+      while (Date.now() < firstDeadline && !pushed.includes("Hello world")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(pushed).not.toContain("That turn finished.");
+
+      await client.patchDaemonConfig({ preSendChecksEnabled: true });
+
+      // The seam rides the manager's attention transition, and the manager
+      // raises nothing while an agent already requires attention
+      // (`agent-manager.ts`, `checkAndSetAttention`). The first turn left it
+      // needing some, so without this the second turn completes and reaches no
+      // seam at all - which would fail this test for a reason that has nothing
+      // to do with the switch. Clearing it is what looking at the agent does.
+      await client.clearAgentAttention(agent.id);
+
+      await client.sendMessage(agent.id, "Say hello");
+      const secondDeadline = Date.now() + 20_000;
+      while (Date.now() < secondDeadline && !pushed.includes("That turn finished.")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      expect(pushed).toContain("That turn finished.");
+    } finally {
+      await client.close().catch(() => undefined);
+      await daemon.close().catch(() => undefined);
+    }
+  }, 90_000);
+
   // schedule shipped dead: it was missing from the runnable outcome kinds, so
   // the evaluator refused it at every seam while the registry, the descriptor
   // and a shipped example all claimed it worked. Only its delay parser had a
