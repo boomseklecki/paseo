@@ -15,7 +15,7 @@ import type {
   RuleTextOperator,
 } from "./types.js";
 import { DEFAULT_RULE_EVENT, normalizeRule, type NormalizedRule } from "./vocabulary.js";
-import { isOutcomeValidForEvent, rulesForRuleEvent } from "./events.js";
+import { isOutcomeValidForEvent, isTriggerValidForEvent, rulesForRuleEvent } from "./events.js";
 import type { RuleOutcome } from "./types.js";
 
 /**
@@ -357,10 +357,14 @@ export interface RuleEventFinding {
  * Evaluates the rules belonging to one daemon-side seam.
  *
  * Skips a rule whose outcome the seam cannot carry out, rather than carrying it
- * out anyway. That check duplicates what the editor already prevents, and it is
- * worth repeating: rules are hand-editable files that also arrive from newer
- * apps, so the only way a `block` reaches `turn.failed` is a route the editor
- * never travelled.
+ * out anyway, and skips one whose trigger the seam refuses. Both checks
+ * duplicate what the editor already prevents, and both are worth repeating:
+ * rules are hand-editable files that also arrive from newer apps, so the only
+ * way a `block` reaches `turn.failed` is a route the editor never travelled.
+ *
+ * The two differ in reach. An outcome is refused per outcome, because a rule can
+ * ask for several and the ones the seam accepts still stand. A trigger is
+ * refused per rule, because there is only one and refusing it leaves nothing.
  */
 export function evaluateRuleEvent(
   rules: readonly Rule[],
@@ -372,6 +376,18 @@ export function evaluateRuleEvent(
   for (const rule of rulesForRuleEvent(rules, event)) {
     const normalized = normalizeRule(rule);
     if (!normalized.enabled) {
+      continue;
+    }
+    // Per rule, unlike the outcome check below, because a rule has one trigger:
+    // a seam that refuses it has refused the only question the rule asks, and
+    // there is no remaining half to carry out.
+    //
+    // Checked here and not only in the editor for the reason above, and one
+    // more: the editor stops a rule being written this way from today, and says
+    // nothing about the ones already on disk. `always` at `agent.idle` is the
+    // case that made this load-bearing rather than symmetric - left to fire it
+    // is a sweep every minute with nothing to re-arm it.
+    if (!isTriggerValidForEvent(event, normalized.trigger)) {
       continue;
     }
     // Per outcome, not per rule: a rule asking to notify and to block at

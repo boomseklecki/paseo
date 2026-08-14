@@ -154,6 +154,25 @@ describe("evaluateRuleEvent", () => {
     expect(findings.map((finding) => finding.ruleId)).toEqual(["any-failure"]);
     expect(findings[0]?.value).toBe("always");
   });
+
+  // The editor stops one being written from today and says nothing about the
+  // ones already on disk, which is the whole reason the evaluator checks too.
+  // Left to fire, this one is a sweep every minute with nothing to re-arm it.
+  it("does not fire an always rule at the seam that refuses that trigger", () => {
+    const always: Rule = {
+      ...FAILURE_RULE,
+      id: "any-idle",
+      event: "agent.idle",
+      measurement: "always",
+      trigger: "always",
+      value: undefined,
+      outcomes: [{ kind: "notify" }],
+    };
+
+    expect(
+      evaluateRuleEvent([always], "agent.idle", context({ "agent.idleSeconds": 9000 })),
+    ).toEqual([]);
+  });
 });
 
 describe("the turn.completed seam", () => {
@@ -190,6 +209,17 @@ describe("the agent.idle seam", () => {
     expect(isOutcomeValidForEvent("agent.idle", "notify")).toBe(true);
     expect(isTriggerValidForEvent("agent.idle", "agent.idleSeconds")).toBe(true);
     expect(isOutcomeValidForEvent("agent.idle", "block")).toBe(false);
+  });
+
+  // The one trigger refused here and accepted at every other seam. A sweep
+  // reaches an idle agent again every minute, so "the event itself is the
+  // condition" asks to fire every minute for as long as it sits there — and
+  // with nothing that ever stops holding, nothing re-arms it either.
+  it("refuses always, which the seams that are transitions accept", () => {
+    expect(isTriggerValidForEvent("agent.idle", "always")).toBe(false);
+    expect(isTriggerValidForEvent("turn.completed", "always")).toBe(true);
+    expect(isTriggerValidForEvent("turn.failed", "always")).toBe(true);
+    expect(isTriggerValidForEvent("message.send", "always")).toBe(true);
   });
 
   it("is one of the seams on offer", () => {

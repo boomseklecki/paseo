@@ -117,6 +117,14 @@ watching — and \`start\` and \`schedule\` are not telling anyone anything anyw
 | \`message\` | the text about to be sent, compared as a string |
 | \`always\` | no comparison; the event itself is the condition |
 
+Not every trigger works at every event. \`message\` needs a composer, so it means
+nothing at a daemon-side one. \`always\` needs a moment that happens once, so it is
+refused at \`agent.idle\` — that event is swept rather than reached, and an
+unconditional rule there would fire every minute for as long as the agent sat
+still, with no condition to stop holding and so nothing to re-arm it. The editor
+offers only the triggers the chosen event accepts, and a hand-written rule naming
+one it refuses is skipped.
+
 ## Operators
 
 \`gt\`, \`gte\`, \`lt\`, \`lte\` for numbers. There is no \`eq\`: exact equality on a

@@ -1,4 +1,4 @@
-import { RULE_RUNNABLE_OUTCOME_KINDS, RULE_TRIGGERS } from "./types.js";
+import { RULE_ALWAYS_TRIGGER, RULE_RUNNABLE_OUTCOME_KINDS, RULE_TRIGGERS } from "./types.js";
 import type { Rule } from "./types.js";
 import { DEFAULT_RULE_EVENT, normalizeRule } from "./vocabulary.js";
 
@@ -27,6 +27,28 @@ export interface RuleEventDefinition {
 /** Triggers that describe the agent rather than the message. */
 const AGENT_TRIGGERS = RULE_TRIGGERS.filter(
   (trigger) => trigger !== "message",
+) as readonly string[];
+
+/**
+ * The sweep's triggers, which are the agent ones without `always`.
+ *
+ * `always` says the event itself is the condition, and that reads sensibly at a
+ * transition: a turn ended, a turn failed, each happening once and meaning it.
+ * This seam is not a transition. It is a sweep, and an agent that goes on
+ * sitting there reaches it again every minute for as long as it stays idle - so
+ * an unconditional rule here asks to fire once a minute for the rest of the
+ * session, which is not a thing anyone means by writing one.
+ *
+ * With a runnable outcome it is worse than noise. The crossing memory holds a
+ * repeat back only until the condition stops holding, and this condition never
+ * stops holding, so nothing re-arms and nothing bounds it either.
+ *
+ * Duration is what this seam is for, and `agent.idleSeconds` already says
+ * "however long it has been" - `always` is that rule with the threshold left
+ * out, not a different question.
+ */
+const IDLE_TRIGGERS = AGENT_TRIGGERS.filter(
+  (trigger) => trigger !== RULE_ALWAYS_TRIGGER,
 ) as readonly string[];
 
 export const RULE_EVENT_DEFINITIONS: readonly RuleEventDefinition[] = [
@@ -62,7 +84,9 @@ export const RULE_EVENT_DEFINITIONS: readonly RuleEventDefinition[] = [
     // hidden agent the composer's /btw uses, asked without anyone typing: write
     // the handoff before this conversation compacts, say why that turn failed.
     outcomeKinds: ["notify", ...RULE_RUNNABLE_OUTCOME_KINDS],
-    triggers: AGENT_TRIGGERS,
+    // No `always`: this seam is swept rather than reached, so an unconditional
+    // rule fires every minute forever. See IDLE_TRIGGERS.
+    triggers: IDLE_TRIGGERS,
   },
   {
     event: "turn.failed",
