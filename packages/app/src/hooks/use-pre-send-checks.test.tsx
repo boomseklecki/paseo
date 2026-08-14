@@ -8,18 +8,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { queryClient } from "@/data/query-client";
 import { preSendChecksQueryKey } from "@/data/pre-send-checks";
-import { usePreSendChecks } from "./use-pre-send-checks";
+import { usePreSendChecks, usePreSendChecksHostGap } from "./use-pre-send-checks";
 
 const preSendChecksList = vi.fn(async () => ({ requestId: "r", checks: RULES, error: null }));
 let supported = true;
 let connected = true;
+let sessions: Record<string, { serverInfo: unknown } | undefined> = {};
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@/runtime/host-features", () => ({
+// Only `useHostFeature` is faked, so the tests can say what this host answers
+// without building a session for it. `hostSupportsFeature` stays real, because it
+// is what the gap hook asks about every *other* host and its reading of the
+// feature map is the thing under test.
+vi.mock("@/runtime/host-features", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/runtime/host-features")>()),
   useHostFeature: () => supported,
+}));
+
+vi.mock("@/stores/session-store", () => ({
+  useSessionStore: (selector: (state: { sessions: typeof sessions }) => unknown) =>
+    selector({ sessions }),
 }));
 
 vi.mock("@/runtime/host-runtime", () => ({
@@ -45,9 +56,14 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
+function session(preSendChecks: boolean) {
+  return { serverInfo: { features: { preSendChecks } } };
+}
+
 beforeEach(() => {
   supported = true;
   connected = true;
+  sessions = {};
   preSendChecksList.mockClear();
   queryClient.removeQueries({ queryKey: preSendChecksQueryKey(SERVER_ID) });
 });
@@ -110,5 +126,56 @@ describe("usePreSendChecks", () => {
     const { result } = renderHook(() => usePreSendChecks(SERVER_ID), { wrapper });
 
     expect(result.current.readRules()).toBeNull();
+  });
+});
+
+describe("usePreSendChecksHostGap", () => {
+  it("reports the gap when this host cannot gate and another host can", () => {
+    supported = false;
+    sessions = { [SERVER_ID]: session(false), "srv-fork": session(true) };
+
+    const { result } = renderHook(() => usePreSendChecksHostGap(SERVER_ID), { wrapper });
+
+    expect(result.current).toBe(true);
+  });
+
+  it("says nothing on a fleet where no host serves rules", () => {
+    supported = false;
+    sessions = { [SERVER_ID]: session(false), "srv-other": session(false) };
+
+    const { result } = renderHook(() => usePreSendChecksHostGap(SERVER_ID), { wrapper });
+
+    expect(result.current).toBe(false);
+  });
+
+  it("says nothing while this host gates sends itself", () => {
+    supported = true;
+    sessions = { [SERVER_ID]: session(true), "srv-fork": session(true) };
+
+    const { result } = renderHook(() => usePreSendChecksHostGap(SERVER_ID), { wrapper });
+
+    expect(result.current).toBe(false);
+  });
+
+  // A disconnected host reports no features, which is silence rather than an
+  // answer. Claiming its rules do not run would be inventing the half of the
+  // sentence nobody has heard yet.
+  it("says nothing while this host is disconnected", () => {
+    supported = false;
+    connected = false;
+    sessions = { [SERVER_ID]: session(false), "srv-fork": session(true) };
+
+    const { result } = renderHook(() => usePreSendChecksHostGap(SERVER_ID), { wrapper });
+
+    expect(result.current).toBe(false);
+  });
+
+  it("says nothing when no host is selected", () => {
+    supported = false;
+    sessions = { "srv-fork": session(true) };
+
+    const { result } = renderHook(() => usePreSendChecksHostGap(null), { wrapper });
+
+    expect(result.current).toBe(false);
   });
 });

@@ -1827,6 +1827,7 @@ export const ptBR: TranslationResources = {
       differs: "Divergente",
       loading: "Carregando regras...",
       emptyState: "Nenhuma regra. Os envios nunca são retidos.",
+      composerHostGap: "As regras não são executadas neste host.",
       unavailableDisconnected: "Sem conexão com este host.",
       unavailableUnsupported:
         "Este host executa uma versão do Paseo que não consegue armazenar regras.",

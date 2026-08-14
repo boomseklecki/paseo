@@ -1795,6 +1795,7 @@ export const ar: TranslationResources = {
       differs: "مختلفة",
       loading: "جارٍ تحميل القواعد...",
       emptyState: "لا توجد قواعد. لن يُحتجز أي إرسال.",
+      composerHostGap: "القواعد لا تعمل على هذا المضيف.",
       unavailableDisconnected: "لا يوجد اتصال بهذا المضيف.",
       unavailableUnsupported: "يشغّل هذا المضيف إصدارًا من Paseo لا يمكنه تخزين القواعد.",
       featureToggleTitle: "تشغيل القواعد",

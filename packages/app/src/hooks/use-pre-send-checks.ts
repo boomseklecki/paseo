@@ -4,8 +4,9 @@ import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types"
 import { queryClient } from "@/data/query-client";
 import { useReplicaQuery } from "@/data/query";
 import { preSendChecksQueryKey } from "@/data/pre-send-checks";
-import { useHostFeature } from "@/runtime/host-features";
+import { hostSupportsFeature, useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { useSessionStore } from "@/stores/session-store";
 
 interface UsePreSendChecksResult {
   /**
@@ -76,4 +77,40 @@ export function usePreSendChecks(serverId: string | null): UsePreSendChecksResul
     rules: supported ? (checksQuery.data ?? null) : null,
     isLoading: checksQuery.isLoading,
   };
+}
+
+/**
+ * True when this host cannot run rules and some other host in this session can.
+ *
+ * The gate fails open, and deliberately: a rule that cannot be read must not
+ * hold a send back. What it should not do is fail open in silence, because a
+ * rule reads as a policy and is a per-host file — "block a send over 80%
+ * context" is true on the machine you wrote it on and quietly false on the one
+ * you are typing into.
+ *
+ * The claim is only ever about this host. The second half is a relevance filter
+ * rather than part of it: on a fleet where nothing serves rules there was
+ * nothing to expect, and a marker would be noise above every send anyone ever
+ * makes. That is also why it is indifferent to whether the other host is
+ * connected right now — having seen one this session is enough to establish
+ * that rules are something this person uses, and a fork host being briefly
+ * offline does not make the stock host's silence less worth saying.
+ *
+ * Connectivity of *this* host is required, though. A disconnected host reports
+ * no features, which is not the same claim as a host that answered and does not
+ * have them.
+ */
+export function usePreSendChecksHostGap(serverId: string | null): boolean {
+  const normalizedServerId = serverId?.trim() ?? "";
+  const isConnected = useHostRuntimeIsConnected(normalizedServerId);
+  const supportedHere = useHostFeature(normalizedServerId, "preSendChecks");
+  const supportedElsewhere = useSessionStore((state) =>
+    Object.entries(state.sessions).some(
+      ([otherServerId, session]) =>
+        otherServerId !== normalizedServerId &&
+        hostSupportsFeature(session?.serverInfo, "preSendChecks"),
+    ),
+  );
+
+  return Boolean(normalizedServerId) && isConnected && !supportedHere && supportedElsewhere;
 }

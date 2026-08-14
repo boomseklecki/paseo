@@ -1831,6 +1831,7 @@ export const ru: TranslationResources = {
       differs: "Расходится",
       loading: "Загрузка правил...",
       emptyState: "Правил нет. Отправка никогда не удерживается.",
+      composerHostGap: "Правила не выполняются на этом хосте.",
       unavailableDisconnected: "Нет подключения к этому хосту.",
       unavailableUnsupported:
         "На этом хосте установлена версия Paseo, которая не умеет хранить правила.",

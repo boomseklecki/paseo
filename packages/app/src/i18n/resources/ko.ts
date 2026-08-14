@@ -1805,6 +1805,7 @@ export const ko: TranslationResources = {
       differs: "다름",
       loading: "규칙 불러오는 중...",
       emptyState: "규칙이 없습니다. 전송이 보류되지 않습니다.",
+      composerHostGap: "이 호스트에서는 규칙이 실행되지 않습니다.",
       unavailableDisconnected: "이 호스트에 연결되어 있지 않습니다.",
       unavailableUnsupported: "이 호스트의 Paseo 버전은 규칙을 저장할 수 없습니다.",
       featureToggleTitle: "규칙 실행",

@@ -110,7 +110,7 @@ import {
   isPreSendOverrideValid,
   type PreSendOverride,
 } from "@/composer/pre-send-checks";
-import { usePreSendChecks } from "@/hooks/use-pre-send-checks";
+import { usePreSendChecks, usePreSendChecksHostGap } from "@/hooks/use-pre-send-checks";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider } from "@/composer/keyboard-scope";
@@ -1252,6 +1252,12 @@ export function Composer({
   // callback's deps.
   const { readRules } = usePreSendChecks(serverId);
 
+  // Sends to this host are not gated and the person typing has no other way to
+  // find that out - the gate's own failure mode is to allow the send and say
+  // nothing. Rendered rather than toasted because it is true for as long as this
+  // host is selected, not just at the moment of a send.
+  const hasPreSendChecksHostGap = usePreSendChecksHostGap(serverId);
+
   // Held in a ref rather than read in the send callback's deps: the daemon config
   // revalidates for reasons unrelated to this flag, and rebuilding the send
   // callback each time would churn every consumer downstream of it.
@@ -2359,6 +2365,15 @@ export function Composer({
     () => (sendError ? <Text style={styles.sendErrorText}>{sendError}</Text> : null),
     [sendError],
   );
+  const preSendChecksGapNode = useMemo(
+    () =>
+      hasPreSendChecksHostGap ? (
+        <Text style={styles.preSendChecksGapText} testID="composer-pre-send-checks-gap">
+          {t("preSendChecks.composerHostGap")}
+        </Text>
+      ) : null,
+    [hasPreSendChecksHostGap, t],
+  );
   const githubEmptyText = githubSearchResultsQuery.isFetching
     ? t("composer.github.searching")
     : t("composer.github.noResults");
@@ -2372,6 +2387,9 @@ export function Composer({
         <View style={inputAreaContainerStyle}>
           <View style={styles.inputAreaContent}>
             {queueList}
+            {/* Above the send error, which is about the message you just tried
+                to send; this is about every message you send from here. */}
+            {preSendChecksGapNode}
             {sendErrorNode}
 
             <View ref={messageInputContainerRef} style={styles.messageInputContainer}>
@@ -2590,6 +2608,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   sendErrorText: {
     color: theme.colors.palette.red[500],
+    fontSize: theme.fontSize.sm,
+  },
+  // Muted rather than red: nothing has gone wrong, and a warning colour above
+  // every send to this host would be worn out by the second day.
+  preSendChecksGapText: {
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
 })) as unknown as Record<string, object>;
