@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { Logger } from "pino";
 import {
+  isPreSendCheckRuleId,
   PreSendCheckRuleSchema,
   type PreSendCheckRule,
 } from "@getpaseo/protocol/pre-send-checks/types";
@@ -55,7 +56,7 @@ export class PreSendCheckStore {
    * a write outside the rules directory entirely.
    */
   private filePath(id: string): string {
-    if (!isRuleIdAFilename(id)) {
+    if (!isPreSendCheckRuleId(id)) {
       throw new Error(`Pre-send check rule id is not a usable filename: ${JSON.stringify(id)}`);
     }
     return join(this.dir, `${id}.json`);
@@ -88,7 +89,7 @@ export class PreSendCheckStore {
       }
       // A name the id rules would reject cannot be written back, so listing it
       // would hand out a rule that fails the moment anyone edits it.
-      if (!isRuleIdAFilename(basename(entry.name, ".json"))) {
+      if (!isPreSendCheckRuleId(basename(entry.name, ".json"))) {
         this.logger.warn(
           { fileName: entry.name },
           "Skipping a pre-send check rule whose filename cannot be a rule id",
@@ -274,21 +275,6 @@ export class PreSendCheckStore {
       return null;
     }
   }
-}
-
-/**
- * Deliberately narrower than "contains no separator".
- *
- * An id is both a wire value and a filename, and the two disagree about what is
- * legal — a name can hold a newline, a leading dash, or a codepoint the next
- * filesystem normalises differently. Restricting to this set costs nothing,
- * since what mints ids is a hex generator and what a person types is a slug,
- * and it means an id that round-trips here round-trips everywhere.
- */
-const RULE_ID_PATTERN = /^[A-Za-z0-9._-]{1,120}$/;
-
-function isRuleIdAFilename(id: string): boolean {
-  return id !== "." && id !== ".." && RULE_ID_PATTERN.test(id);
 }
 
 // Unordered rules go last rather than first, so a rule saved by a client that

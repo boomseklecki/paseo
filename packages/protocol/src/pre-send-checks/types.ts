@@ -47,6 +47,30 @@ const PreSendOutcomeSchema = z
   })
   .passthrough();
 
+/**
+ * What an id may hold, deliberately narrower than "contains no separator".
+ *
+ * An id is both a wire value and a filename, and the two disagree about what is
+ * legal — a name can hold a newline, a leading dash, or a codepoint the next
+ * filesystem normalises differently. Restricting to this set costs nothing, since
+ * what mints ids is a hex generator and what a person types is a slug, and it
+ * means an id that round-trips on one host round-trips on every one.
+ *
+ * Here rather than in the daemon's store, which is where it started: the client
+ * mints these, so it is the one that can be wrong about them, and a shared
+ * constant is what lets the wire say so at parse rather than the store throw
+ * halfway through a save. The daemon still checks at the point it builds a path —
+ * a schema is a contract with clients and that is a defence against the
+ * filesystem, and the second one has to hold even if the first is bypassed.
+ */
+export const PRE_SEND_CHECK_RULE_ID_PATTERN = /^[A-Za-z0-9._-]{1,120}$/;
+
+export function isPreSendCheckRuleId(id: string): boolean {
+  // The two dot names pass the pattern and are not names, so they are excluded by
+  // hand rather than by a cleverer regex nobody could read.
+  return id !== "." && id !== ".." && PRE_SEND_CHECK_RULE_ID_PATTERN.test(id);
+}
+
 // `event`, `trigger`, `operator` and `outcome.kind` are plain strings rather than enums
 // on purpose. Narrowing them here would make an older client drop a whole rule it merely
 // failed to recognise, and once a settings UI round-trips them that drop becomes
@@ -57,7 +81,9 @@ const PreSendOutcomeSchema = z
 // migration and is the only place either name should be read or written.
 export const PreSendCheckRuleSchema = z
   .object({
-    id: z.string(),
+    id: z.string().refine(isPreSendCheckRuleId, {
+      message: "Rule id must be a single path segment of letters, digits, dot, dash or underscore",
+    }),
     /**
      * Which seam the rule is evaluated at.
      *
