@@ -379,16 +379,21 @@ function stripRemovedConfigFields(parsed: unknown): unknown {
   const daemon = root.daemon;
   if (daemon && typeof daemon === "object" && !Array.isArray(daemon)) {
     const daemonRecord = { ...(daemon as Record<string, unknown>) };
-    // COMPAT(rules): added 2026-08-10, remove after 2027-02-10.
-    // Rules briefly lived here and now live one per file under
-    // `<PASEO_HOME>/rules/`, because this block is strict() and a config
-    // the daemon holds in memory cannot be hand-edited while it runs. Discarded
-    // rather than migrated: the key never reached a release, so anything carrying
-    // it is a working tree that can re-author two lines of JSON, and a migration
-    // nobody needs is a code path nobody tests. Without this line an older config
-    // stops the daemon starting rather than losing one setting.
-    delete daemonRecord.rules;
-    // COMPAT(rules): added 2026-08-13, remove after 2027-02-10. The host switch
+    // COMPAT(preSendChecks): added 2026-08-10, remove after 2027-02-10.
+    // Rules briefly lived here, under the name the feature then had, and now live
+    // one per file under `<PASEO_HOME>/rules/`, because this block is strict() and
+    // a config the daemon holds in memory cannot be hand-edited while it runs.
+    // Discarded rather than migrated: the key never reached a release, so anything
+    // carrying it is a working tree that can re-author two lines of JSON, and a
+    // migration nobody needs is a code path nobody tests. Without this line an
+    // older config stops the daemon starting rather than losing one setting.
+    //
+    // The key is the old name and stays the old name. Nothing on disk ever said
+    // `rules` here, so renaming it along with the feature — which is how it read
+    // for one commit — deletes a key no config has and leaves the one every
+    // intermediate working tree does have to reach strict() and be fatal.
+    delete daemonRecord.preSendChecks;
+    // COMPAT(preSendChecks): added 2026-08-13, remove after 2027-02-10. The host switch
     // was `preSendChecksEnabled` while the feature was, and the same strict()
     // parse makes the stale key fatal at boot. Its value is carried rather than
     // dropped, unlike the list above: losing a rule is visible the moment you

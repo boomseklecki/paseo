@@ -59,14 +59,16 @@ describe("loadPersistedConfig drops rules left in the daemon config", () => {
         JSON.stringify({
           daemon: {
             appendSystemPrompt: "kept",
-            rules: [{ id: "cold-prompt-cache", threshold: 3600 }],
+            // The key as an intermediate build wrote it, which is the only spelling
+            // this has to survive — see the strip's own comment.
+            preSendChecks: [{ id: "cold-prompt-cache", threshold: 3600 }],
           },
         }),
       );
 
       const loaded = loadPersistedConfig(home);
 
-      expect(loaded.daemon).not.toHaveProperty("rules");
+      expect(loaded.daemon).not.toHaveProperty("preSendChecks");
       expect(loaded.daemon?.appendSystemPrompt).toBe("kept");
     } finally {
       rmSync(home, { recursive: true, force: true });
