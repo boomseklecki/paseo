@@ -2022,9 +2022,19 @@ export class HostRuntimeStore {
       this.connectionStatusStartedAtByServer.set(host.serverId, Date.now());
       controller.subscribe(() => {
         const snapshot = controller.getSnapshot();
-        this.syncSessionReplica(snapshot.serverId, snapshot);
-        this.maybeAutoBootstrapDirectories(snapshot.serverId);
-        this.emit(snapshot.serverId);
+        // `emit` in a finally, because it is the only thing here that tells the UI
+        // the snapshot moved, and the two calls ahead of it fan out into the
+        // session store and react-query. A synchronous throw out of either would
+        // otherwise drop the version bump for that transition - and the transition
+        // it fans out hardest on is the one to online, so the state left showing
+        // would be `connecting`, on a host the store already considers connected.
+        // Nothing after that is guaranteed to move the snapshot again.
+        try {
+          this.syncSessionReplica(snapshot.serverId, snapshot);
+          this.maybeAutoBootstrapDirectories(snapshot.serverId);
+        } finally {
+          this.emit(snapshot.serverId);
+        }
       });
       void controller
         .start(
@@ -2391,25 +2401,47 @@ export function useHostRuntimeConnectionStatus(serverId: string): HostRuntimeCon
   );
 }
 
+/**
+ * Each host's connection status, keyed on the statuses themselves.
+ *
+ * The subscribed value is the statuses joined into a string rather than the store's
+ * aggregate version counter. Both are read through `useSyncExternalStore`, so both
+ * are re-read on every render as well as on every notification - but a counter only
+ * reports that *something* moved, and a memo keyed on it is stale for exactly as
+ * long as one bump goes missing. The joined statuses cannot go stale that way: if
+ * what this hook reports differs from what the store holds, the string differs too,
+ * and React compares it by value.
+ *
+ * The map is still memoized on that string, so a consumer's dependency list sees a
+ * stable map for as long as nothing changed.
+ */
 export function useHostRuntimeConnectionStatuses(
   serverIds: readonly string[],
 ): ReadonlyMap<string, HostRuntimeConnectionStatus> {
   const store = getHostRuntimeStore();
-  const version = useSyncExternalStore(
+  const read = () =>
+    serverIds
+      .map(
+        (serverId) =>
+          `${serverId}=${store.getSnapshot(serverId)?.connectionStatus ?? "connecting"}`,
+      )
+      .join("|");
+  const key = useSyncExternalStore(
     (onStoreChange) => store.subscribeAll(onStoreChange),
-    () => store.getVersion(),
-    () => store.getVersion(),
+    read,
+    read,
   );
 
   return useMemo(() => {
-    // The aggregate version is the reactivity trigger; re-read snapshots on every host tick.
-    void version;
+    // Read from the snapshots rather than parsed back out of `key`, so the values
+    // keep their type. `key` is what decides when this runs, not where it reads.
+    void key;
     const entries: Array<[string, HostRuntimeConnectionStatus]> = serverIds.map((serverId) => [
       serverId,
       store.getSnapshot(serverId)?.connectionStatus ?? "connecting",
     ]);
     return new Map(entries);
-  }, [serverIds, store, version]);
+  }, [serverIds, store, key]);
 }
 
 export function useHostRuntimeLastError(serverId: string): string | null {

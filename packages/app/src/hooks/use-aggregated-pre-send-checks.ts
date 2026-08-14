@@ -1,10 +1,14 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import { useReplicaQueries } from "@/data/query";
 import { preSendChecksQueryKey } from "@/data/pre-send-checks";
 import { useHostFeatureMap } from "@/runtime/host-features";
-import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
+import {
+  getHostRuntimeStore,
+  useHostRuntimeConnectionStatuses,
+  useHosts,
+} from "@/runtime/host-runtime";
 import {
   groupPreSendCheckRules,
   type PreSendCheckGroup,
@@ -38,39 +42,6 @@ export interface AggregatedPreSendChecks {
 }
 
 /**
- * Each host's connection status, read from the store on every render.
- *
- * Not `useHostRuntimeConnectionStatuses`. That hook memoizes its map against the
- * store's aggregate version counter, and the counter does not move for every
- * transition the snapshot records — a host that came online during a page load
- * was still reported as `connecting` minutes later, with the store's own snapshot
- * saying `online` the whole time. Gating a settings screen on that means the rules
- * never appear.
- *
- * `useSyncExternalStore` re-reads on every render as well as on every
- * notification, so the value cannot lag behind the snapshot it is derived from.
- * The joined string is what makes that safe: React compares it by value, so
- * re-reading costs a string compare rather than a re-render. This is the same
- * conclusion `fetchAggregatedSchedules` reached from the other direction, where
- * connectivity is re-checked at execution time rather than taken from the map.
- */
-function useLiveConnectionStatuses(serverIds: readonly string[]): ReadonlyMap<string, string> {
-  const store = getHostRuntimeStore();
-  const read = () =>
-    serverIds
-      .map(
-        (serverId) =>
-          `${serverId}=${store.getSnapshot(serverId)?.connectionStatus ?? "connecting"}`,
-      )
-      .join("|");
-  const key = useSyncExternalStore((onChange) => store.subscribeAll(onChange), read, read);
-  return useMemo(
-    () => new Map(key ? key.split("|").map((entry) => entry.split("=") as [string, string]) : []),
-    [key],
-  );
-}
-
-/**
  * Every host's rules at once, for the screen that edits them.
  *
  * One replica query per host, on the same key the per-host hook and the push
@@ -87,7 +58,7 @@ export function useAggregatedPreSendChecks(): AggregatedPreSendChecks {
   const { t } = useTranslation();
   const hosts = useHosts();
   const serverIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
-  const statuses = useLiveConnectionStatuses(serverIds);
+  const statuses = useHostRuntimeConnectionStatuses(serverIds);
   const features = useHostFeatureMap(serverIds, "preSendChecks");
 
   const queries = useReplicaQueries<readonly PreSendCheckRule[]>(

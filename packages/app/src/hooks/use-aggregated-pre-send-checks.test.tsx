@@ -34,6 +34,13 @@ vi.mock("@/runtime/host-features", () => ({
 
 vi.mock("@/runtime/host-runtime", () => ({
   useHosts: () => hosts.map(({ serverId, label }) => ({ serverId, label })),
+  useHostRuntimeConnectionStatuses: (serverIds: readonly string[]) =>
+    new Map(
+      serverIds.map((serverId) => [
+        serverId,
+        hosts.find((entry) => entry.serverId === serverId)?.connectionStatus ?? "connecting",
+      ]),
+    ),
   getHostRuntimeStore: () => ({
     subscribeAll: () => () => undefined,
     getSnapshot: (serverId: string) => {
