@@ -745,9 +745,14 @@ export class VoiceAssistantWebSocketServer {
     this.pushNotificationSender = pushNotificationSender ?? this.pushNotifications;
 
     this.agentManager.setAgentAttentionCallback((params) => {
-      void this.broadcastAgentAttention(params).catch((err) => {
-        this.logger.warn({ err, agentId: params.agentId }, "Failed to broadcast agent attention");
-      });
+      // Only when the flag actually went up. Telling someone twice that an agent
+      // wants them, while the first telling is still unread, is the level signal
+      // the unread flag exists to avoid.
+      if (!params.alreadyPending) {
+        void this.broadcastAgentAttention(params).catch((err) => {
+          this.logger.warn({ err, agentId: params.agentId }, "Failed to broadcast agent attention");
+        });
+      }
       // The two daemon seams ride transitions the manager already detects: a
       // failed turn is what puts an agent into error, a completed one is what
       // returns it to idle. Hooking these rather than the raw stream keeps rules
@@ -756,7 +761,14 @@ export class VoiceAssistantWebSocketServer {
       //
       // Separate from the built-in notification above rather than replacing it:
       // that one says the agent stopped, a rule says something its author asked
-      // to be told about, and only the second is conditional.
+      // to be told about, and only the second is conditional. Which is why this
+      // half runs on `alreadyPending` too. Attention is cleared by a person
+      // opening the agent in the app and by nothing else, so gating rules on it
+      // would silence them for exactly the agent nobody is watching - and a rule
+      // whose outcome is `start` or `schedule` is not telling anyone anything.
+      // Repeats are held back by the rule's own crossing memory instead
+      // (`RuleEventTracker`), which is per rule and per seam rather than per
+      // person's reading habits.
       const ruleEvent = RULE_EVENT_BY_ATTENTION_REASON[params.reason];
       if (ruleEvent) {
         void this.fireAgentRuleEvent(params.agentId, params.provider, ruleEvent).catch((err) => {

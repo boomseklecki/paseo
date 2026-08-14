@@ -102,6 +102,11 @@ notified, it stays quiet until the condition stops holding and starts again.
 Otherwise a rule about a session's cost would notify on every failed turn for
 the rest of that session. Restarting the daemon arms every rule afresh.
 
+That is the only thing holding a repeat back. In particular a rule does not wait
+on the agent's unread mark: the mark is cleared by opening the agent in the app,
+so a rule that waited on it would go quiet for exactly the agent nobody is
+watching — and \`start\` and \`schedule\` are not telling anyone anything anyway.
+
 ## Triggers
 
 | name | unit |

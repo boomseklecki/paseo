@@ -6368,6 +6368,97 @@ test("clearAgentAttention on errored agent stays cleared until a new error trans
   expect(persistedAfterSecondFailure?.attentionReason).toBe("error");
 });
 
+// Attention is cleared by a person opening the agent in the app and by nothing
+// else, so an agent nobody is watching keeps the flag up across any number of
+// turns. The callback still has to report each one: the daemon-side rule seams
+// ride it, and a rule about failed turns that goes quiet for the unattended
+// agent is silent in the only case it was written for.
+test("onAgentAttention reports a repeat transition while attention is still unread", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-attention-repeat-"));
+  const storagePath = join(workdir, "agents");
+  const storage = new AgentStorage(storagePath, logger);
+
+  class RepeatFailingSession extends TestAgentSession {
+    private attempt = 0;
+
+    override async startTurn(): Promise<{ turnId: string }> {
+      this.attempt += 1;
+      const attempt = this.attempt;
+      const turnId = `repeat-fail-turn-${attempt}`;
+      setTimeout(() => {
+        this.pushEvent({ type: "turn_started", provider: this.provider, turnId });
+        this.pushEvent({
+          type: "turn_failed",
+          provider: this.provider,
+          error: `boom-${attempt}`,
+          turnId,
+        });
+      }, 0);
+      return { turnId };
+    }
+  }
+
+  class RepeatFailingClient implements AgentClient {
+    readonly provider = "codex" as const;
+    readonly capabilities = TEST_CAPABILITIES;
+
+    async isAvailable(): Promise<boolean> {
+      return true;
+    }
+
+    async createSession(config: AgentSessionConfig): Promise<AgentSession> {
+      return new RepeatFailingSession(config);
+    }
+
+    async resumeSession(config?: Partial<AgentSessionConfig>): Promise<AgentSession> {
+      return new RepeatFailingSession({
+        provider: "codex",
+        cwd: config?.cwd ?? process.cwd(),
+      });
+    }
+  }
+
+  const calls: Array<{ reason: string; alreadyPending: boolean }> = [];
+  const manager = new AgentManager({
+    clients: {
+      codex: new RepeatFailingClient(),
+    },
+    registry: storage,
+    logger,
+    idFactory: () => "00000000-0000-4000-8000-000000000131",
+    onAgentAttention: ({ reason, alreadyPending }) => {
+      calls.push({ reason, alreadyPending });
+    },
+  });
+
+  const agent = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Unread attention test" },
+    undefined,
+    { workspaceId: undefined },
+  );
+
+  await expect(manager.runAgent(agent.id, "fail once")).rejects.toThrow("boom-1");
+  await manager.flush();
+  const firstStamp = manager.getAgent(agent.id)?.attention.attentionTimestamp;
+
+  // No clear in between: nobody has looked at it.
+  await expect(manager.runAgent(agent.id, "fail again")).rejects.toThrow("boom-2");
+  await manager.flush();
+
+  expect(calls).toEqual([
+    { reason: "error", alreadyPending: false },
+    { reason: "error", alreadyPending: true },
+  ]);
+
+  // The flag was already up, so raising it again would only have moved the
+  // timestamp — which is what dates the notification a person has not read yet.
+  expect(manager.getAgent(agent.id)?.attention).toMatchObject({
+    requiresAttention: true,
+    attentionReason: "error",
+    attentionTimestamp: firstStamp,
+  });
+});
+
 test("streamAgent clears pending run when startTurn fails before a turn id exists", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-start-turn-failure-"));
   const storagePath = join(workdir, "agents");

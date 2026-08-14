@@ -221,6 +221,16 @@ export type AgentAttentionCallback = (params: {
   agentId: string;
   provider: AgentProvider;
   reason: "finished" | "error" | "permission";
+  /**
+   * The agent was already waiting to be looked at when this happened.
+   *
+   * Attention is an unread flag, so a second finished turn while the first is
+   * still unread must not raise it again — but the turn did end, and a rule
+   * watching for that is a different question from whether anyone has been told
+   * yet. The callback reports the transition and lets each side decide: the
+   * notification is suppressed, a rule is not.
+   */
+  alreadyPending: boolean;
 }) => void;
 
 export type AgentArchivedCallback = (agentId: string) => Promise<void> | void;
@@ -510,6 +520,27 @@ function isTurnTerminalEvent(event: AgentStreamEvent): boolean {
     event.type === "turn_failed" ||
     event.type === "turn_canceled"
   );
+}
+
+/**
+ * Which of the two attention-worthy transitions just happened, if either.
+ *
+ * Split out of `checkAndSetAttention` so the question "did a turn just end" is
+ * asked in one place and answered independently of whether anyone has read the
+ * last one. Two things hang off the answer now — an unread flag, which is
+ * edge-triggered, and the daemon-side rule seams, which are not.
+ */
+function detectAttentionTransition(
+  previousStatus: AgentLifecycleStatus | undefined,
+  currentStatus: AgentLifecycleStatus,
+): "finished" | "error" | undefined {
+  if (previousStatus === "running" && currentStatus === "idle") {
+    return "finished";
+  }
+  if (previousStatus !== "error" && currentStatus === "error") {
+    return "error";
+  }
+  return undefined;
 }
 
 function abortMessage(reason: unknown, fallbackMessage: string): string {
@@ -4247,32 +4278,23 @@ export class AgentManager {
       return;
     }
 
-    // Skip if already requires attention
-    if (agent.attention.requiresAttention) {
+    const reason = detectAttentionTransition(previousStatus, currentStatus);
+    if (!reason) {
       return;
     }
 
-    // Check if agent transitioned from running to idle (finished)
-    if (previousStatus === "running" && currentStatus === "idle") {
+    // Raising it is edge-triggered: an unread flag already up stays as it was,
+    // timestamp and all, so a second finished turn does not restamp the first.
+    // The transition is still reported — see `alreadyPending` on the callback.
+    const alreadyPending = agent.attention.requiresAttention;
+    if (!alreadyPending) {
       agent.attention = {
         requiresAttention: true,
-        attentionReason: "finished",
+        attentionReason: reason,
         attentionTimestamp: new Date(),
       };
-      this.broadcastAgentAttention(agent, "finished");
-      return;
     }
-
-    // Check if agent entered error state
-    if (previousStatus !== "error" && currentStatus === "error") {
-      agent.attention = {
-        requiresAttention: true,
-        attentionReason: "error",
-        attentionTimestamp: new Date(),
-      };
-      this.broadcastAgentAttention(agent, "error");
-      return;
-    }
+    this.broadcastAgentAttention(agent, reason, { alreadyPending });
   }
 
   private enqueueBackgroundPersist(agent: ManagedAgent): void {
@@ -4378,6 +4400,7 @@ export class AgentManager {
   private broadcastAgentAttention(
     agent: ManagedAgent,
     reason: "finished" | "error" | "permission",
+    options?: { alreadyPending?: boolean },
   ): void {
     if (isDelegatedAgent(agent)) {
       return;
@@ -4387,6 +4410,7 @@ export class AgentManager {
       agentId: agent.id,
       provider: agent.provider,
       reason,
+      alreadyPending: options?.alreadyPending ?? false,
     });
   }
 
