@@ -82,7 +82,7 @@ export const ar: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "فشلت الجولة الأخيرة: {{value}}",
       secondsSinceUserMessage: "لم يكتب أحد هنا منذ {{duration}}.",
       contextRemainingTokens: "بقي لهذه المحادثة {{value}} من السياق.",
@@ -1761,7 +1761,7 @@ export const ar: TranslationResources = {
       general: "عام",
       appearance: "مظهر",
       editor: "المحرر",
-      preSendChecks: "القواعد",
+      rules: "القواعد",
       shortcuts: "الاختصارات",
       integrations: "التكامل",
       notifications: "الإشعارات",
@@ -1769,7 +1769,7 @@ export const ar: TranslationResources = {
       diagnostics: "التشخيص",
       about: "عن",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "القواعد",
       sectionHint:
         "تعمل القواعد في اللحظات التي تختارها: قبل إرسال رسالة، وعند انتهاء دور أو فشله، وعند ترك وكيل بلا عمل.",

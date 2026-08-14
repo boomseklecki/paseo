@@ -42,7 +42,7 @@ describe("submitAgentInput", () => {
       setIsProcessing,
     });
 
-    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // The rule gate is awaited, so the submit starts a microtask after the
     // call rather than inside it. This yields once so the assertions below are
     // about the in-flight state rather than about scheduling.
     await Promise.resolve();
@@ -91,7 +91,7 @@ describe("submitAgentInput", () => {
       setIsProcessing,
     });
 
-    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // The rule gate is awaited, so the submit starts a microtask after the
     // call rather than inside it. This yields once so the assertions below are
     // about the in-flight state rather than about scheduling.
     await Promise.resolve();
@@ -195,7 +195,7 @@ describe("submitAgentInput", () => {
   // The whole point of the gate is that a blocked send costs the user nothing.
   // Asserting on every setter individually is what "the text is still there" means
   // in this function, since it owns no state of its own.
-  it("touches nothing when a pre-send check blocks", async () => {
+  it("touches nothing when a rule blocks", async () => {
     const queueMessage = vi.fn();
     const submitMessage = vi.fn(async () => {});
     const clearDraft = vi.fn();
@@ -203,7 +203,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(async () => "block" as const);
+    const runRules = vi.fn(async () => "block" as const);
     const attachments = [{ id: "img-1" }];
 
     await expect(
@@ -219,11 +219,11 @@ describe("submitAgentInput", () => {
         setAttachments,
         setSendError,
         setIsProcessing,
-        runPreSendChecks,
+        runRules,
       }),
     ).resolves.toBe("blocked");
 
-    expect(runPreSendChecks).toHaveBeenCalledWith({ message: "hello world" });
+    expect(runRules).toHaveBeenCalledWith({ message: "hello world" });
     expect(submitMessage).not.toHaveBeenCalled();
     expect(queueMessage).not.toHaveBeenCalled();
     expect(setUserInput).not.toHaveBeenCalled();
@@ -233,7 +233,7 @@ describe("submitAgentInput", () => {
     expect(clearDraft).not.toHaveBeenCalled();
   });
 
-  it("submits normally when a pre-send check allows", async () => {
+  it("submits normally when a rule allows", async () => {
     const queueMessage = vi.fn();
     const submitMessage = vi.fn(async () => {});
     const clearDraft = vi.fn();
@@ -241,7 +241,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(async () => "allow" as const);
+    const runRules = vi.fn(async () => "allow" as const);
 
     await expect(
       submitAgentInput({
@@ -256,7 +256,7 @@ describe("submitAgentInput", () => {
         setAttachments,
         setSendError,
         setIsProcessing,
-        runPreSendChecks,
+        runRules,
       }),
     ).resolves.toBe("submitted");
 
@@ -279,7 +279,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(async () => "redirected" as const);
+    const runRules = vi.fn(async () => "redirected" as const);
 
     await expect(
       submitAgentInput({
@@ -294,7 +294,7 @@ describe("submitAgentInput", () => {
         setAttachments,
         setSendError,
         setIsProcessing,
-        runPreSendChecks,
+        runRules,
       }),
     ).resolves.toBe("redirected");
 
@@ -305,7 +305,7 @@ describe("submitAgentInput", () => {
 
   // A running agent has a warm cache, so gating a queued message would be noise.
   // This pins the ordering rather than the outcome.
-  it("does not consult pre-send checks for a queued message", async () => {
+  it("does not consult rules for a queued message", async () => {
     const queueMessage = vi.fn();
     const submitMessage = vi.fn();
     const clearDraft = vi.fn();
@@ -313,7 +313,7 @@ describe("submitAgentInput", () => {
     const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
-    const runPreSendChecks = vi.fn(async () => "block" as const);
+    const runRules = vi.fn(async () => "block" as const);
 
     await expect(
       submitAgentInput({
@@ -328,16 +328,16 @@ describe("submitAgentInput", () => {
         setAttachments,
         setSendError,
         setIsProcessing,
-        runPreSendChecks,
+        runRules,
       }),
     ).resolves.toBe("queued");
 
-    expect(runPreSendChecks).not.toHaveBeenCalled();
+    expect(runRules).not.toHaveBeenCalled();
     expect(queueMessage).toHaveBeenCalled();
   });
 
-  it("does not consult pre-send checks for a send that was going to be a noop", async () => {
-    const runPreSendChecks = vi.fn(async () => "block" as const);
+  it("does not consult rules for a send that was going to be a noop", async () => {
+    const runRules = vi.fn(async () => "block" as const);
 
     await expect(
       submitAgentInput({
@@ -352,11 +352,11 @@ describe("submitAgentInput", () => {
         setAttachments: vi.fn(),
         setSendError: vi.fn(),
         setIsProcessing: vi.fn(),
-        runPreSendChecks,
+        runRules,
       }),
     ).resolves.toBe("noop");
 
-    expect(runPreSendChecks).not.toHaveBeenCalled();
+    expect(runRules).not.toHaveBeenCalled();
   });
 
   it("submits when empty submit is explicitly allowed", async () => {
@@ -385,7 +385,7 @@ describe("submitAgentInput", () => {
       }),
     ).resolves.toBe("submitted");
 
-    // The pre-send gate is awaited, so the submit starts a microtask after the
+    // The rule gate is awaited, so the submit starts a microtask after the
     // call rather than inside it. This yields once so the assertions below are
     // about the in-flight state rather than about scheduling.
     await Promise.resolve();

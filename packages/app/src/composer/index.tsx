@@ -95,22 +95,19 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
-import {
-  evaluatePreSendChecks,
-  firstRunnablePreSendOutcome,
-} from "@getpaseo/protocol/pre-send-checks/evaluate";
-import type { PreSendOutcome } from "@getpaseo/protocol/pre-send-checks/types";
+import { evaluateRules, firstRunnableRuleOutcome } from "@getpaseo/protocol/rules/evaluate";
+import type { RuleOutcome } from "@getpaseo/protocol/rules/types";
 import { useRouter } from "expo-router";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
-import type { PreSendMeasurementContext } from "@getpaseo/protocol/pre-send-checks/types";
+import type { RuleMeasurementContext } from "@getpaseo/protocol/rules/types";
 import {
-  buildPreSendMeasurementContext,
-  formatPreSendFindings,
-  isPreSendOverrideValid,
-  type PreSendOverride,
-} from "@/composer/pre-send-checks";
-import { usePreSendChecks, usePreSendChecksHostGap } from "@/hooks/use-pre-send-checks";
+  buildRuleMeasurementContext,
+  formatRuleFindings,
+  isRuleOverrideValid,
+  type RuleOverride,
+} from "@/composer/rules";
+import { useRules, useRulesHostGap } from "@/hooks/use-rules";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider } from "@/composer/keyboard-scope";
@@ -257,25 +254,25 @@ function buildRealtimeVoiceButtonStyle(
 }
 
 /**
- * Gathers what the pre-send rules measure, straight from the session store.
+ * Gathers what the rules measure, straight from the session store.
  *
  * Read imperatively rather than through a selector: the stream tail changes on
  * every token, so subscribing here would rerender the composer throughout a turn
  * to compute numbers nothing displays. `null` when there is no such agent, which
  * the caller treats as "do not gate".
  */
-function readPreSendMeasurements(
+function readRuleMeasurements(
   serverId: string,
   agentId: string,
   nowMs: number,
   message: string,
-): PreSendMeasurementContext | null {
+): RuleMeasurementContext | null {
   const session = useSessionStore.getState().sessions[serverId];
   const agent = session?.agents?.get(agentId);
   if (!session || !agent) {
     return null;
   }
-  return buildPreSendMeasurementContext({
+  return buildRuleMeasurementContext({
     head: session.agentStreamHead.get(agentId) ?? [],
     tail: session.agentStreamTail.get(agentId) ?? [],
     lastUserMessageAt: agent.lastUserMessageAt ?? null,
@@ -305,8 +302,8 @@ function readPreSendMeasurements(
  * aside that made the composer wait for a round trip would be a slow send rather
  * than a side question.
  */
-async function runPreSendRedirect(input: {
-  outcome: PreSendOutcome | null;
+async function runRuleRedirect(input: {
+  outcome: RuleOutcome | null;
   serverId: string;
   agentId: string;
   /** Where to go when the action made somewhere to go. See below. */
@@ -325,7 +322,7 @@ async function runPreSendRedirect(input: {
   }
 
   try {
-    const result = await client.preSendChecksRunOutcome({
+    const result = await client.rulesRunOutcome({
       agentId: input.agentId,
       message: input.message,
       outcome: outcome as { kind: string } & Record<string, unknown>,
@@ -340,7 +337,7 @@ async function runPreSendRedirect(input: {
         input.onStartedAgent(result.agentId);
         return "redirected";
       }
-      input.toast.show(input.t("composer.preSendChecks.asideStarted"), {
+      input.toast.show(input.t("composer.rules.asideStarted"), {
         variant: "success",
         durationMs: 4000,
       });
@@ -352,16 +349,14 @@ async function runPreSendRedirect(input: {
     // text has to still be there to send or to send again.
     if (result.status === "needs_confirmation") {
       input.toast.show(
-        input.t("composer.preSendChecks.asideExpensive", {
+        input.t("composer.rules.asideExpensive", {
           tokens: result.estimatedTokens ?? 0,
         }),
         { variant: "warning", durationMs: 8000 },
       );
       return "block";
     }
-    input.toastError(
-      input.t("composer.preSendChecks.asideUnavailable", { reason: result.reason ?? "" }),
-    );
+    input.toastError(input.t("composer.rules.asideUnavailable", { reason: result.reason ?? "" }));
     return "block";
   } catch (error) {
     input.toastError(error instanceof Error ? error.message : String(error));
@@ -1250,22 +1245,22 @@ export function Composer({
   // render, so a rule that arrived on a push since the last commit is already in
   // effect. Its identity is stable, which keeps it out of the way of the send
   // callback's deps.
-  const { readRules } = usePreSendChecks(serverId);
+  const { readRules } = useRules(serverId);
 
   // Sends to this host are not gated and the person typing has no other way to
   // find that out - the gate's own failure mode is to allow the send and say
   // nothing. Rendered rather than toasted because it is true for as long as this
   // host is selected, not just at the moment of a send.
-  const hasPreSendChecksHostGap = usePreSendChecksHostGap(serverId);
+  const hasRulesHostGap = useRulesHostGap(serverId);
 
   // Held in a ref rather than read in the send callback's deps: the daemon config
   // revalidates for reasons unrelated to this flag, and rebuilding the send
   // callback each time would churn every consumer downstream of it.
   const { config: daemonConfig } = useDaemonConfig(serverId);
-  const preSendChecksEnabledRef = useRef(daemonConfig?.preSendChecksEnabled);
-  preSendChecksEnabledRef.current = daemonConfig?.preSendChecksEnabled;
+  const rulesEnabledRef = useRef(daemonConfig?.rulesEnabled);
+  rulesEnabledRef.current = daemonConfig?.rulesEnabled;
 
-  const preSendOverrideRef = useRef<PreSendOverride | null>(null);
+  const ruleOverrideRef = useRef<RuleOverride | null>(null);
 
   const queuedMessagesRaw = useSessionStore((state) =>
     state.sessions[serverId]?.queuedMessages?.get(agentId),
@@ -1548,7 +1543,7 @@ export function Composer({
    * disconnected host all allow the send — a gate that blocks during a
    * reconnect would be worse than one that occasionally misses.
    */
-  const runPreSendChecks = useCallback(
+  const runRules = useCallback(
     async ({ message }: { message: string }): Promise<"allow" | "block" | "redirected"> => {
       // A parent-managed submit has no agent behind it. Draft tabs and the
       // new-workspace screen both pass an `agentId` that is a tab id, and one of
@@ -1571,7 +1566,7 @@ export function Composer({
       // off. The rules already fail open when they cannot be read; a switch that
       // also defaulted to off would make two ways to lose the gate silently
       // instead of one.
-      if (preSendChecksEnabledRef.current === false) {
+      if (rulesEnabledRef.current === false) {
         return "allow";
       }
 
@@ -1581,12 +1576,12 @@ export function Composer({
       }
 
       const nowMs = Date.now();
-      const measurements = readPreSendMeasurements(serverId, targetAgentId, nowMs, message);
+      const measurements = readRuleMeasurements(serverId, targetAgentId, nowMs, message);
       if (!measurements) {
         return "allow";
       }
 
-      const evaluation = evaluatePreSendChecks(rules, measurements);
+      const evaluation = evaluateRules(rules, measurements);
 
       if (evaluation.disposition === "allow") {
         return "allow";
@@ -1596,11 +1591,11 @@ export function Composer({
       // outranks the others, so it is answered before them: the reasons to hold
       // a send back have nothing to act on once the send is not happening.
       if (evaluation.disposition === "redirect") {
-        return await runPreSendRedirect({
+        return await runRuleRedirect({
           // One message goes one place, so one outcome gets it - the first, in
           // the arrangement someone chose. A rule can list several and the rest
           // of them still surfaced in the toast above.
-          outcome: firstRunnablePreSendOutcome(evaluation.findings),
+          outcome: firstRunnableRuleOutcome(evaluation.findings),
           serverId,
           agentId: targetAgentId,
           message,
@@ -1612,7 +1607,7 @@ export function Composer({
       }
 
       if (evaluation.disposition === "warn") {
-        toast.show(formatPreSendFindings(evaluation.findings, t), {
+        toast.show(formatRuleFindings(evaluation.findings, t), {
           variant: "warning",
           durationMs: 5000,
         });
@@ -1622,18 +1617,18 @@ export function Composer({
       // A block the user has already seen and answered by pressing send again.
       // Consumed on use, so the message after it is evaluated afresh.
       if (
-        isPreSendOverrideValid(preSendOverrideRef.current, {
+        isRuleOverrideValid(ruleOverrideRef.current, {
           agentId: targetAgentId,
           message,
           nowMs,
         })
       ) {
-        preSendOverrideRef.current = null;
+        ruleOverrideRef.current = null;
         return "allow";
       }
 
-      preSendOverrideRef.current = { agentId: targetAgentId, message, atMs: nowMs };
-      toastErrorRef.current(formatPreSendFindings(evaluation.findings, t));
+      ruleOverrideRef.current = { agentId: targetAgentId, message, atMs: nowMs };
+      toastErrorRef.current(formatRuleFindings(evaluation.findings, t));
       return "block";
     },
     [goToStartedAgent, readRules, serverId, t, toast],
@@ -1659,7 +1654,7 @@ export function Composer({
         queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => {
           queueMessage(queuedText, queuedAttachments);
         },
-        runPreSendChecks,
+        runRules,
         submitMessage: async ({ message: submitText, attachments: submitAttachments }) => {
           if (submitBehavior !== "preserve-and-lock") {
             beginSubmit(submitAttachments);
@@ -1691,7 +1686,7 @@ export function Composer({
       hasExternalContent,
       isAgentRunning,
       queueMessage,
-      runPreSendChecks,
+      runRules,
       setSelectedAttachments,
       setUserInput,
       submitBehavior,
@@ -2365,14 +2360,14 @@ export function Composer({
     () => (sendError ? <Text style={styles.sendErrorText}>{sendError}</Text> : null),
     [sendError],
   );
-  const preSendChecksGapNode = useMemo(
+  const rulesGapNode = useMemo(
     () =>
-      hasPreSendChecksHostGap ? (
-        <Text style={styles.preSendChecksGapText} testID="composer-pre-send-checks-gap">
-          {t("preSendChecks.composerHostGap")}
+      hasRulesHostGap ? (
+        <Text style={styles.rulesGapText} testID="composer-rules-gap">
+          {t("rules.composerHostGap")}
         </Text>
       ) : null,
-    [hasPreSendChecksHostGap, t],
+    [hasRulesHostGap, t],
   );
   const githubEmptyText = githubSearchResultsQuery.isFetching
     ? t("composer.github.searching")
@@ -2389,7 +2384,7 @@ export function Composer({
             {queueList}
             {/* Above the send error, which is about the message you just tried
                 to send; this is about every message you send from here. */}
-            {preSendChecksGapNode}
+            {rulesGapNode}
             {sendErrorNode}
 
             <View ref={messageInputContainerRef} style={styles.messageInputContainer}>
@@ -2612,7 +2607,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   // Muted rather than red: nothing has gone wrong, and a warning colour above
   // every send to this host would be worn out by the second day.
-  preSendChecksGapText: {
+  rulesGapText: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },

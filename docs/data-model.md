@@ -54,7 +54,7 @@ $PASEO_HOME/
 │       └── {agentId}.json               # One file per agent
 ├── schedules/
 │   └── {scheduleId}.json                # One file per schedule
-├── pre-send-checks/
+├── rules/
 │   ├── README.md                        # Seeded once; only *.json is read as a rule
 │   └── {ruleId}.json                    # One file per rule; the filename is the id
 ├── projects/
@@ -190,7 +190,7 @@ Single file, validated with `PersistedConfigSchema`.
     appendSystemPrompt: string,    // appended to supported provider system/developer prompts
     terminalProfiles: TerminalProfile[],  // named shell commands; omitted means DEFAULT_TERMINAL_PROFILES
     agentProfiles: AgentProfile[],        // named agent launch bundles; omitted means none
-    preSendChecksEnabled: boolean,        // this host's rules, at all four seams; absent means on
+    rulesEnabled: boolean,                // this host's rules, at all four seams; absent means on
     cors: { allowedOrigins: string[] },
     relay: { enabled: boolean, endpoint: string, publicEndpoint: string, useTls: boolean, publicUseTls: boolean }, // new homes materialize enabled: false
     auth: { password: string }    // bcrypt hash, optional
@@ -471,13 +471,13 @@ These small files are not validated as full Zod schemas but are persisted under 
 
 ---
 
-## 8. Pre-send check rule
+## 8. Rule
 
-**Path:** `$PASEO_HOME/pre-send-checks/{ruleId}.json`
+**Path:** `$PASEO_HOME/rules/{ruleId}.json`
 
 One file per rule. The filename **is** the id — a rule file needs no `id` field, and one that carries a different value is read under its filename anyway, which is what keeps two files from claiming a single primary key. Ids are restricted to `[A-Za-z0-9._-]{1,120}` because they become filenames.
 
-Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `pre_send_checks/upsert` is the only write verb for that reason.
+Unlike every other store here, ids are minted by the **client**, not the daemon. A rule can be assigned to several hosts and the app groups the copies back together by id, so each daemon has to be handed the same one; `rules/upsert` is the only write verb for that reason.
 
 | Field      | Type                | Description                                                                                                                                                                   |
 | ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -495,7 +495,7 @@ Unlike every other store here, ids are minted by the **client**, not the daemon.
 
 A rule is evaluated at one seam, and what it may look at and ask for differs per
 seam — a `block` needs a send to hold, `notify` needs nobody watching, and the
-`message` trigger names text that was sent a turn ago. `packages/protocol/src/pre-send-checks/events.ts`
+`message` trigger names text that was sent a turn ago. `packages/protocol/src/rules/events.ts`
 is the table; a rule asking for something its seam does not accept is skipped
 rather than half-performed.
 
@@ -508,12 +508,12 @@ rather than half-performed.
 
 The runners are `aside` (answer in a hidden agent), `fork` (carry this
 conversation into a new one), `start` (open a fresh one carrying nothing) and
-`schedule` (come back to this later). `packages/server/src/server/pre-send-checks/outcomes/registry.ts`
+`schedule` (come back to this later). `packages/server/src/server/rules/outcomes/registry.ts`
 is the lookup, and it declines a kind it does not have rather than ignoring it.
 
 ### The host switch
 
-`daemon.preSendChecksEnabled` in `config.json` turns off every rule on one host,
+`daemon.rulesEnabled` in `config.json` turns off every rule on one host,
 and the rules stay on disk while it is off. Absent means on, so a daemon that has
 never seen the key still runs what it holds; only an explicit `false` stops
 anything.
@@ -545,7 +545,7 @@ empty string and hand an agent a prompt with a hole in it. A `wording` never use
 duration trigger, `{{duration}}`. The editor lists which are live rather than
 describing them in prose.
 
-Both sides substitute through `packages/protocol/src/pre-send-checks/format.ts`.
+Both sides substitute through `packages/protocol/src/rules/format.ts`.
 The composer got this free from i18next, which interpolates as it translates; the
 daemon has no translator and was sending `{{value}}` to a phone verbatim.
 
@@ -589,13 +589,13 @@ this week and the migration should inherit a decision rather than an accident.
 Conventions taken from `origin/sqlite-migration-pr2-db-foundation`.
 
 ```sql
-CREATE TABLE pre_send_checks (
+CREATE TABLE rules (
   id TEXT PRIMARY KEY,
   sort_order INTEGER,
   payload TEXT NOT NULL
 ) STRICT;
 
-CREATE INDEX pre_send_checks_sort_order_idx ON pre_send_checks(sort_order);
+CREATE INDEX rules_sort_order_idx ON rules(sort_order);
 ```
 
 `id` is the natural text key the client mints, as it must be — the same rule lives
@@ -649,7 +649,7 @@ poll is dead weight.
 
 **Six older field names are stored beside these.** `measurement`, `threshold`, `text`, `disposition`, `action` and a singular `outcome` are what `trigger`, `value`, `value` and `outcomes` were called before v0.3.2. WebSocket schemas are append-only, so the old names were not removed: they stay required and are written as projections of the new ones, and every reader prefers the new. A rule written by either version is therefore read correctly by both.
 
-The three single-outcome fields take the **most severe** entry rather than the first, so a reader that can carry out only one of them carries out the one deciding what happens to the message — a client seeing `warn` where the rule also said `aside` would send what this build would have redirected. `packages/protocol/src/pre-send-checks/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(preSendCheckVocabulary)` and `COMPAT(preSendCheckOutcomeList)` tags carry the removal dates.
+The three single-outcome fields take the **most severe** entry rather than the first, so a reader that can carry out only one of them carries out the one deciding what happens to the message — a client seeing `warn` where the rule also said `aside` would send what this build would have redirected. `packages/protocol/src/rules/vocabulary.ts` owns both directions and is the only place either name should be read or written; its `COMPAT(ruleVocabulary)` and `COMPAT(ruleOutcomeList)` tags carry the removal dates.
 
 The schema is `.passthrough()`, so a rule written by a newer daemon survives a read by an older one rather than being dropped.
 

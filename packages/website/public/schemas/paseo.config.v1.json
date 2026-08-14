@@ -131,7 +131,7 @@
             "additionalProperties": {}
           }
         },
-        "preSendChecksEnabled": {
+        "rulesEnabled": {
           "type": "boolean"
         },
         "agentProfiles": {

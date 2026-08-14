@@ -259,7 +259,7 @@ export const PersistedConfigSchema = z
         enableTerminalAgentHooks: z.boolean().optional(),
         appendSystemPrompt: z.string().optional(),
         terminalProfiles: z.array(TerminalProfileSchema).optional(),
-        preSendChecksEnabled: z.boolean().optional(),
+        rulesEnabled: z.boolean().optional(),
         agentProfiles: z.array(AgentProfileSchema).optional(),
         cors: z
           .object({
@@ -379,15 +379,28 @@ function stripRemovedConfigFields(parsed: unknown): unknown {
   const daemon = root.daemon;
   if (daemon && typeof daemon === "object" && !Array.isArray(daemon)) {
     const daemonRecord = { ...(daemon as Record<string, unknown>) };
-    // COMPAT(preSendChecks): added 2026-08-10, remove after 2027-02-10.
+    // COMPAT(rules): added 2026-08-10, remove after 2027-02-10.
     // Rules briefly lived here and now live one per file under
-    // `<PASEO_HOME>/pre-send-checks/`, because this block is strict() and a config
+    // `<PASEO_HOME>/rules/`, because this block is strict() and a config
     // the daemon holds in memory cannot be hand-edited while it runs. Discarded
     // rather than migrated: the key never reached a release, so anything carrying
     // it is a working tree that can re-author two lines of JSON, and a migration
     // nobody needs is a code path nobody tests. Without this line an older config
     // stops the daemon starting rather than losing one setting.
-    delete daemonRecord.preSendChecks;
+    delete daemonRecord.rules;
+    // COMPAT(rules): added 2026-08-13, remove after 2027-02-10. The host switch
+    // was `preSendChecksEnabled` while the feature was, and the same strict()
+    // parse makes the stale key fatal at boot. Its value is carried rather than
+    // dropped, unlike the list above: losing a rule is visible the moment you
+    // open Settings, whereas losing an `off` turns blocking back on for someone
+    // who deliberately turned it off, and they find out when a send is blocked.
+    if (
+      typeof daemonRecord.preSendChecksEnabled === "boolean" &&
+      daemonRecord.rulesEnabled === undefined
+    ) {
+      daemonRecord.rulesEnabled = daemonRecord.preSendChecksEnabled;
+    }
+    delete daemonRecord.preSendChecksEnabled;
     root.daemon = daemonRecord;
   }
 

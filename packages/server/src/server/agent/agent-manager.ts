@@ -1102,7 +1102,7 @@ export class AgentManager {
    * fact about who has needed it rather than a constraint — session import
    * already replays these events from outside that loop. Work attached to a
    * conversation that the conversation did not itself ask for is the same
-   * shape, and a pre-send action answering an aside is exactly that.
+   * shape, and a rule action answering an aside is exactly that.
    *
    * Applying and dispatching stay together because doing either alone is a bug:
    * a store the app never hears about, or a broadcast describing a record that

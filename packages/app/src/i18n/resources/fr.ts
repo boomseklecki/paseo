@@ -84,7 +84,7 @@ export const fr: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "Le dernier tour a échoué : {{value}}",
       secondsSinceUserMessage: "Personne n'a écrit ici depuis {{duration}}.",
       contextRemainingTokens: "Il reste {{value}} de contexte à cette conversation.",
@@ -1811,7 +1811,7 @@ export const fr: TranslationResources = {
       general: "Général",
       appearance: "Apparence",
       editor: "Éditeur",
-      preSendChecks: "Règles",
+      rules: "Règles",
       shortcuts: "Raccourcis",
       integrations: "Intégrations",
       notifications: "Notifications",
@@ -1819,7 +1819,7 @@ export const fr: TranslationResources = {
       diagnostics: "Diagnostic",
       about: "À propos",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "Règles",
       sectionHint:
         "Les règles s'exécutent aux moments que vous choisissez : avant l'envoi d'un message, à la fin ou à l'échec d'un tour, ou quand un agent reste inactif.",

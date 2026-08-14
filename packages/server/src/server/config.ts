@@ -441,10 +441,10 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
 // Left `undefined` rather than defaulted to `true`, because absent has to stay
 // distinguishable from an explicit choice all the way to the client, which reads
 // only `=== false` as off.
-function resolvePreSendChecksEnabled(
+function resolveRulesEnabled(
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): boolean | undefined {
-  return persisted.daemon?.preSendChecksEnabled;
+  return persisted.daemon?.rulesEnabled;
 }
 
 /**
@@ -472,7 +472,7 @@ function resolveStaticLoadConfigSettings(
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     ...resolveProfileLists(persisted),
-    preSendChecksEnabled: resolvePreSendChecksEnabled(persisted),
+    rulesEnabled: resolveRulesEnabled(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
       parseHostnamesEnv(env.PASEO_HOSTNAMES ?? env.PASEO_ALLOWED_HOSTS),
@@ -502,7 +502,7 @@ export function loadConfig(
     appendSystemPrompt,
     terminalProfiles,
     agentProfiles,
-    preSendChecksEnabled,
+    rulesEnabled,
     hostnames,
     trustedProxies,
     appBaseUrl,
@@ -545,7 +545,7 @@ export function loadConfig(
     appendSystemPrompt,
     terminalProfiles,
     agentProfiles,
-    preSendChecksEnabled,
+    rulesEnabled,
     mcpDebug: env.MCP_DEBUG === "1",
     isDev: resolvePaseoNodeEnv(env) === "development",
     agentStoragePath: path.join(paseoHome, "agents"),

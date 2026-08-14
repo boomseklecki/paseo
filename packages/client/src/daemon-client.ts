@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { CLIENT_CAPS, type ClientCapability } from "@getpaseo/protocol/client-capabilities";
 import type { AgentAttentionNotificationPayload } from "@getpaseo/protocol/agent-attention-notification";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import type { Rule } from "@getpaseo/protocol/rules/types";
 import {
   AgentCreateFailedStatusPayloadSchema,
   AgentCreatedStatusPayloadSchema,
@@ -507,23 +507,20 @@ type ScheduleListPayload = Extract<
   SessionOutboundMessage,
   { type: "schedule/list/response" }
 >["payload"];
-type PreSendChecksListPayload = Extract<
-  SessionOutboundMessage,
-  { type: "rules.list.response" }
->["payload"];
-type PreSendChecksUpsertPayload = Extract<
+type RulesListPayload = Extract<SessionOutboundMessage, { type: "rules.list.response" }>["payload"];
+type RulesUpsertPayload = Extract<
   SessionOutboundMessage,
   { type: "rules.upsert.response" }
 >["payload"];
-type PreSendChecksDeletePayload = Extract<
+type RulesDeletePayload = Extract<
   SessionOutboundMessage,
   { type: "rules.delete.response" }
 >["payload"];
-type PreSendChecksReorderPayload = Extract<
+type RulesReorderPayload = Extract<
   SessionOutboundMessage,
   { type: "rules.reorder.response" }
 >["payload"];
-type PreSendChecksRunOutcomePayload = Extract<
+type RulesRunOutcomePayload = Extract<
   SessionOutboundMessage,
   { type: "rules.run_outcome.response" }
 >["payload"];
@@ -5122,11 +5119,11 @@ export class DaemonClient {
   }
 
   /**
-   * Gated on `server_info.features.preSendChecks`. A daemon without that flag has
+   * Gated on `server_info.features.rules`. A daemon without that flag has
    * no handler for the verb, so the request would sit unanswered until it times
    * out — callers check the feature rather than relying on an error.
    */
-  async preSendChecksList(requestId?: string): Promise<PreSendChecksListPayload> {
+  async rulesList(requestId?: string): Promise<RulesListPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5136,11 +5133,8 @@ export class DaemonClient {
     });
   }
 
-  /** Creates or replaces by `check.id`. Same gating as `preSendChecksList`. */
-  async preSendChecksUpsert(
-    check: PreSendCheckRule,
-    requestId?: string,
-  ): Promise<PreSendChecksUpsertPayload> {
+  /** Creates or replaces by `check.id`. Same gating as `rulesList`. */
+  async rulesUpsert(check: Rule, requestId?: string): Promise<RulesUpsertPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5152,10 +5146,7 @@ export class DaemonClient {
   }
 
   /** Rewrites every rule's position in one call. Ids the daemon lacks are ignored. */
-  async preSendChecksReorder(
-    ruleIds: readonly string[],
-    requestId?: string,
-  ): Promise<PreSendChecksReorderPayload> {
+  async rulesReorder(ruleIds: readonly string[], requestId?: string): Promise<RulesReorderPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5173,7 +5164,7 @@ export class DaemonClient {
    * do, and means the message was not consumed — the caller should send it the
    * ordinary way rather than surfacing an error.
    */
-  async preSendChecksRunOutcome(
+  async rulesRunOutcome(
     input: {
       agentId: string;
       message: string;
@@ -5183,7 +5174,7 @@ export class DaemonClient {
       confirmed?: boolean;
     },
     requestId?: string,
-  ): Promise<PreSendChecksRunOutcomePayload> {
+  ): Promise<RulesRunOutcomePayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5199,10 +5190,7 @@ export class DaemonClient {
   }
 
   /** Idempotent — deleting a rule that is not there succeeds. */
-  async preSendChecksDelete(
-    ruleId: string,
-    requestId?: string,
-  ): Promise<PreSendChecksDeletePayload> {
+  async rulesDelete(ruleId: string, requestId?: string): Promise<RulesDeletePayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {

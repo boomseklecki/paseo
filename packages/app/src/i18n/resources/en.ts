@@ -80,7 +80,7 @@ export const en = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "The last turn failed: {{value}}",
       secondsSinceUserMessage: "Nobody has typed here for {{duration}}.",
       contextRemainingTokens: "This conversation has {{value}} of context left.",
@@ -88,7 +88,7 @@ export const en = {
         "This agent has been idle for {{duration}}, so its prompt cache has expired. Sending now reprocesses the whole conversation.",
       contextUsedPercent: "The context window is {{value}} full, past the {{threshold}} limit.",
       sessionCostUsd: "This session has cost {{value}}, past the {{threshold}} limit.",
-      generic: "A pre-send check matched: {{value}} against a limit of {{threshold}}.",
+      generic: "A rule matched: {{value}} against a limit of {{threshold}}.",
       overrideHint: "Send again to go ahead anyway.",
       asideStarted: "Asking on the side. The answer will appear in subagents.",
       asideExpensive:
@@ -1773,7 +1773,7 @@ export const en = {
       general: "General",
       appearance: "Appearance",
       editor: "Editor",
-      preSendChecks: "Rules",
+      rules: "Rules",
       shortcuts: "Shortcuts",
       integrations: "Integrations",
       notifications: "Notifications",
@@ -1781,7 +1781,7 @@ export const en = {
       diagnostics: "Diagnostics",
       about: "About",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "Rules",
       sectionHint:
         "Rules run at moments you choose: before a message is sent, when a turn ends or fails, or when an agent is left idle.",

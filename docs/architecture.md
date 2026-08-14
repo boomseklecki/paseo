@@ -381,7 +381,7 @@ $PASEO_HOME/
 ├── projects/workspaces.json                    # Workspace registry
 ├── projects/icons/                             # Custom project icon images
 ├── schedules/                                  # Scheduled-agent definitions and runs
-├── pre-send-checks/                            # Rules the composer evaluates before a send
+├── rules/                                      # Rules this host evaluates, one file per rule
 ├── config.json                                 # Daemon config (mutable)
 ├── daemon-keypair.json                         # Daemon identity for relay/E2EE
 ├── push-tokens.json                            # Mobile push tokens

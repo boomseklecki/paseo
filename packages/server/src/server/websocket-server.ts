@@ -12,22 +12,15 @@ import type pino from "pino";
 import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js";
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { ScheduleService } from "./schedule/service.js";
-import type { PreSendChecksService } from "./pre-send-checks/service.js";
-import {
-  buildAgentRuleContext,
-  firePreSendRuleEvent,
-  PreSendRuleEventTracker,
-} from "./pre-send-checks/rule-events.js";
-import { PreSendRuleIdleWatcher } from "./pre-send-checks/idle-watcher.js";
-import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registry.js";
-import type { PreSendOutcomeRunner } from "./session/pre-send-checks/pre-send-checks-session.js";
-import type { PreSendEventFinding } from "@getpaseo/protocol/pre-send-checks/evaluate";
-import type { PreSendCheckRule, PreSendOutcome } from "@getpaseo/protocol/pre-send-checks/types";
-import {
-  formatPreSendTriggerValue,
-  renderPreSendWording,
-} from "@getpaseo/protocol/pre-send-checks/format";
-import { preSendOutcomeWording } from "@getpaseo/protocol/pre-send-checks/types";
+import type { RulesService } from "./rules/service.js";
+import { buildAgentRuleContext, fireRuleEvent, RuleEventTracker } from "./rules/rule-events.js";
+import { RuleIdleWatcher } from "./rules/idle-watcher.js";
+import { createRuleOutcomeRegistry } from "./rules/outcomes/registry.js";
+import type { RuleOutcomeRunner } from "./session/rules/rules-session.js";
+import type { RuleEventFinding } from "@getpaseo/protocol/rules/evaluate";
+import type { Rule, RuleOutcome } from "@getpaseo/protocol/rules/types";
+import { formatRuleTriggerValue, renderRuleWording } from "@getpaseo/protocol/rules/format";
+import { ruleOutcomeWording } from "@getpaseo/protocol/rules/types";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
@@ -523,26 +516,26 @@ export class MissingDaemonVersionError extends Error {
 
 interface RequiredWebSocketServices {
   scheduleService: ScheduleService;
-  preSendChecksService: PreSendChecksService;
+  rulesService: RulesService;
   checkoutDiffManager: CheckoutDiffManager;
 }
 
 function requireWebSocketServices(params: {
   scheduleService?: ScheduleService;
-  preSendChecksService?: PreSendChecksService;
+  rulesService?: RulesService;
   checkoutDiffManager?: CheckoutDiffManager;
 }): RequiredWebSocketServices {
-  const { scheduleService, preSendChecksService, checkoutDiffManager } = params;
+  const { scheduleService, rulesService, checkoutDiffManager } = params;
   if (!scheduleService) {
     throw new Error("VoiceAssistantWebSocketServer requires a schedule service.");
   }
-  if (!preSendChecksService) {
-    throw new Error("VoiceAssistantWebSocketServer requires a pre-send checks service.");
+  if (!rulesService) {
+    throw new Error("VoiceAssistantWebSocketServer requires a rules service.");
   }
   if (!checkoutDiffManager) {
     throw new Error("VoiceAssistantWebSocketServer requires a checkout diff manager.");
   }
-  return { scheduleService, preSendChecksService, checkoutDiffManager };
+  return { scheduleService, rulesService, checkoutDiffManager };
 }
 
 /**
@@ -563,7 +556,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly projectRegistry: ProjectRegistry;
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly scheduleService: ScheduleService;
-  private readonly preSendChecksService: PreSendChecksService;
+  private readonly rulesService: RulesService;
   /**
    * Runs a rule's action at a daemon seam.
    *
@@ -573,11 +566,11 @@ export class VoiceAssistantWebSocketServer {
    * daemon seam belongs to no session - there may be no client connected at all
    * when a rule fires.
    */
-  private readonly ruleOutcomeRunner: PreSendOutcomeRunner;
+  private readonly ruleOutcomeRunner: RuleOutcomeRunner;
   /** The one seam that needs a clock rather than a transition. See idle-watcher.ts. */
-  private readonly ruleIdleWatcher: PreSendRuleIdleWatcher;
+  private readonly ruleIdleWatcher: RuleIdleWatcher;
   /** Per-agent memory of which rules are already tripping. See rule-events.ts. */
-  private readonly ruleEventTracker = new PreSendRuleEventTracker();
+  private readonly ruleEventTracker = new RuleEventTracker();
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
   private readonly workspaceGitService: WorkspaceGitService;
@@ -618,7 +611,7 @@ export class VoiceAssistantWebSocketServer {
   private eventLoopDelayMonitor: ReturnType<typeof monitorEventLoopDelay> | null = null;
   private unsubscribeSpeechReadiness: (() => void) | null = null;
   private unsubscribeDaemonConfigChange: (() => void) | null = null;
-  private unsubscribePreSendChecksChange: (() => void) | null = null;
+  private unsubscribeRulesChange: (() => void) | null = null;
   private readonly providerUsageService: ProviderUsageService;
   private unsubscribeTerminalActivity: (() => void) | null = null;
   private readonly browserToolsBroker: BrowserToolsBroker | null;
@@ -651,7 +644,7 @@ export class VoiceAssistantWebSocketServer {
     projectRegistry?: ProjectRegistry,
     workspaceRegistry?: WorkspaceRegistry,
     scheduleService?: ScheduleService,
-    preSendChecksService?: PreSendChecksService,
+    rulesService?: RulesService,
     checkoutDiffManager?: CheckoutDiffManager,
     serviceProxy?: ServiceProxySubsystem | null,
     scriptRuntimeStore?: WorkspaceScriptRuntimeStore | null,
@@ -691,11 +684,11 @@ export class VoiceAssistantWebSocketServer {
     this.workspaceRegistry = workspaceRegistry ?? createNoopWorkspaceRegistry();
     const requiredServices = requireWebSocketServices({
       scheduleService,
-      preSendChecksService,
+      rulesService,
       checkoutDiffManager,
     });
     this.scheduleService = requiredServices.scheduleService;
-    this.preSendChecksService = requiredServices.preSendChecksService;
+    this.rulesService = requiredServices.rulesService;
     this.checkoutDiffManager = requiredServices.checkoutDiffManager;
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
@@ -740,8 +733,8 @@ export class VoiceAssistantWebSocketServer {
     // Fires when the rules directory changed on disk, which is how a hand-edit
     // reaches a running app. Nothing else pushes this: the store has no cache to
     // invalidate, so the service's periodic re-read is the only thing that notices.
-    this.unsubscribePreSendChecksChange = this.preSendChecksService.onChange((checks) => {
-      this.broadcastPreSendChecksChanged(checks);
+    this.unsubscribeRulesChange = this.rulesService.onChange((checks) => {
+      this.broadcastRulesChanged(checks);
     });
 
     const pushLogger = this.logger.child({ module: "push" });
@@ -775,12 +768,12 @@ export class VoiceAssistantWebSocketServer {
       }
     });
 
-    this.ruleOutcomeRunner = createPreSendOutcomeRegistry({
+    this.ruleOutcomeRunner = createRuleOutcomeRegistry({
       manager: this.agentManager,
       scheduleService: this.scheduleService,
       logger: this.logger,
     });
-    this.ruleIdleWatcher = new PreSendRuleIdleWatcher({
+    this.ruleIdleWatcher = new RuleIdleWatcher({
       listAgents: () =>
         this.agentManager.listAgents().map((agent) => ({
           agentId: agent.id,
@@ -1081,8 +1074,8 @@ export class VoiceAssistantWebSocketServer {
     this.unsubscribeSpeechReadiness = null;
     this.unsubscribeDaemonConfigChange?.();
     this.unsubscribeDaemonConfigChange = null;
-    this.unsubscribePreSendChecksChange?.();
-    this.unsubscribePreSendChecksChange = null;
+    this.unsubscribeRulesChange?.();
+    this.unsubscribeRulesChange = null;
     this.unsubscribeTerminalActivity?.();
     this.unsubscribeTerminalActivity = null;
     if (this.runtimeMetricsInterval) {
@@ -1454,7 +1447,7 @@ export class VoiceAssistantWebSocketServer {
       projectRegistry: this.projectRegistry,
       workspaceRegistry: this.workspaceRegistry,
       scheduleService: this.scheduleService,
-      preSendChecksService: this.preSendChecksService,
+      rulesService: this.rulesService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,
       workspaceGitService: this.workspaceGitService,
@@ -1657,11 +1650,11 @@ export class VoiceAssistantWebSocketServer {
         ...(this.advertiseDaemonStatusRpc ? { daemonStatusRpc: true } : {}),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
-        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2027-02-09.
+        // COMPAT(rules): added in v0.3.2, remove gate after 2027-02-09.
         // Means "serves rules.list.request". A client that does not see this must
         // not send the verb, and must let the send through rather than gate on rules
         // it cannot fetch.
-        preSendChecks: true,
+        rules: true,
         // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.
         pushTokenRevocation: true,
         // COMPAT(terminalRestoreModes): added in v0.1.81, remove gate after 2026-11-23.
@@ -1784,7 +1777,7 @@ export class VoiceAssistantWebSocketServer {
   // status needs no protocol change. The full list travels rather than a hint to
   // refetch: clients hold these in a cache with no refetch trigger of its own, and
   // a client that only learned "something changed" would have nothing to do about it.
-  private broadcastPreSendChecksChanged(checks: readonly PreSendCheckRule[]): void {
+  private broadcastRulesChanged(checks: readonly Rule[]): void {
     this.broadcast(
       wrapSessionMessage({
         type: "status",
@@ -2520,7 +2513,7 @@ export class VoiceAssistantWebSocketServer {
     //
     // Explicitly `false`: an absent switch means on, matching the composer and
     // the settings row, so a host that has never seen it still gets its rules.
-    if (this.daemonConfigStore.get().preSendChecksEnabled === false) {
+    if (this.daemonConfigStore.get().rulesEnabled === false) {
       return;
     }
 
@@ -2532,8 +2525,8 @@ export class VoiceAssistantWebSocketServer {
       return;
     }
 
-    const rules = await this.preSendChecksService.list();
-    const findings = firePreSendRuleEvent(this.ruleEventTracker, {
+    const rules = await this.rulesService.list();
+    const findings = fireRuleEvent(this.ruleEventTracker, {
       agentId,
       event,
       rules,
@@ -2574,7 +2567,7 @@ export class VoiceAssistantWebSocketServer {
     agentId: string,
     provider: AgentProvider,
     event: string,
-    finding: PreSendEventFinding,
+    finding: RuleEventFinding,
   ): Promise<void> {
     let announce = false;
     // The notification says what the `notify` outcome says, falling back to the
@@ -2587,7 +2580,7 @@ export class VoiceAssistantWebSocketServer {
     for (const outcome of finding.outcomes) {
       if (outcome.kind === "notify") {
         announce = true;
-        announcement = preSendOutcomeWording(outcome) ?? announcement;
+        announcement = ruleOutcomeWording(outcome) ?? announcement;
         continue;
       }
       // Deliberately not short-circuiting: one outcome declining says nothing
@@ -2605,7 +2598,7 @@ export class VoiceAssistantWebSocketServer {
         ruleMessage:
           announcement === undefined
             ? undefined
-            : renderPreSendWording(announcement, {
+            : renderRuleWording(announcement, {
                 trigger: finding.trigger,
                 value: finding.value,
                 operand: finding.operand,
@@ -2632,8 +2625,8 @@ export class VoiceAssistantWebSocketServer {
   private async runAgentRuleOutcome(
     agentId: string,
     event: string,
-    finding: PreSendEventFinding,
-    outcome: PreSendOutcome,
+    finding: RuleEventFinding,
+    outcome: RuleOutcome,
   ): Promise<boolean> {
     const result = await this.ruleOutcomeRunner.run({
       agentId,
@@ -2642,7 +2635,7 @@ export class VoiceAssistantWebSocketServer {
       // filling it with something else would be inventing a question. What a
       // daemon-side prompt has instead is `{{value}}`.
       message: "",
-      value: formatPreSendTriggerValue(finding.trigger, finding.value),
+      value: formatRuleTriggerValue(finding.trigger, finding.value),
       outcome,
       confirmed: false,
     });

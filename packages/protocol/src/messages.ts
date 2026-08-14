@@ -42,17 +42,17 @@ import {
   ScheduleUpdateResponseSchema,
 } from "./schedule/rpc-schemas.js";
 import {
-  PreSendChecksListRequestSchema,
-  PreSendChecksListResponseSchema,
-  PreSendChecksUpsertRequestSchema,
-  PreSendChecksUpsertResponseSchema,
-  PreSendChecksDeleteRequestSchema,
-  PreSendChecksDeleteResponseSchema,
-  PreSendChecksReorderRequestSchema,
-  PreSendChecksReorderResponseSchema,
-  PreSendChecksRunOutcomeRequestSchema,
-  PreSendChecksRunOutcomeResponseSchema,
-} from "./pre-send-checks/rpc-schemas.js";
+  RulesListRequestSchema,
+  RulesListResponseSchema,
+  RulesUpsertRequestSchema,
+  RulesUpsertResponseSchema,
+  RulesDeleteRequestSchema,
+  RulesDeleteResponseSchema,
+  RulesReorderRequestSchema,
+  RulesReorderResponseSchema,
+  RulesRunOutcomeRequestSchema,
+  RulesRunOutcomeResponseSchema,
+} from "./rules/rpc-schemas.js";
 import {
   LoopRunRequestSchema,
   LoopListRequestSchema,
@@ -201,11 +201,11 @@ export const MutableDaemonConfigSchema = z
     enableTerminalAgentHooks: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
-    // Silences every pre-send check on this host without deleting any of them.
+    // Silences every rule on this host without deleting any of them.
     // A single boolean nobody hand-edits, which is what daemon config is for -
     // unlike the rules themselves, which live one per file precisely because
     // this store cannot be edited while the daemon runs.
-    preSendChecksEnabled: z.boolean().optional(),
+    rulesEnabled: z.boolean().optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
   })
   .passthrough();
@@ -224,7 +224,7 @@ export const MutableDaemonConfigPatchSchema = z
     enableTerminalAgentHooks: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
-    preSendChecksEnabled: z.boolean().optional(),
+    rulesEnabled: z.boolean().optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
   })
   .partial()
@@ -2879,11 +2879,11 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ChatPostRequestSchema,
   ChatReadRequestSchema,
   ChatWaitRequestSchema,
-  PreSendChecksListRequestSchema,
-  PreSendChecksUpsertRequestSchema,
-  PreSendChecksDeleteRequestSchema,
-  PreSendChecksReorderRequestSchema,
-  PreSendChecksRunOutcomeRequestSchema,
+  RulesListRequestSchema,
+  RulesUpsertRequestSchema,
+  RulesDeleteRequestSchema,
+  RulesReorderRequestSchema,
+  RulesRunOutcomeRequestSchema,
   ScheduleCreateRequestSchema,
   ScheduleListRequestSchema,
   ScheduleInspectRequestSchema,
@@ -3081,8 +3081,8 @@ export const ServerInfoStatusPayloadSchema = z
         daemonStatusRpc: z.boolean().optional(),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         relayConfig: z.boolean().optional(),
-        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2027-02-09.
-        preSendChecks: z.boolean().optional(),
+        // COMPAT(rules): added in v0.3.2, remove gate after 2027-02-09.
+        rules: z.boolean().optional(),
         // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.
         pushTokenRevocation: z.boolean().optional(),
         // COMPAT(terminalRestoreModes): added in v0.1.81, remove gate after 2026-11-23.
@@ -5851,11 +5851,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ChatPostResponseSchema,
   ChatReadResponseSchema,
   ChatWaitResponseSchema,
-  PreSendChecksListResponseSchema,
-  PreSendChecksUpsertResponseSchema,
-  PreSendChecksDeleteResponseSchema,
-  PreSendChecksReorderResponseSchema,
-  PreSendChecksRunOutcomeResponseSchema,
+  RulesListResponseSchema,
+  RulesUpsertResponseSchema,
+  RulesDeleteResponseSchema,
+  RulesReorderResponseSchema,
+  RulesRunOutcomeResponseSchema,
   ScheduleCreateResponseSchema,
   ScheduleListResponseSchema,
   ScheduleInspectResponseSchema,
@@ -6029,10 +6029,10 @@ export type ChatPostResponse = z.infer<typeof ChatPostResponseSchema>;
 export type ChatReadResponse = z.infer<typeof ChatReadResponseSchema>;
 export type ChatWaitResponse = z.infer<typeof ChatWaitResponseSchema>;
 export type ScheduleCreateResponse = z.infer<typeof ScheduleCreateResponseSchema>;
-export type PreSendChecksListResponse = z.infer<typeof PreSendChecksListResponseSchema>;
-export type PreSendChecksUpsertResponse = z.infer<typeof PreSendChecksUpsertResponseSchema>;
-export type PreSendChecksDeleteResponse = z.infer<typeof PreSendChecksDeleteResponseSchema>;
-export type PreSendChecksReorderResponse = z.infer<typeof PreSendChecksReorderResponseSchema>;
+export type RulesListResponse = z.infer<typeof RulesListResponseSchema>;
+export type RulesUpsertResponse = z.infer<typeof RulesUpsertResponseSchema>;
+export type RulesDeleteResponse = z.infer<typeof RulesDeleteResponseSchema>;
+export type RulesReorderResponse = z.infer<typeof RulesReorderResponseSchema>;
 export type ScheduleListResponse = z.infer<typeof ScheduleListResponseSchema>;
 export type ScheduleInspectResponse = z.infer<typeof ScheduleInspectResponseSchema>;
 export type ScheduleLogsResponse = z.infer<typeof ScheduleLogsResponseSchema>;
@@ -6101,12 +6101,12 @@ export type ChatPostRequest = z.infer<typeof ChatPostRequestSchema>;
 export type ChatReadRequest = z.infer<typeof ChatReadRequestSchema>;
 export type ChatWaitRequest = z.infer<typeof ChatWaitRequestSchema>;
 export type ScheduleCreateRequest = z.infer<typeof ScheduleCreateRequestSchema>;
-export type PreSendChecksListRequest = z.infer<typeof PreSendChecksListRequestSchema>;
-export type PreSendChecksUpsertRequest = z.infer<typeof PreSendChecksUpsertRequestSchema>;
-export type PreSendChecksDeleteRequest = z.infer<typeof PreSendChecksDeleteRequestSchema>;
-export type PreSendChecksReorderRequest = z.infer<typeof PreSendChecksReorderRequestSchema>;
-export type PreSendChecksRunOutcomeRequest = z.infer<typeof PreSendChecksRunOutcomeRequestSchema>;
-export type PreSendChecksRunOutcomeResponse = z.infer<typeof PreSendChecksRunOutcomeResponseSchema>;
+export type RulesListRequest = z.infer<typeof RulesListRequestSchema>;
+export type RulesUpsertRequest = z.infer<typeof RulesUpsertRequestSchema>;
+export type RulesDeleteRequest = z.infer<typeof RulesDeleteRequestSchema>;
+export type RulesReorderRequest = z.infer<typeof RulesReorderRequestSchema>;
+export type RulesRunOutcomeRequest = z.infer<typeof RulesRunOutcomeRequestSchema>;
+export type RulesRunOutcomeResponse = z.infer<typeof RulesRunOutcomeResponseSchema>;
 export type ScheduleListRequest = z.infer<typeof ScheduleListRequestSchema>;
 export type ScheduleInspectRequest = z.infer<typeof ScheduleInspectRequestSchema>;
 export type ScheduleLogsRequest = z.infer<typeof ScheduleLogsRequestSchema>;

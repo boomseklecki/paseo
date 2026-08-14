@@ -82,7 +82,7 @@ export const zhCN: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "上一轮失败了：{{value}}",
       secondsSinceUserMessage: "已经 {{duration}} 没有人输入了。",
       contextRemainingTokens: "这个对话还剩 {{value}} 上下文。",
@@ -1740,7 +1740,7 @@ export const zhCN: TranslationResources = {
       general: "通用",
       appearance: "外观",
       editor: "编辑器",
-      preSendChecks: "规则",
+      rules: "规则",
       shortcuts: "快捷键",
       integrations: "集成",
       notifications: "通知",
@@ -1748,7 +1748,7 @@ export const zhCN: TranslationResources = {
       diagnostics: "诊断",
       about: "关于",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "规则",
       sectionHint: "规则在你选择的时机运行：发送消息前、回合结束或失败时，以及代理闲置时。",
       hostsLabel: "主机",

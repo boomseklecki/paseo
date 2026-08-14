@@ -82,7 +82,7 @@ export const ru: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "Последний ход завершился ошибкой: {{value}}",
       secondsSinceUserMessage: "Здесь никто не писал уже {{duration}}.",
       contextRemainingTokens: "У этого разговора осталось {{value}} контекста.",
@@ -1797,7 +1797,7 @@ export const ru: TranslationResources = {
       general: "Общий",
       appearance: "Появление",
       editor: "Редактор",
-      preSendChecks: "Правила",
+      rules: "Правила",
       shortcuts: "Ярлыки",
       integrations: "Интеграции",
       notifications: "Уведомления",
@@ -1805,7 +1805,7 @@ export const ru: TranslationResources = {
       diagnostics: "Диагностика",
       about: "О",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "Правила",
       sectionHint:
         "Правила срабатывают в выбранные вами моменты: перед отправкой сообщения, когда ход завершён или не удался, и когда агент простаивает.",

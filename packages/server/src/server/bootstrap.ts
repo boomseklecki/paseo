@@ -146,7 +146,7 @@ import {
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { ScheduleService } from "./schedule/service.js";
-import { PreSendChecksService } from "./pre-send-checks/service.js";
+import { RulesService } from "./rules/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { DaemonConfigBrowserToolsPolicy } from "./browser-tools/policy.js";
@@ -398,7 +398,7 @@ export interface PaseoDaemonConfig {
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
-  preSendChecksEnabled?: boolean;
+  rulesEnabled?: boolean;
   agentProfiles?: AgentProfile[];
   staticDir: string;
   mcpDebug: boolean;
@@ -536,8 +536,8 @@ function createInitialMutableDaemonConfig(config: PaseoDaemonConfig): MutableDae
     appendSystemPrompt: config.appendSystemPrompt ?? "",
   };
 
-  if (config.preSendChecksEnabled !== undefined) {
-    initialConfig.preSendChecksEnabled = config.preSendChecksEnabled;
+  if (config.rulesEnabled !== undefined) {
+    initialConfig.rulesEnabled = config.rulesEnabled;
   }
   if (config.terminalProfiles !== undefined) {
     initialConfig.terminalProfiles = config.terminalProfiles;
@@ -1219,11 +1219,11 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
-  const preSendChecksService = new PreSendChecksService({
+  const rulesService = new RulesService({
     paseoHome: config.paseoHome,
     logger,
   });
-  await preSendChecksService.start();
+  await rulesService.start();
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {
       await scheduleService.completeForAgent(agentId);
@@ -1251,7 +1251,7 @@ export async function createPaseoDaemon(
     terminalManager,
     getDaemonTcpPort: () => (boundListenTarget?.type === "tcp" ? boundListenTarget.port : null),
     scheduleService,
-    preSendChecksService,
+    rulesService,
     providerSnapshotManager,
     daemonConfigStore,
     github,
@@ -1542,7 +1542,7 @@ export async function createPaseoDaemon(
               projectRegistry,
               workspaceRegistry,
               scheduleService,
-              preSendChecksService,
+              rulesService,
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -1639,7 +1639,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     speechService.stop();
     await scheduleService.stop().catch(() => undefined);
-    preSendChecksService.stop();
+    rulesService.stop();
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

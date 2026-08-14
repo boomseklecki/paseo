@@ -5,7 +5,7 @@ import { checkoutDiffQueryKey } from "@/git/query-keys";
 import { buildTerminalsQueryKey } from "@/screens/workspace/terminals/state";
 import { daemonConfigQueryKey } from "@/data/daemon-config";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
-import { preSendChecksQueryKey } from "@/data/pre-send-checks";
+import { rulesQueryKey } from "@/data/rules";
 import { providersSnapshotQueryKey } from "@/data/providers-snapshot";
 import {
   checkoutDiffPushRoute,
@@ -143,7 +143,7 @@ function providerUpdate(generatedAt: string): ProvidersSnapshotUpdateMessage {
   };
 }
 
-describe("server data push router pre-send checks", () => {
+describe("server data push router rules", () => {
   const RULES = [
     {
       id: "cold-prompt-cache",
@@ -165,7 +165,7 @@ describe("server data push router pre-send checks", () => {
       payload: { status: "rules_changed", checks: RULES },
     });
 
-    expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);
+    expect(queryClient.getQueryData(rulesQueryKey(serverId))).toEqual(RULES);
   });
 
   // Writing `undefined` here would blank the cache, and an empty cache reads as
@@ -175,7 +175,7 @@ describe("server data push router pre-send checks", () => {
     const queryClient = new QueryClient();
     const fake = createFakeClient();
     const serverId = "server-1";
-    queryClient.setQueryData(preSendChecksQueryKey(serverId), RULES);
+    queryClient.setQueryData(rulesQueryKey(serverId), RULES);
     mountServerDataPushRouter({ client: fake.client, queryClient, serverId });
 
     fake.emit({
@@ -183,8 +183,8 @@ describe("server data push router pre-send checks", () => {
       payload: { status: "rules_changed" },
     });
 
-    expect(queryClient.getQueryData(preSendChecksQueryKey(serverId))).toEqual(RULES);
-    expect(queryClient.getQueryState(preSendChecksQueryKey(serverId))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryData(rulesQueryKey(serverId))).toEqual(RULES);
+    expect(queryClient.getQueryState(rulesQueryKey(serverId))?.isInvalidated).toBe(true);
   });
 
   // A replica query never refetches on mount, focus or reconnect, so this is the
@@ -192,11 +192,11 @@ describe("server data push router pre-send checks", () => {
   it("invalidates the rules after a reconnect", () => {
     const queryClient = new QueryClient();
     const serverId = "server-1";
-    queryClient.setQueryData(preSendChecksQueryKey(serverId), RULES);
+    queryClient.setQueryData(rulesQueryKey(serverId), RULES);
 
     invalidateServerDataQueriesAfterReconnect({ queryClient, serverId });
 
-    expect(queryClient.getQueryState(preSendChecksQueryKey(serverId))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(rulesQueryKey(serverId))?.isInvalidated).toBe(true);
   });
 });
 

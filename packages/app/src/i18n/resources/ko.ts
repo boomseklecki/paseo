@@ -82,7 +82,7 @@ export const ko: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "마지막 턴이 실패했습니다: {{value}}",
       secondsSinceUserMessage: "{{duration}} 동안 아무도 입력하지 않았습니다.",
       contextRemainingTokens: "이 대화의 컨텍스트가 {{value}} 남았습니다.",
@@ -1771,7 +1771,7 @@ export const ko: TranslationResources = {
       general: "일반",
       appearance: "모양",
       editor: "편집기",
-      preSendChecks: "규칙",
+      rules: "규칙",
       shortcuts: "단축키",
       integrations: "통합",
       notifications: "알림",
@@ -1779,7 +1779,7 @@ export const ko: TranslationResources = {
       diagnostics: "진단",
       about: "정보",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "규칙",
       sectionHint:
         "규칙은 선택한 시점에 실행됩니다. 메시지를 보내기 전, 턴이 끝나거나 실패했을 때, 에이전트가 방치되었을 때입니다.",

@@ -1,0 +1,170 @@
+import { z } from "zod";
+import { RuleOutcomeDescriptorSchema, RuleExampleSchema, RuleSchema } from "./types.js";
+
+/**
+ * Upsert rather than create-plus-update, for three reasons. The store's `write`
+ * already is an upsert. It is one verb instead of two. And the id comes from the
+ * caller, which is what lets one rule exist on several daemons under a single id
+ * — the app assigns a rule to a set of hosts and groups the copies back together
+ * by id, so a daemon minting its own would give the same rule a different id per
+ * machine. The cost is that colliding an id overwrites a rule, which puts the
+ * burden on whatever mints them.
+ *
+ * Both writes echo the whole resulting list rather than the one rule, so a client
+ * replaces its cache from the response instead of merging into it.
+ * `rules_changed` follows moments later carrying the same content and
+ * is idempotent against it.
+ */
+
+export const RulesListRequestSchema = z.object({
+  type: z.literal("rules.list.request"),
+  requestId: z.string(),
+});
+
+export const RulesListResponseSchema = z.object({
+  type: z.literal("rules.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    // Always concrete, never absent — an empty array means the user turned every
+    // rule off, and the client relies on being able to tell that apart from not
+    // having loaded yet.
+    checks: z.array(RuleSchema),
+    /**
+     * The outcomes this daemon can carry out, so the editor can offer them
+     * without being taught each one.
+     *
+     * Optional because a daemon that predates it sends none, and an editor
+     * seeing none falls back to what it knows rather than showing an empty
+     * picker.
+     */
+    outcomes: z.array(RuleOutcomeDescriptorSchema).optional(),
+    /**
+     * Rules this daemon suggests, none of them installed.
+     *
+     * Optional for the same reason `outcomes` is: a daemon that predates them
+     * sends none, and an editor seeing none offers no examples rather than
+     * inventing any. Filtered daemon-side to what this daemon can actually
+     * perform, so an example is never offered by a machine that would decline
+     * the outcome it depends on.
+     */
+    examples: z.array(RuleExampleSchema).optional(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const RulesUpsertRequestSchema = z.object({
+  type: z.literal("rules.upsert.request"),
+  requestId: z.string(),
+  check: RuleSchema,
+});
+
+export const RulesUpsertResponseSchema = z.object({
+  type: z.literal("rules.upsert.response"),
+  payload: z.object({
+    requestId: z.string(),
+    checks: z.array(RuleSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+/**
+ * Takes the whole ordered id list rather than a pair to swap.
+ *
+ * Two upserts would be two writes, two broadcasts, and a window between them
+ * where two rules claim the same position. One verb rewrites every order in a
+ * single pass, so the arrangement is never half-applied. Ids the daemon does not
+ * have are ignored, and rules the list omits keep whatever order they had.
+ */
+export const RulesReorderRequestSchema = z.object({
+  type: z.literal("rules.reorder.request"),
+  requestId: z.string(),
+  ruleIds: z.array(z.string()),
+});
+
+export const RulesReorderResponseSchema = z.object({
+  type: z.literal("rules.reorder.response"),
+  payload: z.object({
+    requestId: z.string(),
+    checks: z.array(RuleSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+/**
+ * Carries out one of a rule's outcomes instead of sending the message.
+ *
+ * The outcome travels with the request rather than being looked up by rule id,
+ * because the client has already evaluated the rules and the daemon re-reading
+ * them could disagree with what the client acted on: rules can change between
+ * the send and this call, and the message must not be consumed by a different
+ * outcome than the one that claimed it.
+ *
+ * One outcome per request, even though a rule can now ask for several. A rule
+ * whose outcomes include two the daemon runs is settled before this point — the
+ * composer has one message and sends it one place — so a list here would be a
+ * second place to make that decision, disagreeing with the first.
+ *
+ * `confirmed` is the second half of a two-step. The daemon answers
+ * `needs_confirmation` when the outcome would cost more than the caller is
+ * likely to expect, and the caller asks again with this set once the person
+ * agrees.
+ */
+export const RulesRunOutcomeRequestSchema = z.object({
+  type: z.literal("rules.run_outcome.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+  message: z.string(),
+  /**
+   * The measured value that tripped the rule, already formatted for reading.
+   *
+   * Sent rather than re-derived, because only the caller has the rule's trigger
+   * at this point and a daemon working it back out of the message would be
+   * guessing. Optional so a client that predates `{{value}}` still runs an
+   * outcome; the token then substitutes to nothing, which is what it did before
+   * the token existed.
+   */
+  value: z.string().optional(),
+  outcome: z.object({ kind: z.string() }).passthrough(),
+  confirmed: z.boolean().optional(),
+});
+
+/**
+ * `declined` is not an error and must not be rendered as one: it means the
+ * daemon did not consume the message, so the caller should send it the ordinary
+ * way. `failed` is the opposite instruction — the outcome was the right one and
+ * broke — and sending the text on anyway would deliver the aside to the agent as
+ * an instruction.
+ */
+export const RulesRunOutcomeResponseSchema = z.object({
+  type: z.literal("rules.run_outcome.response"),
+  payload: z.object({
+    requestId: z.string(),
+    status: z.enum(["started", "needs_confirmation", "declined", "failed"]),
+    subagentId: z.string().nullable(),
+    /**
+     * COMPAT(ruleActionAgentId): added in v0.3.2, remove after 2027-02-10
+     * once the client floor is >= v0.3.2. Set when what started is a real agent
+     * rather than a hidden subagent, so the caller can go and look at it. An
+     * aside leaves it absent on purpose: there is nowhere to navigate to, which
+     * is the point of an aside.
+     */
+    agentId: z.string().nullable().optional(),
+    reason: z.string().nullable(),
+    estimatedTokens: z.number().nullable(),
+  }),
+});
+
+export const RulesDeleteRequestSchema = z.object({
+  type: z.literal("rules.delete.request"),
+  requestId: z.string(),
+  ruleId: z.string(),
+});
+
+export const RulesDeleteResponseSchema = z.object({
+  type: z.literal("rules.delete.response"),
+  payload: z.object({
+    requestId: z.string(),
+    checks: z.array(RuleSchema),
+    error: z.string().nullable(),
+  }),
+});

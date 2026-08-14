@@ -26,7 +26,7 @@ export interface AgentInputSubmitActionInput<TAttachment> {
    * Synchronous by contract: an `await` between this decision and the clear
    * below would leave a window for another send to interleave.
    */
-  runPreSendChecks?: (input: { message: string }) => Promise<"allow" | "block" | "redirected">;
+  runRules?: (input: { message: string }) => Promise<"allow" | "block" | "redirected">;
   submitMessage: (input: { message: string; attachments: TAttachment[] }) => Promise<void>;
   clearDraft: (lifecycle: "sent" | "abandoned") => void;
   setUserInput: (text: string) => void;
@@ -70,7 +70,7 @@ export async function submitAgentInput<TAttachment>(
   // cache is warm by definition, so gating a queued message would be pure noise.
   // Deliberately before the clear: returning here has to leave the composer
   // untouched, and the only way to guarantee that is to have touched nothing yet.
-  const gate = (await input.runPreSendChecks?.({ message: trimmedMessage })) ?? "allow";
+  const gate = (await input.runRules?.({ message: trimmedMessage })) ?? "allow";
   if (gate === "block") {
     return "blocked";
   }

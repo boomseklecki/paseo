@@ -103,7 +103,7 @@ MCP heartbeats are ephemeral: create or delete them. To change one, delete it an
 | ------------ | ------------------------------------------------------------ |
 | `list_rules` | List the rules this host evaluates, and whether they are on. |
 
-Read-only: rules are written in Settings, or by hand under `$PASEO_HOME/pre-send-checks/`.
+Read-only: rules are written in Settings, or by hand under `$PASEO_HOME/rules/`.
 
 ### Providers
 

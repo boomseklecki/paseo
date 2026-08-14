@@ -82,7 +82,7 @@ export const ja: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "直近のターンが失敗しました: {{value}}",
       secondsSinceUserMessage: "{{duration}} のあいだ誰も入力していません。",
       contextRemainingTokens: "この会話のコンテキストは残り {{value}} です。",
@@ -1779,7 +1779,7 @@ export const ja: TranslationResources = {
       general: "一般",
       appearance: "外観",
       editor: "エディター",
-      preSendChecks: "ルール",
+      rules: "ルール",
       shortcuts: "ショートカット",
       integrations: "連携",
       notifications: "通知",
@@ -1787,7 +1787,7 @@ export const ja: TranslationResources = {
       diagnostics: "診断",
       about: "アプリ情報",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "ルール",
       sectionHint:
         "ルールは選んだタイミングで動きます。メッセージ送信前、ターンの終了時や失敗時、エージェントが放置されたときです。",

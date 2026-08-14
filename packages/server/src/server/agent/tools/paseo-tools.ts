@@ -39,9 +39,9 @@ import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
 import type { CreatePaseoWorktreeWorkflowFn } from "../../worktree-session.js";
 import type { ScheduleService } from "../../schedule/service.js";
-import type { PreSendChecksService } from "../../pre-send-checks/service.js";
-import { normalizePreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/vocabulary";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import type { RulesService } from "../../rules/service.js";
+import { normalizeRule } from "@getpaseo/protocol/rules/vocabulary";
+import type { Rule } from "@getpaseo/protocol/rules/types";
 import {
   ScheduleRunSchema,
   ScheduleSummarySchema,
@@ -102,7 +102,7 @@ export interface PaseoToolHostDependencies {
   terminalManager?: TerminalManager | null;
   getDaemonTcpPort?: () => number | null;
   scheduleService?: ScheduleService | null;
-  preSendChecksService?: Pick<PreSendChecksService, "list"> | null;
+  rulesService?: Pick<RulesService, "list"> | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
   github?: ForgeService;
@@ -564,15 +564,15 @@ const RuleSummarySchema = z.object({
  * One rule in the canonical vocabulary and nothing else.
  *
  * A rule on disk carries half its fields twice while the COMPAT window is open
- * (`protocol/pre-send-checks/vocabulary.ts`), and a consumer added after the
+ * (`protocol/rules/vocabulary.ts`), and a consumer added after the
  * rename is the one that should never learn the older half. Normalising here
  * means this tool needs no edit when those fields come off the schema.
  *
  * `order` is dropped rather than reported: it arranges a list and does not
  * affect evaluation, and the array already arrives in it.
  */
-function toRuleSummary(rule: PreSendCheckRule) {
-  const normalized = normalizePreSendCheckRule(rule);
+function toRuleSummary(rule: Rule) {
+  const normalized = normalizeRule(rule);
   return {
     id: normalized.id,
     event: normalized.event,
@@ -597,7 +597,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     terminalManager,
     workspaceScripts,
     scheduleService,
-    preSendChecksService,
+    rulesService,
     providerSnapshotManager,
     daemonConfigStore,
     callerAgentId,
@@ -2940,18 +2940,18 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       },
     },
     async () => {
-      if (!preSendChecksService) {
+      if (!rulesService) {
         throw new Error("Rules service is not configured");
       }
 
-      const rules = (await preSendChecksService.list()).map(toRuleSummary);
+      const rules = (await rulesService.list()).map(toRuleSummary);
       return {
         content: [],
         structuredContent: ensureValidJson({
           // Absent means on, the same reading the seams and the settings row
           // take. Reported beside the rules because with the switch off the
           // list describes what would happen rather than what does.
-          rulesEnabled: daemonConfigStore?.get().preSendChecksEnabled !== false,
+          rulesEnabled: daemonConfigStore?.get().rulesEnabled !== false,
           rules,
         }),
       };

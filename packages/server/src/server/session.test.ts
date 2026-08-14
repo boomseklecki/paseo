@@ -35,7 +35,7 @@ import {
   asDownloadTokenStore,
   asPushNotifications,
   asScheduleService,
-  asPreSendChecksService,
+  asRulesService,
   asCheckoutDiffManager,
   asGitHubService,
   asWorkspaceGitService,
@@ -282,7 +282,7 @@ vi.mock("./worktree-bootstrap.js", async (importOriginal) => {
 
 interface SessionForTestOptions {
   scopes?: readonly string[];
-  preSendChecksService?: SessionOptions["preSendChecksService"];
+  rulesService?: SessionOptions["rulesService"];
   agentManager?: { [K in keyof SessionOptions["agentManager"]]?: unknown };
   agentStorage?: { [K in keyof SessionOptions["agentStorage"]]?: unknown };
   github?: Partial<ForgeService & GitHubService>;
@@ -397,7 +397,7 @@ function createSessionForTest(options: SessionForTestOptions = {}): Session {
       list: vi.fn().mockResolvedValue([]),
     },
     scheduleService: asScheduleService(),
-    preSendChecksService: options.preSendChecksService ?? asPreSendChecksService(),
+    rulesService: options.rulesService ?? asRulesService(),
     checkoutDiffManager: asCheckoutDiffManager(checkoutDiffManager),
     github: asGitHubService(github),
     workspaceGitService: asWorkspaceGitService(workspaceGitService),
@@ -4697,11 +4697,11 @@ describe("session pull request timeline handling", () => {
   });
 });
 
-// The pre-send-check verbs answer with a typed response rather than an rpc_error,
+// The rule verbs answer with a typed response rather than an rpc_error,
 // so they cannot join the routing table below. Same failure being guarded though:
 // a `case` left out of the dispatch switch is a silent no-op that emits nothing,
 // which no type error catches.
-describe("pre-send-check dispatch routing", () => {
+describe("rule dispatch routing", () => {
   const RULE = {
     id: "cold-prompt-cache",
     measurement: "agent.idleSeconds",
@@ -4733,7 +4733,7 @@ describe("pre-send-check dispatch routing", () => {
     const messages: SessionOutboundMessage[] = [];
     const session = createSessionForTest({
       messages,
-      preSendChecksService: asPreSendChecksService({
+      rulesService: asRulesService({
         list: async () => [RULE],
         upsert: async () => [RULE],
         delete: async () => [],
@@ -4754,7 +4754,7 @@ describe("pre-send-check dispatch routing", () => {
     const messages: SessionOutboundMessage[] = [];
     const session = createSessionForTest({
       messages,
-      preSendChecksService: asPreSendChecksService({
+      rulesService: asRulesService({
         list: async () => [RULE],
         upsert: async () => {
           throw new Error("disk full");

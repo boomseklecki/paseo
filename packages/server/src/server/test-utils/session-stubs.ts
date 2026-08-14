@@ -65,13 +65,13 @@ export function asScheduleService(): SessionOptions["scheduleService"] {
   return createStub<SessionOptions["scheduleService"]>({});
 }
 
-// Takes overrides, unlike its neighbours, because the pre-send-check verbs answer
+// Takes overrides, unlike its neighbours, because the rule verbs answer
 // with data rather than an rpc_error — a routing test has to see a real list come
 // back to tell a routed request from a dropped one.
-export function asPreSendChecksService(
-  overrides: Partial<SessionOptions["preSendChecksService"]> = {},
-): SessionOptions["preSendChecksService"] {
-  return createStub<SessionOptions["preSendChecksService"]>(overrides);
+export function asRulesService(
+  overrides: Partial<SessionOptions["rulesService"]> = {},
+): SessionOptions["rulesService"] {
+  return createStub<SessionOptions["rulesService"]>(overrides);
 }
 
 export function asCheckoutDiffManager(stub: {

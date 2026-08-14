@@ -82,7 +82,7 @@ export const ptBR: TranslationResources = {
     },
   },
   composer: {
-    preSendChecks: {
+    rules: {
       lastError: "O último turno falhou: {{value}}",
       secondsSinceUserMessage: "Ninguém digita aqui há {{duration}}.",
       contextRemainingTokens: "Esta conversa tem {{value}} de contexto restante.",
@@ -1793,7 +1793,7 @@ export const ptBR: TranslationResources = {
       general: "Geral",
       appearance: "Aparência",
       editor: "Editor",
-      preSendChecks: "Regras",
+      rules: "Regras",
       shortcuts: "Atalhos",
       integrations: "Integrações",
       notifications: "Notificações",
@@ -1801,7 +1801,7 @@ export const ptBR: TranslationResources = {
       diagnostics: "Diagnósticos",
       about: "Sobre",
     },
-    preSendChecks: {
+    rules: {
       sectionTitle: "Regras",
       sectionHint:
         "As regras rodam nos momentos que você escolher: antes de enviar uma mensagem, ao terminar ou falhar um turno, ou quando um agente fica ocioso.",

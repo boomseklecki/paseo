@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "event": {
+      "type": "string"
+    },
+    "measurement": {
+      "type": "string"
+    },
+    "trigger": {
+      "type": "string"
+    },
+    "operator": {
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "threshold": {
+      "type": "number"
+    },
+    "text": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "wording": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["kind"],
+        "additionalProperties": {}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "wording": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": {}
+    },
+    "message": {
+      "type": "string"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "wording": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": {}
+    },
+    "order": {
+      "type": "number"
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  },
+  "required": ["id", "measurement", "operator", "disposition"],
+  "additionalProperties": {},
+  "title": "PaseoRuleV1"
+}

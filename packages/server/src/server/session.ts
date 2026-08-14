@@ -59,9 +59,9 @@ import {
   type WorkspaceScriptsService,
 } from "./session/workspace-scripts/workspace-scripts-service.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
-import type { PreSendChecksService } from "./pre-send-checks/service.js";
-import { createPreSendOutcomeRegistry } from "./pre-send-checks/outcomes/registry.js";
-import { PreSendChecksSession } from "./session/pre-send-checks/pre-send-checks-session.js";
+import type { RulesService } from "./rules/service.js";
+import { createRuleOutcomeRegistry } from "./rules/outcomes/registry.js";
+import { RulesSession } from "./session/rules/rules-session.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { releaseWorkspaceServicePortPlan } from "./workspace-service-port-registry.js";
 import { getErrorMessage, getErrorMessageOr } from "@getpaseo/protocol/error-utils";
@@ -460,7 +460,7 @@ export interface SessionOptions {
   workspaceGitService: WorkspaceGitService;
   workspaceAutoName: WorkspaceAutoName;
   daemonConfigStore: DaemonConfigStore;
-  preSendChecksService: PreSendChecksService;
+  rulesService: RulesService;
   mcpBaseUrl?: string | null;
   stt: Resolvable<SpeechToTextProvider | null>;
   sttLanguage?: string;
@@ -672,7 +672,7 @@ export class Session {
   private readonly voiceSession: VoiceSession;
   private readonly checkoutSession: CheckoutSession;
   private readonly scheduleSession: ScheduleSession;
-  private readonly preSendChecksSession: PreSendChecksSession;
+  private readonly rulesSession: RulesSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
@@ -712,7 +712,7 @@ export class Session {
       workspaceGitService,
       workspaceAutoName,
       daemonConfigStore,
-      preSendChecksService,
+      rulesService,
       stt,
       sttLanguage,
       tts,
@@ -837,13 +837,13 @@ export class Session {
       scheduleService,
       logger: this.sessionLogger,
     });
-    this.preSendChecksSession = new PreSendChecksSession({
+    this.rulesSession = new RulesSession({
       host: { emit: (msg) => this.emit(msg) },
-      preSendChecksService,
+      rulesService,
       // Passed as the port rather than the class, so the subsystem never sees
       // AgentManager. Built here and not on demand: the manager is assigned
       // well before this line, and an action is a logger and a reference.
-      outcomeRunner: createPreSendOutcomeRegistry({
+      outcomeRunner: createRuleOutcomeRegistry({
         manager: agentManager,
         scheduleService,
         logger: this.sessionLogger,
@@ -2033,7 +2033,7 @@ export class Session {
     // this switch under the complexity ceiling. Grouping verbs that share a
     // subject is also how they read: they are one feature, not five settings.
     if (msg.type.startsWith("rules.")) {
-      return this.dispatchPreSendChecksMessage(
+      return this.dispatchRulesMessage(
         msg as Extract<SessionInboundMessage, { type: `rules.${string}` }>,
       );
     }
@@ -2089,20 +2089,20 @@ export class Session {
    * switch past the complexity ceiling, and grouping the ones that share a
    * subject is the honest way under it rather than raising the limit.
    */
-  private dispatchPreSendChecksMessage(
+  private dispatchRulesMessage(
     msg: Extract<SessionInboundMessage, { type: `rules.${string}` }>,
   ): Promise<void> | undefined {
     switch (msg.type) {
       case "rules.list.request":
-        return this.preSendChecksSession.handlePreSendChecksListRequest(msg);
+        return this.rulesSession.handleRulesListRequest(msg);
       case "rules.upsert.request":
-        return this.preSendChecksSession.handlePreSendChecksUpsertRequest(msg);
+        return this.rulesSession.handleRulesUpsertRequest(msg);
       case "rules.delete.request":
-        return this.preSendChecksSession.handlePreSendChecksDeleteRequest(msg);
+        return this.rulesSession.handleRulesDeleteRequest(msg);
       case "rules.reorder.request":
-        return this.preSendChecksSession.handlePreSendChecksReorderRequest(msg);
+        return this.rulesSession.handleRulesReorderRequest(msg);
       case "rules.run_outcome.request":
-        return this.preSendChecksSession.handlePreSendChecksRunOutcomeRequest(msg);
+        return this.rulesSession.handleRulesRunOutcomeRequest(msg);
       default:
         return undefined;
     }

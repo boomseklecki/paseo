@@ -6,7 +6,7 @@ import type { AgentStorage } from "./agent/agent-storage.js";
 import type { DownloadTokenStore } from "./file-download/token-store.js";
 import type { DaemonConfigStore } from "./daemon-config-store.js";
 import type { ScheduleService } from "./schedule/service.js";
-import type { PreSendChecksService } from "./pre-send-checks/service.js";
+import type { RulesService } from "./rules/service.js";
 import type { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import type { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { asInternals, createStub } from "./test-utils/class-mocks.js";
@@ -273,7 +273,7 @@ function createServer(options?: {
     undefined,
     undefined,
     createStub<ScheduleService>({}),
-    createStub<PreSendChecksService>({ onChange: () => () => {}, list: async () => [] }),
+    createStub<RulesService>({ onChange: () => () => {}, list: async () => [] }),
     createStub<CheckoutDiffManager>({
       subscribe: vi.fn(),
       scheduleRefreshForCwd: vi.fn(),

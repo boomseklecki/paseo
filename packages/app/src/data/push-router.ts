@@ -7,8 +7,8 @@ import type {
 import { agentCommandsQueryRoot } from "@/hooks/agent-commands-query";
 import { orderCheckoutDiffFiles } from "@/git/diff-order";
 import { daemonConfigQueryKey } from "@/data/daemon-config";
-import { preSendChecksQueryKey } from "@/data/pre-send-checks";
-import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
+import { rulesQueryKey } from "@/data/rules";
+import type { Rule } from "@getpaseo/protocol/rules/types";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
 import { providerSnapshotCache, type ProviderSnapshotCache } from "@/data/provider-snapshot-cache";
 import {
@@ -114,13 +114,13 @@ const RECONNECT_REPAIR_POLICIES: ReconnectRepairPolicy[] = [
     },
   },
   {
-    // Not optional. Pre-send checks live in a replica query, which never refetches
+    // Not optional. Rules live in a replica query, which never refetches
     // on mount, focus or reconnect, so this is the only thing that repairs a push
     // missed while the app was asleep. Without it a rule edited during that window
     // stays invisible for the life of the process.
-    domain: "preSendChecks",
+    domain: "rules",
     invalidate: ({ queryClient, serverId }) => {
-      void queryClient.invalidateQueries({ queryKey: preSendChecksQueryKey(serverId) });
+      void queryClient.invalidateQueries({ queryKey: rulesQueryKey(serverId) });
     },
   },
   {
@@ -307,7 +307,7 @@ export function mountServerDataPushRouter(input: PushRouterInput): () => void {
   const unsubscribeStatus = input.client.on("status", (message) => {
     const route = { queryClient: input.queryClient, serverId: input.serverId, message };
     applyDaemonConfigStatus(route);
-    applyPreSendChecksStatus(route);
+    applyRulesStatus(route);
   });
   const unsubscribeCheckoutDiffUpdate = input.client.on("checkout_diff_update", (message) => {
     applyCheckoutDiffUpdate({
@@ -456,7 +456,7 @@ function applyDaemonConfigStatus(input: {
  * reads as "rules not loaded", which the composer answers by letting every send
  * through. A bad frame must not be able to turn the gate off.
  */
-function applyPreSendChecksStatus(input: {
+function applyRulesStatus(input: {
   queryClient: QueryClient;
   serverId: string;
   message: StatusMessage;
@@ -465,16 +465,13 @@ function applyPreSendChecksStatus(input: {
   if (payload.status !== "rules_changed") {
     return;
   }
-  if (!isPreSendChecksChangedPayload(payload)) {
+  if (!isRulesChangedPayload(payload)) {
     void input.queryClient.invalidateQueries({
-      queryKey: preSendChecksQueryKey(input.serverId),
+      queryKey: rulesQueryKey(input.serverId),
     });
     return;
   }
-  input.queryClient.setQueryData<readonly PreSendCheckRule[]>(
-    preSendChecksQueryKey(input.serverId),
-    payload.checks,
-  );
+  input.queryClient.setQueryData<readonly Rule[]>(rulesQueryKey(input.serverId), payload.checks);
 }
 
 function applyCheckoutDiffUpdate(input: {
@@ -831,8 +828,8 @@ function isDaemonConfigChangedPayload(
   return payload.status === "daemon_config_changed" && isRecord(payload.config);
 }
 
-function isPreSendChecksChangedPayload(
+function isRulesChangedPayload(
   payload: StatusMessage["payload"],
-): payload is { status: "rules_changed"; checks: PreSendCheckRule[] } {
+): payload is { status: "rules_changed"; checks: Rule[] } {
   return payload.status === "rules_changed" && Array.isArray(payload.checks);
 }

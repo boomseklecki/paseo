@@ -19,7 +19,7 @@ import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
  * between them and a client is wiring that either connects or does not.
  */
 async function seedRule(paseoHomeRoot: string, rule: Record<string, unknown>): Promise<void> {
-  const dir = path.join(paseoHomeRoot, ".paseo", "pre-send-checks");
+  const dir = path.join(paseoHomeRoot, ".paseo", "rules");
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, `${String(rule.id)}.json`), JSON.stringify(rule), "utf-8");
 }
@@ -546,7 +546,7 @@ describe("daemon E2E (rule on turn.failed)", () => {
     const daemon = await createTestPaseoDaemon({
       agentClients: createTestAgentClients(),
       paseoHomeRoot,
-      preSendChecksEnabled: false,
+      rulesEnabled: false,
       pushNotificationSender: {
         send: async (notification) => {
           pushed.push(notification.body);
@@ -616,7 +616,7 @@ describe("daemon E2E (rule on turn.failed)", () => {
     const daemon = await createTestPaseoDaemon({
       agentClients: createTestAgentClients(),
       paseoHomeRoot,
-      preSendChecksEnabled: false,
+      rulesEnabled: false,
       pushNotificationSender: {
         send: async (notification) => {
           pushed.push(notification.body);
@@ -642,7 +642,7 @@ describe("daemon E2E (rule on turn.failed)", () => {
       }
       expect(pushed).not.toContain("That turn finished.");
 
-      await client.patchDaemonConfig({ preSendChecksEnabled: true });
+      await client.patchDaemonConfig({ rulesEnabled: true });
 
       // The seam rides the manager's attention transition, and the manager
       // raises nothing while an agent already requires attention

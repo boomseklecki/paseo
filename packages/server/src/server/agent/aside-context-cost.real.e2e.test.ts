@@ -35,7 +35,7 @@ import { getRealProviderConfig } from "../daemon-e2e/real-provider-test-config.j
 
 const logger = pino({ level: "silent" });
 
-const ASIDE = "In one sentence: what is the id field on a pre-send check rule for?";
+const ASIDE = "In one sentence: what is the id field on a rule for?";
 
 /**
  * Enough real text that the provider has something worth caching.
@@ -46,7 +46,7 @@ const ASIDE = "In one sentence: what is the id field on a pre-send check rule fo
 async function buildSeedPrompt(): Promise<string> {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const source = await readFile(
-    path.join(here, "../../../../protocol/src/pre-send-checks/types.ts"),
+    path.join(here, "../../../../protocol/src/rules/types.ts"),
     "utf-8",
   );
   return `Here is a TypeScript module. Read it and reply with just the word OK.\n\n${source}`;
@@ -113,8 +113,7 @@ describe("aside context cost", () => {
         // parent for one more turn is what makes its timeline speak for itself.
         const after = await manager.runAgent(parent.id, "Reply with just the word PING.");
         const leaked = after.timeline.filter(
-          (item) =>
-            item.type === "user_message" && (item.text ?? "").includes("pre-send check rule"),
+          (item) => item.type === "user_message" && (item.text ?? "").includes(ASIDE),
         );
 
         // ---- D2: replay Paseo's transcript to a fresh agent -------------------

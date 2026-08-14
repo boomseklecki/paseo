@@ -75,7 +75,7 @@ import { AddHostModal } from "@/components/add-host-modal";
 import { PairLinkModal } from "@/components/pair-link-modal";
 import { KeyboardShortcutsSection } from "@/screens/settings/keyboard-shortcuts-section";
 import { EditorSection } from "@/screens/settings/editor-section";
-import { PreSendChecksPage } from "@/screens/settings/pre-send-checks-page";
+import { RulesPage } from "@/screens/settings/rules-page";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { CommunityLinks } from "@/components/community-links";
@@ -155,7 +155,7 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "editor", labelKey: "settings.sections.editor", icon: Code2 },
   {
     id: "rules",
-    labelKey: "settings.sections.preSendChecks",
+    labelKey: "settings.sections.rules",
     icon: ShieldAlert,
   },
   { id: "shortcuts", labelKey: "settings.sections.shortcuts", icon: Keyboard, desktopOnly: true },
@@ -1444,7 +1444,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
         case "editor":
           return <EditorSection />;
         case "rules":
-          return <PreSendChecksPage />;
+          return <RulesPage />;
         case "shortcuts":
           return isDesktopApp ? <KeyboardShortcutsSection /> : null;
         case "integrations":
