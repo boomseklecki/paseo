@@ -959,3 +959,34 @@ describe("Suite E: Worktree Tools", () => {
     }
   });
 });
+
+describe("Suite F: Rule Tools", () => {
+  // The one rule a home that has never had any is seeded with, so asserting on
+  // it asserts the whole read path: the seed reached disk, the store listed it
+  // and the tool projected it.
+  const SEEDED_RULE = {
+    id: "cold-prompt-cache",
+    event: "message.send",
+    trigger: "agent.idleSeconds",
+    operator: "gte",
+    value: 3600,
+    outcomes: [{ kind: "block" }],
+    enabled: true,
+  };
+
+  test("list_rules reports the seeded rule in the current vocabulary", async () => {
+    const payload = await callToolStructured(topLevelClient, "list_rules");
+    // Absent means on, which is the state of a daemon nobody has switched them
+    // off on.
+    expect(payload.rulesEnabled).toBe(true);
+    expect(recordArr(payload.rules)).toEqual([SEEDED_RULE]);
+  });
+
+  test("an agent reads the same rules as the top-level caller", async () => {
+    // The rules govern the agent, so the agent-scoped catalog is the one that
+    // has to answer — a host tool reachable only from outside a session would
+    // be readable by nobody it applies to.
+    const payload = await callToolStructured(agentScopedClient, "list_rules");
+    expect(recordArr(payload.rules)).toEqual([SEEDED_RULE]);
+  });
+});

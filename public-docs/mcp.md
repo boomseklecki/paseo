@@ -97,6 +97,14 @@ Both use the same cron engine, but they have deliberately different interfaces.
 
 MCP heartbeats are ephemeral: create or delete them. To change one, delete it and create a replacement. Pause, resume, update, inspect, logs, and run-once apply to new-agent schedules only.
 
+### Rules
+
+| Tool         | Function                                                     |
+| ------------ | ------------------------------------------------------------ |
+| `list_rules` | List the rules this host evaluates, and whether they are on. |
+
+Read-only: rules are written in Settings, or by hand under `$PASEO_HOME/pre-send-checks/`.
+
 ### Providers
 
 | Tool               | Function                                                          |

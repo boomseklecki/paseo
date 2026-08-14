@@ -39,6 +39,9 @@ import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
 import type { CreatePaseoWorktreeWorkflowFn } from "../../worktree-session.js";
 import type { ScheduleService } from "../../schedule/service.js";
+import type { PreSendChecksService } from "../../pre-send-checks/service.js";
+import { normalizePreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/vocabulary";
+import type { PreSendCheckRule } from "@getpaseo/protocol/pre-send-checks/types";
 import {
   ScheduleRunSchema,
   ScheduleSummarySchema,
@@ -99,6 +102,7 @@ export interface PaseoToolHostDependencies {
   terminalManager?: TerminalManager | null;
   getDaemonTcpPort?: () => number | null;
   scheduleService?: ScheduleService | null;
+  preSendChecksService?: Pick<PreSendChecksService, "list"> | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
   github?: ForgeService;
@@ -538,6 +542,54 @@ function resolveTerminalKeyToken(key: string, literal: boolean): string {
   }
 }
 
+const RuleOutcomeSummarySchema = z.object({
+  kind: z.string(),
+  wording: z.string().optional(),
+  prompt: z.string().optional(),
+  title: z.string().optional(),
+});
+
+const RuleSummarySchema = z.object({
+  id: z.string(),
+  event: z.string(),
+  trigger: z.string(),
+  operator: z.string(),
+  value: z.union([z.string(), z.number()]).optional(),
+  outcomes: z.array(RuleOutcomeSummarySchema),
+  message: z.string().optional(),
+  enabled: z.boolean(),
+});
+
+/**
+ * One rule in the canonical vocabulary and nothing else.
+ *
+ * A rule on disk carries half its fields twice while the COMPAT window is open
+ * (`protocol/pre-send-checks/vocabulary.ts`), and a consumer added after the
+ * rename is the one that should never learn the older half. Normalising here
+ * means this tool needs no edit when those fields come off the schema.
+ *
+ * `order` is dropped rather than reported: it arranges a list and does not
+ * affect evaluation, and the array already arrives in it.
+ */
+function toRuleSummary(rule: PreSendCheckRule) {
+  const normalized = normalizePreSendCheckRule(rule);
+  return {
+    id: normalized.id,
+    event: normalized.event,
+    trigger: normalized.trigger,
+    operator: normalized.operator,
+    ...(normalized.value === undefined ? {} : { value: normalized.value }),
+    outcomes: normalized.outcomes.map((outcome) => ({
+      kind: outcome.kind,
+      ...(outcome.wording === undefined ? {} : { wording: outcome.wording }),
+      ...(outcome.prompt === undefined ? {} : { prompt: outcome.prompt }),
+      ...(outcome.title === undefined ? {} : { title: outcome.title }),
+    })),
+    ...(normalized.message === undefined ? {} : { message: normalized.message }),
+    enabled: normalized.enabled,
+  };
+}
+
 export function createPaseoToolCatalog(options: PaseoToolHostDependencies): PaseoToolCatalog {
   const {
     agentManager,
@@ -545,6 +597,7 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
     terminalManager,
     workspaceScripts,
     scheduleService,
+    preSendChecksService,
     providerSnapshotManager,
     daemonConfigStore,
     callerAgentId,
@@ -2870,6 +2923,37 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       return {
         content: [],
         structuredContent: ensureValidJson(schedule),
+      };
+    },
+  );
+
+  registerTool(
+    "list_rules",
+    {
+      title: "List rules",
+      description:
+        "List the rules this host evaluates: what each one watches, at which seam it is checked, and what it does when it trips. Read-only.",
+      inputSchema: {},
+      outputSchema: {
+        rulesEnabled: z.boolean(),
+        rules: z.array(RuleSummarySchema),
+      },
+    },
+    async () => {
+      if (!preSendChecksService) {
+        throw new Error("Rules service is not configured");
+      }
+
+      const rules = (await preSendChecksService.list()).map(toRuleSummary);
+      return {
+        content: [],
+        structuredContent: ensureValidJson({
+          // Absent means on, the same reading the seams and the settings row
+          // take. Reported beside the rules because with the switch off the
+          // list describes what would happen rather than what does.
+          rulesEnabled: daemonConfigStore?.get().preSendChecksEnabled !== false,
+          rules,
+        }),
       };
     },
   );
