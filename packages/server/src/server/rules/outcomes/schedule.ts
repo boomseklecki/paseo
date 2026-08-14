@@ -65,6 +65,10 @@ export class ScheduleOutcome {
         // quietly created a repeating schedule is how someone ends up with an
         // agent talking to itself every ten minutes for a week.
         maxRuns: request.outcome.repeat === "true" ? null : 1,
+        // The whole outcome is "later", and an `every` cadence otherwise fires
+        // once on creation before starting to wait. A rule asking to retry in
+        // ten minutes means in ten minutes, not now and then in ten minutes.
+        runOnCreate: false,
       });
 
       this.logger.info(

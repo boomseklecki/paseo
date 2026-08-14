@@ -1,5 +1,52 @@
+import pino from "pino";
 import { describe, expect, test } from "vitest";
-import { parseDelay } from "./schedule.js";
+import type { AgentManager } from "../../agent/agent-manager.js";
+import type { CreateScheduleInput } from "@getpaseo/protocol/schedule/types";
+import type { ScheduleService } from "../../schedule/service.js";
+import { parseDelay, ScheduleOutcome } from "./schedule.js";
+import type { RuleOutcomeRequest } from "./types.js";
+
+function harness() {
+  const created: CreateScheduleInput[] = [];
+  const outcome = new ScheduleOutcome({
+    manager: {
+      getAgent: () => ({ id: "agent-1", labels: {} }),
+    } as unknown as AgentManager,
+    scheduleService: {
+      create: async (input: CreateScheduleInput) => {
+        created.push(input);
+        return { id: "schedule-1" };
+      },
+    } as unknown as ScheduleService,
+    logger: pino({ level: "silent" }),
+  });
+  return { created, outcome };
+}
+
+function request(overrides: Partial<RuleOutcomeRequest> = {}): RuleOutcomeRequest {
+  return {
+    agentId: "agent-1",
+    message: "",
+    value: "always",
+    outcome: { kind: "schedule", delay: "10m", prompt: "try again" },
+    confirmed: false,
+    ...overrides,
+  };
+}
+
+describe("ScheduleOutcome", () => {
+  // The outcome's whole content is "later", and an `every` cadence otherwise
+  // fires once on creation before it starts waiting - so a rule asking to retry
+  // in ten minutes would retry now, which is the loop it was written to avoid.
+  test("waits the delay rather than firing on creation", async () => {
+    const { created, outcome } = harness();
+
+    await outcome.run(request());
+
+    expect(created[0]?.runOnCreate).toBe(false);
+    expect(created[0]?.cadence).toEqual({ type: "every", everyMs: 600_000 });
+  });
+});
 
 describe("parseDelay", () => {
   test("reads the units a person would type", () => {
