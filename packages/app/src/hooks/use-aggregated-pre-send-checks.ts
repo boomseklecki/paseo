@@ -14,6 +14,10 @@ import {
 export interface PreSendCheckHostState extends PreSendCheckHostRules {
   isConnected: boolean;
   isSupported: boolean;
+  /** Asked, and has not answered yet. */
+  isLoading: boolean;
+  /** Asked, and the answer was a failure. */
+  hasFailed: boolean;
 }
 
 export interface AggregatedPreSendChecks {
@@ -23,10 +27,14 @@ export interface AggregatedPreSendChecks {
   groups: PreSendCheckGroup[];
   /** True while at least one host that should answer has not yet. */
   isLoading: boolean;
+  /** True when at least one host that was asked answered with a failure. */
+  hasFailed: boolean;
   /** True when some host is connected and serving the verbs. */
   hasUsableHost: boolean;
   /** True when at least one host is connected, whatever its version. */
   hasConnectedHost: boolean;
+  /** Ask the hosts whose list failed again. */
+  retryFailed: () => void;
 }
 
 /**
@@ -107,23 +115,38 @@ export function useAggregatedPreSendChecks(): AggregatedPreSendChecks {
   const hostStates: PreSendCheckHostState[] = hosts.map((host, index) => {
     const isConnected = statuses.get(host.serverId) === "online";
     const isSupported = features.get(host.serverId) === true;
+    const wasAsked = isConnected && isSupported;
+    const status = queries[index]?.status;
     return {
       serverId: host.serverId,
       serverName: host.label,
       isConnected,
       isSupported,
+      // From the query's own status rather than from the absence of data. Both
+      // states leave `rules` null, so reading loading off the data cannot tell a
+      // host that has not answered from one that answered with a failure — and
+      // with a single capable host, which is what a fork-plus-stock fleet is, the
+      // second reads as the first forever.
+      isLoading: wasAsked && status === "pending",
+      hasFailed: wasAsked && status === "error",
       // Anything short of a host that answered is `null`, never `[]`: a host that
       // has not said what it holds must not read as a host holding nothing, which
       // is what would let a save delete a rule off it.
-      rules: isConnected && isSupported ? (queries[index]?.data ?? null) : null,
+      rules: wasAsked ? (queries[index]?.data ?? null) : null,
     };
   });
 
   return {
     hosts: hostStates,
     groups: groupPreSendCheckRules(hostStates),
-    isLoading: hostStates.some((host) => host.isConnected && host.isSupported && !host.rules),
+    isLoading: hostStates.some((host) => host.isLoading),
+    hasFailed: hostStates.some((host) => host.hasFailed),
     hasUsableHost: hostStates.some((host) => host.isConnected && host.isSupported),
     hasConnectedHost: hostStates.some((host) => host.isConnected),
+    retryFailed: () => {
+      for (const query of queries) {
+        if (query.status === "error") void query.refetch();
+      }
+    },
   };
 }

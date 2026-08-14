@@ -1807,6 +1807,7 @@ export const en = {
       differs: "Differs",
       loading: "Loading rules...",
       emptyState: "No rules. Sends are never held.",
+      loadFailed: "Could not load rules.",
       composerHostGap: "Rules do not run on this host.",
       unavailableDisconnected: "Not connected to this host.",
       unavailableUnsupported: "This host is running a version of Paseo that cannot store rules.",

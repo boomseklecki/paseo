@@ -1831,6 +1831,7 @@ export const ru: TranslationResources = {
       differs: "Расходится",
       loading: "Загрузка правил...",
       emptyState: "Правил нет. Отправка никогда не удерживается.",
+      loadFailed: "Не удалось загрузить правила.",
       composerHostGap: "Правила не выполняются на этом хосте.",
       unavailableDisconnected: "Нет подключения к этому хосту.",
       unavailableUnsupported:

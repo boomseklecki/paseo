@@ -9,6 +9,7 @@
 
 export type PreSendChecksListState =
   | { kind: "unavailable"; messageKey: string }
+  | { kind: "failed" }
   | { kind: "loading" }
   | { kind: "empty" }
   | { kind: "rules" };
@@ -52,11 +53,19 @@ export function resolveHostUnavailableMessageKey(input: {
 export function resolvePreSendChecksListState(input: {
   isConnected: boolean;
   isSupported: boolean;
+  hasFailed: boolean;
   rules: readonly { id: string }[] | null;
 }): PreSendChecksListState {
   const unavailable = resolveHostUnavailableMessageKey(input);
   if (unavailable) {
     return { kind: "unavailable", messageKey: unavailable };
+  }
+  // Ahead of loading, because a host that answered with a failure is not a host
+  // still answering, and the two are indistinguishable from the data alone: both
+  // leave the rules unread. Reading it as loading is what leaves a single-host
+  // fleet on "Loading rules…" for as long as the screen is open.
+  if (input.hasFailed) {
+    return { kind: "failed" };
   }
   if (!input.rules) {
     return { kind: "loading" };
@@ -68,6 +77,8 @@ export function listStateMessageKey(state: PreSendChecksListState): string {
   switch (state.kind) {
     case "unavailable":
       return state.messageKey;
+    case "failed":
+      return "settings.preSendChecks.loadFailed";
     case "loading":
       return "settings.preSendChecks.loading";
     default:

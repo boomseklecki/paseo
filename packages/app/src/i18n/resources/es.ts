@@ -1841,6 +1841,7 @@ export const es: TranslationResources = {
       differs: "Difiere",
       loading: "Cargando reglas...",
       emptyState: "Sin reglas. Los envíos nunca se retienen.",
+      loadFailed: "No se pudieron cargar las reglas.",
       composerHostGap: "Las reglas no se ejecutan en este host.",
       unavailableDisconnected: "No hay conexión con este host.",
       unavailableUnsupported: "Este host ejecuta una versión de Paseo que no puede guardar reglas.",

@@ -1827,6 +1827,7 @@ export const ptBR: TranslationResources = {
       differs: "Divergente",
       loading: "Carregando regras...",
       emptyState: "Nenhuma regra. Os envios nunca são retidos.",
+      loadFailed: "Não foi possível carregar as regras.",
       composerHostGap: "As regras não são executadas neste host.",
       unavailableDisconnected: "Sem conexão com este host.",
       unavailableUnsupported:

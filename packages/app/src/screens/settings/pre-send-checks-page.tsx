@@ -404,7 +404,7 @@ function PreSendCheckExampleRow({
  */
 export function PreSendChecksPage() {
   const { t } = useTranslation();
-  const { hosts, groups, isLoading, hasUsableHost, hasConnectedHost } =
+  const { hosts, groups, isLoading, hasFailed, hasUsableHost, hasConnectedHost, retryFailed } =
     useAggregatedPreSendChecks();
   const { saveRule, deleteRule, reorderRules } = usePreSendCheckHostMutations();
   const [form, setForm] = useState<FormState>({ kind: "closed" });
@@ -561,6 +561,9 @@ export function PreSendChecksPage() {
   const listState = resolvePreSendChecksListState({
     isConnected: hasConnectedHost,
     isSupported: hasUsableHost,
+    // Same "any host" reading as the two above: a failure is worth the screen
+    // only while it left nothing to show.
+    hasFailed: hasFailed && groups.length === 0,
     // Loading only while nothing has arrived: once one host has answered its rules
     // are shown rather than held back for a slower machine.
     rules: isLoading && groups.length === 0 ? null : groups,
@@ -613,6 +616,19 @@ export function PreSendChecksPage() {
         ) : (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>{t(listStateMessageKey(listState))}</Text>
+            {/* Only where asking again is the fix. Waiting out a reconnect and
+                upgrading a daemon both resolve elsewhere, and a button that
+                changes nothing is worse than none. */}
+            {listState.kind === "failed" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={retryFailed}
+                testID="pre-send-checks-retry"
+              >
+                {t("common.actions.retry")}
+              </Button>
+            ) : null}
           </View>
         )}
       </View>

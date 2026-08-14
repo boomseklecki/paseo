@@ -35,7 +35,12 @@ describe("resolveHostUnavailableMessageKey", () => {
 describe("resolvePreSendChecksListState", () => {
   it("carries the host's own reason when it is unavailable", () => {
     expect(
-      resolvePreSendChecksListState({ isConnected: true, isSupported: false, rules: [] }),
+      resolvePreSendChecksListState({
+        isConnected: true,
+        isSupported: false,
+        hasFailed: false,
+        rules: [],
+      }),
     ).toEqual({ kind: "unavailable", messageKey: UNSUPPORTED });
   });
 
@@ -44,16 +49,44 @@ describe("resolvePreSendChecksListState", () => {
   // delete the rules of the first.
   it("keeps not-yet-answered apart from answered-with-nothing", () => {
     expect(
-      resolvePreSendChecksListState({ isConnected: true, isSupported: true, rules: null }),
+      resolvePreSendChecksListState({
+        isConnected: true,
+        isSupported: true,
+        hasFailed: false,
+        rules: null,
+      }),
     ).toEqual({ kind: "loading" });
     expect(
-      resolvePreSendChecksListState({ isConnected: true, isSupported: true, rules: [] }),
+      resolvePreSendChecksListState({
+        isConnected: true,
+        isSupported: true,
+        hasFailed: false,
+        rules: [],
+      }),
     ).toEqual({ kind: "empty" });
+  });
+
+  // Both leave the rules unread, so nothing in the data separates them. Read as
+  // loading, a failure waits for an answer that already came.
+  it("keeps a failed answer apart from no answer yet", () => {
+    expect(
+      resolvePreSendChecksListState({
+        isConnected: true,
+        isSupported: true,
+        hasFailed: true,
+        rules: null,
+      }),
+    ).toEqual({ kind: "failed" });
   });
 
   it("shows the list once a host answers with rules", () => {
     expect(
-      resolvePreSendChecksListState({ isConnected: true, isSupported: true, rules: [{ id: "a" }] }),
+      resolvePreSendChecksListState({
+        isConnected: true,
+        isSupported: true,
+        hasFailed: false,
+        rules: [{ id: "a" }],
+      }),
     ).toEqual({ kind: "rules" });
   });
 });
@@ -65,8 +98,9 @@ describe("listStateMessageKey", () => {
     );
   });
 
-  it("names loading and empty apart", () => {
+  it("names loading, failed and empty apart", () => {
     expect(listStateMessageKey({ kind: "loading" })).toBe("settings.preSendChecks.loading");
+    expect(listStateMessageKey({ kind: "failed" })).toBe("settings.preSendChecks.loadFailed");
     expect(listStateMessageKey({ kind: "empty" })).toBe("settings.preSendChecks.emptyState");
   });
 });

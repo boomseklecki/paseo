@@ -1773,6 +1773,7 @@ export const zhCN: TranslationResources = {
       differs: "不一致",
       loading: "正在加载规则...",
       emptyState: "暂无规则，发送不会被拦下。",
+      loadFailed: "无法加载规则。",
       composerHostGap: "规则不会在该主机上运行。",
       unavailableDisconnected: "尚未连接到该主机。",
       unavailableUnsupported: "该主机运行的 Paseo 版本无法保存规则。",

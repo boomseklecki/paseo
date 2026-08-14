@@ -1846,6 +1846,7 @@ export const fr: TranslationResources = {
       differs: "Diverge",
       loading: "Chargement des règles...",
       emptyState: "Aucune règle. Les envois ne sont jamais retenus.",
+      loadFailed: "Impossible de charger les règles.",
       composerHostGap: "Les règles ne s'exécutent pas sur cet hôte.",
       unavailableDisconnected: "Non connecté à cet hôte.",
       unavailableUnsupported:

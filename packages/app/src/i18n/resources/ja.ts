@@ -1813,6 +1813,7 @@ export const ja: TranslationResources = {
       differs: "相違あり",
       loading: "ルールを読み込み中...",
       emptyState: "ルールがありません。送信が保留されることはありません。",
+      loadFailed: "ルールを読み込めませんでした。",
       composerHostGap: "このホストではルールは実行されません。",
       unavailableDisconnected: "このホストに接続していません。",
       unavailableUnsupported: "このホストの Paseo はルールを保存できないバージョンです。",
