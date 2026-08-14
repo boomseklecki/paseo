@@ -134,6 +134,50 @@
         "preSendChecksEnabled": {
           "type": "boolean"
         },
+        "agentProfiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "modeId": {
+                "type": "string"
+              },
+              "thinkingOptionId": {
+                "type": "string"
+              },
+              "featureValues": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name", "provider"],
+            "additionalProperties": {}
+          }
+        },
         "cors": {
           "type": "object",
           "properties": {
@@ -433,6 +477,11 @@
               }
             }
           }
+        },
+        "catalogRefreshTimeoutMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 2147483647
         },
         "metadataGeneration": {
           "type": "object",

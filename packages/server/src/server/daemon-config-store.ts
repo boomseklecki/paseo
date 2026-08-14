@@ -362,6 +362,7 @@ function mergeMutableConfigIntoPersistedConfig(params: {
       ...(mutable.preSendChecksEnabled !== undefined
         ? { preSendChecksEnabled: mutable.preSendChecksEnabled }
         : {}),
+      ...(mutable.agentProfiles !== undefined ? { agentProfiles: mutable.agentProfiles } : {}),
     },
     agents: nextAgents,
   } as PersistedConfig;
