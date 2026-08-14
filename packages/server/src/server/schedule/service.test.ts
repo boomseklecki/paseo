@@ -3243,4 +3243,80 @@ describe("ScheduleService", () => {
     expect(await service.completeForAgent(agentId)).toBe(1);
     expect(await service.completeForAgent(agentId)).toBe(0);
   });
+
+  /**
+   * What tells a rule's `schedule` outcome that the turn asking it to schedule
+   * is the one a previous schedule caused.
+   *
+   * Only true mid-run, which is not a limitation but the definition: the rule
+   * seams fire as a turn ends, while this run is still unwinding, and a mark
+   * that outlived the run would refuse the next thing a person asked for.
+   */
+  describe("marking a rule-scheduled run", () => {
+    const agentId = "44444444-4444-4444-8444-444444444444";
+
+    /**
+     * A service whose only agent run samples the mark and hands the reading back.
+     *
+     * Sampling inside rather than through a callback the test supplies, because
+     * the mark is only observable from within the run and a test that reached in
+     * to read it afterwards would be reading the wrong moment.
+     */
+    function serviceRunning(): { service: ScheduleService; markDuringRun: () => boolean | null } {
+      let duringRun: boolean | null = null;
+      const service = createScheduleService({
+        paseoHome: tempDir,
+        logger: createTestLogger(),
+        agentManager: {
+          getAgent: () => ({ id: agentId }),
+          hasInFlightRun: () => false,
+          runAgent: async () => {
+            duringRun = service.ruleScheduledRunFor(agentId);
+            return { sessionId: "s", finalText: "", timeline: [], canceled: false };
+          },
+        } as unknown as AgentManager,
+        agentStorage: {
+          get: async () => ({ id: agentId, archivedAt: null }),
+        } as unknown as AgentStorage,
+        providerSnapshotManager: NO_UNATTENDED_SCHEDULE_POLICY,
+        now: () => now,
+      });
+      // Null until the run has actually happened, so a schedule that never ran
+      // fails either assertion rather than reading as "not marked".
+      return { service, markDuringRun: () => duringRun };
+    }
+
+    test("is up while the run is in flight and gone after it", async () => {
+      const { service, markDuringRun } = serviceRunning();
+
+      const created = await service.create({
+        prompt: "retry",
+        cadence: { type: "every", everyMs: 600_000 },
+        target: { type: "agent", agentId },
+        maxRuns: 1,
+        runOnCreate: false,
+        createdByRule: true,
+      });
+      await (service as unknown as ScheduleServiceInternals).executeSchedule(created, "run-rule");
+
+      expect(markDuringRun()).toBe(true);
+      expect(service.ruleScheduledRunFor(agentId)).toBe(false);
+    });
+
+    // A schedule someone made themselves says nothing about rules, so a rule
+    // firing during its turn is answering the condition, not chasing itself.
+    test("stays down for a schedule a person made", async () => {
+      const { service, markDuringRun } = serviceRunning();
+
+      const created = await service.create({
+        prompt: "daily check",
+        cadence: { type: "every", everyMs: 600_000 },
+        target: { type: "agent", agentId },
+        runOnCreate: false,
+      });
+      await (service as unknown as ScheduleServiceInternals).executeSchedule(created, "run-person");
+
+      expect(markDuringRun()).toBe(false);
+    });
+  });
 });

@@ -58,6 +58,20 @@ export interface RuleOutcomeRequest {
   outcome: RuleOutcomeSpec;
   /** True on a second attempt, after the caller answered a `needs_confirmation`. */
   confirmed: boolean;
+  /**
+   * True when the turn that reached this seam was started by a rule's schedule.
+   *
+   * The generation counter for the one outcome that acts on the agent it fired
+   * for. `start` and `fork` can read their own provenance off the agent they
+   * were handed, because they made it; `schedule` makes nothing and hands the
+   * existing conversation a turn, so nothing on the agent says where the turn
+   * came from and the seam has to say it.
+   *
+   * Read at the seam rather than looked up in the outcome, because the run is
+   * still in flight there and will not be by the time the outcome is dispatched.
+   * Absent at `message.send`, where a person is the cause.
+   */
+  causedByRuleSchedule?: boolean;
 }
 
 /**

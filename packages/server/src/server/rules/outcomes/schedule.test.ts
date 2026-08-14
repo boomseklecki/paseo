@@ -46,6 +46,27 @@ describe("ScheduleOutcome", () => {
     expect(created[0]?.runOnCreate).toBe(false);
     expect(created[0]?.cadence).toEqual({ type: "every", everyMs: 600_000 });
   });
+
+  test("marks what it creates, so the turn it fires can be told apart", async () => {
+    const { created, outcome } = harness();
+
+    await outcome.run(request());
+
+    expect(created[0]?.createdByRule).toBe(true);
+  });
+
+  // One generation, the cap `start` and `fork` keep. This is the same agent
+  // throughout, so nothing on it says where the turn came from: the seam reads
+  // the run and says so, and without this the schedule's turn ends, reaches the
+  // seam, and schedules another.
+  test("will not schedule from a turn a rule scheduled", async () => {
+    const { created, outcome } = harness();
+
+    const result = await outcome.run(request({ causedByRuleSchedule: true }));
+
+    expect(result.status).toBe("declined");
+    expect(created).toEqual([]);
+  });
 });
 
 describe("parseDelay", () => {

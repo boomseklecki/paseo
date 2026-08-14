@@ -38,6 +38,20 @@ export class ScheduleOutcome {
       return { status: "declined", reason: "No such agent" };
     }
 
+    // One generation, the same cap `start` and `fork` keep and for the same
+    // reason: without it a rule at a daemon seam schedules a turn, whose ending
+    // reaches that seam again, which schedules another. The crossing memory
+    // cannot see it - the condition that tripped went away while the agent ran
+    // and came back when it stopped, so the rule re-arms and fires honestly
+    // every time. It is the same conversation throughout, so there is no new id
+    // to label and nothing on the agent to read; what says so is the run.
+    if (request.causedByRuleSchedule) {
+      return {
+        status: "declined",
+        reason: "This turn was scheduled by a rule, so a rule will not schedule another from it",
+      };
+    }
+
     const delayMs = parseDelay(request.outcome.delay);
     if (delayMs === null) {
       return {
@@ -69,6 +83,8 @@ export class ScheduleOutcome {
         // once on creation before starting to wait. A rule asking to retry in
         // ten minutes means in ten minutes, not now and then in ten minutes.
         runOnCreate: false,
+        // What the guard above reads when this schedule's turn ends.
+        createdByRule: true,
       });
 
       this.logger.info(

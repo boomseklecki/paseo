@@ -2515,6 +2515,13 @@ export class VoiceAssistantWebSocketServer {
      */
     idleSeconds = 0,
   ): Promise<void> {
+    // Read first, before anything is awaited, because the answer is only true
+    // while the run is in flight. This method is called from the attention
+    // callback, which the manager raises as the turn ends, so the synchronous
+    // part of it still overlaps the run that caused the turn. One `await` later
+    // and a rule-scheduled turn is indistinguishable from one someone asked for.
+    const causedByRuleSchedule = this.scheduleService.ruleScheduledRunFor(agentId);
+
     // The host switch, read here because this is where the three daemon seams
     // meet. The fourth, `message.send`, is evaluated in the app before anything
     // reaches the daemon, so the switch is read once on each side of that seam
@@ -2560,7 +2567,7 @@ export class VoiceAssistantWebSocketServer {
     });
 
     for (const finding of findings) {
-      await this.runAgentRuleFinding(agentId, provider, event, finding);
+      await this.runAgentRuleFinding(agentId, provider, event, finding, causedByRuleSchedule);
     }
   }
 
@@ -2580,6 +2587,7 @@ export class VoiceAssistantWebSocketServer {
     provider: AgentProvider,
     event: string,
     finding: RuleEventFinding,
+    causedByRuleSchedule: boolean,
   ): Promise<void> {
     let announce = false;
     // The notification says what the `notify` outcome says, falling back to the
@@ -2598,7 +2606,13 @@ export class VoiceAssistantWebSocketServer {
       // Deliberately not short-circuiting: one outcome declining says nothing
       // about the next, and a fork that cannot run is no reason to skip the
       // schedule beside it.
-      const started = await this.runAgentRuleOutcome(agentId, event, finding, outcome);
+      const started = await this.runAgentRuleOutcome(
+        agentId,
+        event,
+        finding,
+        outcome,
+        causedByRuleSchedule,
+      );
       announce = announce || started;
     }
 
@@ -2639,9 +2653,11 @@ export class VoiceAssistantWebSocketServer {
     event: string,
     finding: RuleEventFinding,
     outcome: RuleOutcome,
+    causedByRuleSchedule: boolean,
   ): Promise<boolean> {
     const result = await this.ruleOutcomeRunner.run({
       agentId,
+      causedByRuleSchedule,
       // Empty on purpose. `{{message}}` is what a person typed and nobody typed
       // anything here, so the editor does not offer the token at this seam and
       // filling it with something else would be inventing a question. What a

@@ -249,6 +249,15 @@ export class ScheduleService {
     runId: string,
   ) => Promise<ScheduleExecutionResult>;
   private readonly runningScheduleIds = new Set<string>();
+  /**
+   * Agents whose turn right now was started by a rule-created schedule.
+   *
+   * Held only for the length of that turn, which is exactly the window the rule
+   * seams fire in: a turn ending is what the daemon evaluates rules at, so a
+   * `schedule` outcome asked during it can tell that it is being asked by the
+   * turn a previous one caused. See `ruleScheduledRunFor`.
+   */
+  private readonly ruleScheduledRuns = new Set<string>();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: ScheduleServiceOptions) {
@@ -323,6 +332,7 @@ export class ScheduleService {
       pausedAt: null,
       expiresAt: input.expiresAt ?? null,
       maxRuns: normalizeMaxRuns(input.maxRuns),
+      ...(input.createdByRule ? { createdByRule: true } : {}),
       runs: [],
     };
   }
@@ -469,6 +479,18 @@ export class ScheduleService {
 
   async delete(id: string): Promise<void> {
     await this.store.delete(id);
+  }
+
+  /**
+   * Whether this agent's current turn was started by a rule's schedule.
+   *
+   * Synchronous, and that is the point rather than a convenience. The answer is
+   * only true while the run is in flight, so a caller that awaits anything first
+   * may be reading it after the run ended - the seam reads it the moment it
+   * fires and carries the answer down to the outcome.
+   */
+  ruleScheduledRunFor(agentId: string): boolean {
+    return this.ruleScheduledRuns.has(agentId);
   }
 
   async completeForAgent(agentId: string): Promise<number> {
@@ -843,16 +865,29 @@ export class ScheduleService {
       if (this.agentManager.hasInFlightRun(agent.id)) {
         throw new Error(`Agent ${agent.id} already has an active run`);
       }
-      const result = await this.agentManager.runAgent(agent.id, wrappedPrompt);
-      const timelineText = curateAgentActivity(result.timeline);
-      return {
-        agentId: agent.id,
-        output: buildRunOutput({
-          output: null,
-          timelineText,
-          finalText: result.finalText,
-        }),
-      };
+      // Marked for the length of the run and no longer. A rule seam fires while
+      // this is still awaited - that is what a turn ending means - so the mark is
+      // up at the moment a `schedule` outcome would be asked to make another.
+      const marked = schedule.createdByRule === true;
+      if (marked) {
+        this.ruleScheduledRuns.add(agent.id);
+      }
+      try {
+        const result = await this.agentManager.runAgent(agent.id, wrappedPrompt);
+        const timelineText = curateAgentActivity(result.timeline);
+        return {
+          agentId: agent.id,
+          output: buildRunOutput({
+            output: null,
+            timelineText,
+            finalText: result.finalText,
+          }),
+        };
+      } finally {
+        if (marked) {
+          this.ruleScheduledRuns.delete(agent.id);
+        }
+      }
     }
 
     const config = schedule.target.type === "new-agent" ? schedule.target.config : null;

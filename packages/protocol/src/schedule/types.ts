@@ -69,6 +69,19 @@ export const StoredScheduleSchema = z.object({
   pausedAt: z.string().nullable(),
   expiresAt: z.string().nullable(),
   maxRuns: z.number().int().positive().nullable(),
+  /**
+   * Set when a rule's `schedule` outcome made this, and read to stop the turn it
+   * fires from making another.
+   *
+   * Presence is the whole signal, the same way `paseo.created-by-rule` works on
+   * an agent — not which rule, because one generation is the cap either way and
+   * a rule id is a name a person can change.
+   *
+   * On the record rather than in memory because the delay can be a day: the
+   * schedule outlives the daemon that created it, and a guard that forgot across
+   * a restart would forget exactly when the schedule finally fires.
+   */
+  createdByRule: z.boolean().optional(),
   runs: z.array(ScheduleRunSchema),
 });
 export type StoredSchedule = z.infer<typeof StoredScheduleSchema>;
@@ -86,6 +99,8 @@ export interface CreateScheduleInput {
   maxRuns?: number | null;
   expiresAt?: string | null;
   runOnCreate?: boolean | null;
+  /** See `createdByRule` on the stored record. Only a rule's outcome sets this. */
+  createdByRule?: boolean;
 }
 
 export interface UpdateScheduleNewAgentConfig {
