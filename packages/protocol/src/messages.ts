@@ -3081,7 +3081,7 @@ export const ServerInfoStatusPayloadSchema = z
         daemonStatusRpc: z.boolean().optional(),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         relayConfig: z.boolean().optional(),
-        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2028-02-09.
+        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2027-02-09.
         preSendChecks: z.boolean().optional(),
         // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.
         pushTokenRevocation: z.boolean().optional(),

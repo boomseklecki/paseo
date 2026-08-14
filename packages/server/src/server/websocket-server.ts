@@ -1657,7 +1657,7 @@ export class VoiceAssistantWebSocketServer {
         ...(this.advertiseDaemonStatusRpc ? { daemonStatusRpc: true } : {}),
         // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
         ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
-        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2028-02-09.
+        // COMPAT(preSendChecks): added in v0.3.2, remove gate after 2027-02-09.
         // Means "serves rules.list.request". A client that does not see this must
         // not send the verb, and must let the send through rather than gate on rules
         // it cannot fetch.
