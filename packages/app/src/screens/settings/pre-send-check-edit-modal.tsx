@@ -50,6 +50,12 @@ export interface PreSendCheckModalHost {
   serverName: string;
   /** False for a host that is offline or too old to hold a rule at all. */
   isUsable: boolean;
+  /**
+   * Why not, as an i18n key, or null when it is usable. Carried rather than
+   * derived here so the modal, the switch row and the card cannot drift into
+   * three readings of the same two booleans.
+   */
+  unavailableMessageKey: string | null;
 }
 
 interface PreSendCheckEditModalProps {
@@ -345,7 +351,9 @@ interface PreSendCheckHostRowProps {
  * A switch each rather than a multi-select control, because the app has no
  * multi-select and this reads the same as every other list of toggles in
  * settings. An unusable host stays listed and switched off: knowing the rule
- * cannot go to that machine right now is worth more than the row being absent.
+ * cannot go to that machine right now is worth more than the row being absent —
+ * which only holds if the row says which of the two it is, so it carries the
+ * reason under the name.
  */
 function PreSendCheckHostRow({ host, selected, disabled, onToggle }: PreSendCheckHostRowProps) {
   const { t } = useTranslation();
@@ -358,9 +366,19 @@ function PreSendCheckHostRow({ host, selected, disabled, onToggle }: PreSendChec
 
   return (
     <View style={styles.hostRow}>
-      <Text style={settingsStyles.rowTitle} numberOfLines={1}>
-        {host.serverName}
-      </Text>
+      <View style={styles.hostRowContent}>
+        <Text style={settingsStyles.rowTitle} numberOfLines={1}>
+          {host.serverName}
+        </Text>
+        {host.unavailableMessageKey ? (
+          <Text
+            style={settingsStyles.rowHint}
+            testID={`pre-send-check-host-reason-${host.serverId}`}
+          >
+            {t(host.unavailableMessageKey)}
+          </Text>
+        ) : null}
+      </View>
       <Switch
         value={selected}
         onValueChange={handleToggle}
@@ -1108,6 +1126,11 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     gap: theme.spacing[3],
     paddingVertical: theme.spacing[2],
+  },
+  // The name and its reason share the row's first slot, and shrink rather than
+  // push the switch off the edge on a narrow modal.
+  hostRowContent: {
+    flexShrink: 1,
   },
   footer: {
     flexDirection: "row",

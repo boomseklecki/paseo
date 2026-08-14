@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -21,6 +21,11 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { PreSendCheckEditModal, type PreSendCheckModalHost } from "./pre-send-check-edit-modal";
 import type { PreSendCheckGroup } from "./pre-send-check-groups";
+import {
+  listStateMessageKey,
+  resolveHostUnavailableMessageKey,
+  resolvePreSendChecksListState,
+} from "./pre-send-check-host-state";
 import type {
   PreSendCheckExample,
   PreSendOutcomeDescriptor,
@@ -71,51 +76,6 @@ const moveDownIcon = <MoveDownIcon size={ICON_SIZE.sm} uniProps={mutedColorMappi
  */
 function generateRuleId(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-}
-
-export type PreSendChecksListState =
-  | { kind: "unavailable"; messageKey: string }
-  | { kind: "loading" }
-  | { kind: "empty" }
-  | { kind: "rules" };
-
-/**
- * What the card shows.
- *
- * Exported and pure so the four-way decision can be read in one place. The two
- * unavailable reasons are kept apart deliberately — waiting for a reconnect is a
- * matter of time, an old daemon is a matter of upgrading, and one message for
- * both would leave someone waiting for a state that will not arrive.
- *
- * Across several hosts each input is "any host": one machine being offline is not
- * a reason to hide rules the others answered with.
- */
-export function resolvePreSendChecksListState(input: {
-  isConnected: boolean;
-  isSupported: boolean;
-  rules: readonly { id: string }[] | null;
-}): PreSendChecksListState {
-  if (!input.isConnected) {
-    return { kind: "unavailable", messageKey: "settings.preSendChecks.unavailableDisconnected" };
-  }
-  if (!input.isSupported) {
-    return { kind: "unavailable", messageKey: "settings.preSendChecks.unavailableUnsupported" };
-  }
-  if (!input.rules) {
-    return { kind: "loading" };
-  }
-  return input.rules.length === 0 ? { kind: "empty" } : { kind: "rules" };
-}
-
-function listStateMessageKey(state: PreSendChecksListState): string {
-  switch (state.kind) {
-    case "unavailable":
-      return state.messageKey;
-    case "loading":
-      return "settings.preSendChecks.loading";
-    default:
-      return "settings.preSendChecks.emptyState";
-  }
 }
 
 interface PreSendCheckRowProps {
@@ -313,15 +273,31 @@ function PreSendChecksFeatureRow({ host, isOnlyHost, withBorder }: PreSendChecks
     [withBorder],
   );
 
+  // A disabled switch with nothing beside it reads as a switch that is simply
+  // off, which is the wrong sentence in both directions: nobody turned it off,
+  // and turning it on is not what would fix it. Replaces the section hint rather
+  // than joining it — generic advice is worth less here than the reason.
+  const unavailableMessageKey = resolveHostUnavailableMessageKey(host);
+  let hintNode: ReactNode = null;
+  if (unavailableMessageKey) {
+    hintNode = (
+      <Text style={settingsStyles.rowHint} testID={`pre-send-checks-host-reason-${host.serverId}`}>
+        {t(unavailableMessageKey)}
+      </Text>
+    );
+  } else if (isOnlyHost) {
+    hintNode = (
+      <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
+    );
+  }
+
   return (
     <View style={rowStyle}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>
           {isOnlyHost ? t("settings.preSendChecks.featureToggleTitle") : host.serverName}
         </Text>
-        {isOnlyHost ? (
-          <Text style={settingsStyles.rowHint}>{t("settings.preSendChecks.sectionHint")}</Text>
-        ) : null}
+        {hintNode}
       </View>
       <Switch
         value={isEnabled}
@@ -444,6 +420,7 @@ export function PreSendChecksPage() {
         serverId: host.serverId,
         serverName: host.serverName,
         isUsable: host.isConnected && host.isSupported,
+        unavailableMessageKey: resolveHostUnavailableMessageKey(host),
       })),
     [hosts],
   );
